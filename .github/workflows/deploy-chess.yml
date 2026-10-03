@@ -1,0 +1,30 @@
+name: Deploy chess to Plesk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "chess/**"
+      - ".github/workflows/deploy-chess.yml"
+  workflow_dispatch:
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload chess folder
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.PLESK_FTP_HOST }}
+          username: ${{ secrets.PLESK_FTP_USER }}
+          password: ${{ secrets.PLESK_FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./chess/
+          server-dir: httpdocs/chess/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/config.php
+            **/installed.lock
