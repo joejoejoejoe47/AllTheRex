@@ -32,5 +32,6 @@ try {
     echo render_page();
 } catch (Throwable $e) {
     http_response_code(500);
-    echo render_error('The club stumbled. Check the database settings and try again.');
+    $_SESSION['flash'] = $e->getMessage();
+    echo render_error('The club could not open its database. Check the host, name, user, and password.');
 }
