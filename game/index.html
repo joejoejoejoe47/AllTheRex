@@ -1,0 +1,2450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morse 3D Sky Builder</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0f172a; font-family: Arial, sans-serif; user-select: none; }
+        #ui {
+            position: absolute; top: 15px; left: 15px; background: rgba(15, 23, 42, 0.9);
+            padding: 15px; border-radius: 8px; color: white; z-index: 100; width: 240px;
+            max-height: 90vh; overflow-y: auto; border: 1px solid #334155;
+        }
+        #shop-ui {
+            position: absolute; top: 15px; right: 15px; background: rgba(15, 23, 42, 0.9);
+            padding: 15px; border-radius: 8px; color: white; z-index: 100; width: 220px;
+            border: 2px solid #ffd700; display: none;
+        }
+        #star-count { font-size: 20px; color: #ffd700; font-weight: bold; margin-bottom: 10px; }
+        #weapon-level { font-size: 14px; color: #00d2ff; margin-bottom: 12px; }
+        .upgrade-btn {
+            width: 100%; padding: 10px; background: #16a34a; color: white; border: none;
+            border-radius: 4px; font-weight: bold; cursor: pointer; text-align: center;
+        }
+        .upgrade-btn:hover { background: #15803d; }
+        .upgrade-btn:disabled { background: #475569; cursor: not-allowed; }
+        
+        button {
+            width: 100%; padding: 10px; margin: 5px 0; background: #334155; color: white;
+            border: 2px solid transparent; border-radius: 4px; cursor: pointer; text-align: left;
+        }
+        button:hover { background: #475569; }
+        button.active { border-color: #22c55e; background: #1e293b; }
+        #health { font-size: 18px; color: #ff4444; font-weight: bold; margin: 8px 0; }
+        #info { font-size: 12px; margin-top: 8px; color: #cbd5e1; line-height: 1.4; }
+       
+        .layer-control {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #1e293b; padding: 5px; margin: 8px 0; border-radius: 4px;
+        }
+        .layer-control button { width: 30%; margin: 0; padding: 5px; background: #475569; text-align: center; }
+        .layer-control span { font-weight: bold; font-size: 14px; }
+        #game-over-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.95); z-index: 1000; flex-direction: column;
+            justify-content: center; align-items: center; color: white;
+        }
+        #game-over-screen h1 { font-size: 48px; color: #ff4444; margin-bottom: 20px; }
+        #game-over-screen .menu-btn {
+            width: 250px; font-size: 18px; padding: 15px; margin: 10px;
+            border: none; border-radius: 5px; cursor: pointer; font-weight: bold; text-align: center;
+        }
+        #btn-restart { background: #22c55e; color: white; }
+        #btn-continue { background: #3b82f6; color: white; }
+        #crosshair {
+            display: none; position: absolute; top: 50%; left: 50%;
+            width: 8px; height: 8px; background: white; border-radius: 50%;
+            transform: translate(-50%, -50%); z-index: 99; pointer-events: none;
+            opacity: 0.4; border: 1px solid black;
+        }
+
+        #build-config-panel {
+            background: #1e293b; border: 1px solid #475569; border-radius: 6px;
+            padding: 8px; margin-top: 10px; display: none; font-size: 13px;
+        }
+        #build-config-panel label { display: block; margin-bottom: 4px; font-weight: bold; color: #cbd5e1; }
+        #build-config-panel select, #build-config-panel input {
+            width: 100%; padding: 4px; border-radius: 4px; border: 1px solid #475569;
+            background: #0f172a; color: white; margin-bottom: 8px; box-sizing: border-box;
+        }
+
+        #media-overlay-container {
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.98); z-index: 2000; flex-direction: column;
+            justify-content: center; align-items: center; color: white; text-align: center;
+        }
+        #drop-zone {
+            width: 80%; max-width: 800px; height: 50%; max-height: 400px;
+            border: 3px dashed #6366f1; border-radius: 12px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;
+            background: rgba(30, 41, 59, 0.5); cursor: pointer; transition: all 0.2s ease;
+            margin-bottom: 30px;
+        }
+        #drop-zone.dragover {
+            background: rgba(99, 102, 241, 0.15); border-color: #a5b4fc; scale: 1.02;
+        }
+        #drop-zone h2 { font-size: 28px; margin: 0 0 10px 0; color: #ffd700; }
+        #drop-zone p { color: #94a3b8; font-size: 16px; margin: 0; }
+        #preview-display {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2010; display: none; background: #000; justify-content: center; align-items: center;
+        }
+        #preview-display img, #preview-display video {
+            width: 100%; height: 100%; object-fit: contain;
+        }
+        #media-controls {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 2020; display: flex; gap: 15px;
+        }
+        .overlay-btn {
+            padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 6px;
+            border: none; cursor: pointer; text-align: center; width: auto;
+        }
+        #btn-close-overlay { background: #3b82f6; color: white; }
+        #btn-reset-media { background: #ef4444; color: white; display: none; }
+        
+        #ui::-webkit-scrollbar { width: 6px; }
+        #ui::-webkit-scrollbar-track { background: transparent; }
+        #ui::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+
+        #code-panel {
+            display: none; position: absolute; bottom: 15px; right: 15px; 
+            background: rgba(15, 23, 42, 0.95); padding: 15px; border-radius: 8px; 
+            color: white; z-index: 1000; width: 320px; border: 2px solid #a855f7;
+        }
+        #code-panel textarea {
+            width: 100%; height: 120px; background: #0f172a; color: #38bdf8; 
+            border: 1px solid #475569; border-radius: 4px; font-family: monospace; 
+            padding: 5px; box-sizing: border-box; resize: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- GLTF Loader added to parse dragged 3D models -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="home-screen" style="position:absolute; top:0; left:0; width:100vw; height:100vh; background: linear-gradient(#0f172a, #1e2937); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:2000; color:#fff;">
+        <div style="text-align:center; max-width: 520px; padding: 20px;">
+            <h1 style="font-size:42px; margin:0 0 6px 0; color:#fff; text-shadow: 0 3px 12px rgba(0,0,0,0.6); letter-spacing:-1px;">Morse 3D Sky Builder</h1>
+            <p style="font-size:16px; margin:0 0 28px 0; color:#94a3b8; max-width:380px;">Build floating sky worlds • Setup starting squares &amp; custom endings • Test solid block physics</p>
+           
+            <button id="btn-create-project" style="padding:18px 52px; font-size:20px; background:#16a34a; color:white; border:none; border-radius:10px; cursor:pointer; font-weight:bold; box-shadow:0 4px 15px rgba(22,163,74,0.4); text-align:center; width: auto; margin: auto;">Create New Project</button>
+           
+            <div style="margin-top:40px; width:100%; max-width:420px; margin-left: auto; margin-right: auto;">
+                <div style="text-align:left; margin-bottom:10px; font-size:14px; color:#64748b; font-weight:bold;">SAVED PROJECTS</div>
+                <div id="project-list" style="background:rgba(15,23,42,0.75); border:1px solid #334155; border-radius:10px; padding:12px; max-height:200px; overflow-y:auto; text-align:left; font-size:14px;"></div>
+            </div>
+        </div>
+    </div>
+    <div id="crosshair"></div>
+    <div id="ui">
+        <h2>Sky Builder</h2>
+        <button id="btn-play" style="background:#22c55e; text-align:center; font-weight:bold;"> Play Mode</button>
+        <button id="btn-build" style="display:none; background:#ef4444; text-align:center; font-weight:bold;"> Build Mode</button>
+       
+        <div class="layer-control">
+            <button onclick="changeLayer(-1)">-</button>
+            <span id="layer-display">Building Layer: 1</span>
+            <button onclick="changeLayer(1)">+</button>
+        </div>
+       
+        <button id="btn-time" onclick="cycleTime()" style="background:#4b5563; text-align:center;"> Cycle Time</button>
+        <button id="btn-eraser" onclick="toggleEraser()"> Eraser</button>
+        <hr style="border-color:#334155; margin:10px 0;">
+       
+        <button id="btn-startSquare" class="active" onclick="setMode('startSquare')"> Start Square (Spawn)</button>
+        <button id="btn-endLevel" onclick="setMode('endLevel')"> End Level (Goal)</button>
+        <button id="btn-enemy" onclick="setMode('enemy')"> Spawn Enemy</button>
+        <button id="btn-starsSetup" onclick="setMode('starsSetup')"> Place Star</button>
+        <button id="btn-programBlock" onclick="setMode('programBlock')" style="border-left: 5px solid #a855f7;"> Programmable Block</button>
+        
+        <button id="btn-grassBlock" onclick="setMode('grassBlock')"> Grass Block</button>
+        <button id="btn-rockBlock" onclick="setMode('rockBlock')"> Rock Block</button>
+        <button id="btn-lavaBlock" onclick="setMode('lavaBlock')"> Lava Block</button>
+        <button id="btn-marbleBlock" onclick="setMode('marbleBlock')"> Marble Block</button>
+        <button id="btn-waterBlock" onclick="setMode('waterBlock')"> Shallow Water</button>
+        <button id="btn-deepWaterBlock" onclick="setMode('deepWaterBlock')"> Deep Water (Swim)</button>
+        
+        <button id="btn-tree" onclick="setMode('tree')"> Original Tree</button>
+        <button id="btn-pineTree" onclick="setMode('pineTree')"> Huge Pine Tree</button>
+        <button id="btn-willowTree" onclick="setMode('willowTree')"> Weeping Willow</button>
+        <button id="btn-cactusTree" onclick="setMode('cactusTree')"> Desert Cactus</button>
+        <button id="btn-boulder" onclick="setMode('boulder')"> Boulder</button>
+
+        <hr style="border-color:#334155; margin:10px 0;">
+        <div style="font-size:11px; color:#a855f7; font-weight:bold; margin-bottom:5px; text-transform:uppercase;">Placable Weapons</div>
+        <div id="weapon-registry-panel"></div>
+
+        <hr style="border-color:#334155; margin:10px 0;">
+        <div style="font-size:11px; color:#94a3b8; font-weight:bold; margin-bottom:5px; text-transform:uppercase;">Custom Materials & Specials</div>
+
+        <div id="dynamic-materials-panel"></div>
+
+        <div id="build-config-panel">
+            <div id="config-enemy" style="display: none;">
+                <label>Enemy Type:</label>
+                <select id="config-enemy-type" onchange="updateSelectedConfig()">
+                    <option value="red">Red Enemy (Weak - 4 Hits)</option>
+                    <option value="orange">Orange Enemy (Big - 12 Hits)</option>
+                    <option value="purple">Purple Enemy (Huge - 24 Hits)</option>
+                    <option value="super">Super Strong (Giant - 60 Hits)</option>
+                </select>
+            </div>
+            <div id="config-weapon" style="display: none;">
+                <label>Special Weapon Timer (sec):</label>
+                <input type="number" id="config-weapon-timer-input" value="15">
+            </div>
+        </div>
+       
+        <div id="health"> Health: <span id="healthValue">100</span></div>
+        <div id="info"><b>Build:</b> Left-Click to place • Eraser removes<br><b>Resizing:</b> Click placed Custom block to show handles, drag handles to resize, Drag &amp; Drop .gltf/.glb files to assign 3D models.<br><b>Build Zoom:</b> W to zoom in • S to zoom out<br><b>Play:</b> WASD + mouse rotate<br><b>Up/Down Arrows:</b> Change grid layer</div>
+    </div>
+   
+    <div id="shop-ui">
+        <div id="star-count"> Stars: <span id="starValue">0</span></div>
+        <div id="weapon-level">Weapon: Small Dagger (Tier 0)</div>
+        <button id="btn-upgrade-weapon" class="upgrade-btn" onclick="tryUpgradeWeapon()">Upgrade Weapon (20 ¡ï)</button>
+    </div>
+    <div id="top-right-controls" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); z-index:150; display:none; flex-direction:row; gap:8px;">
+        <button id="btn-save" style="padding:9px 18px; background:#facc15; color:#1f2937; border:2px solid #b45309; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; box-shadow:0 2px 6px rgba(0,0,0,0.3); text-align:center; width: 100px;"> Save</button>
+        <button id="btn-home" style="padding:9px 18px; background:#475569; color:#fff; border:2px solid #64748b; border-radius:6px; font-weight:bold; cursor:pointer; font-size:13px; text-align:center; width: 100px;"> Home</button>
+    </div>
+    <div id="play-health" style="position:absolute; top:18px; left:18px; background:rgba(0,0,0,0.85); color:#ff4444; padding:8px 16px; border-radius:6px; font-weight:bold; font-size:15px; z-index:130; display:none; border:1px solid #ff4444;">
+         <span id="play-health-value">100</span> | <span id="play-swim-status" style="color: #00d2ff; display: none;"> SWIMMING (Space/Shift)</span>
+    </div>
+    <div id="game-over-screen">
+        <h1 id="death-reason">YOU DIED</h1>
+        <button id="btn-restart" class="menu-btn"> Restart Game</button>
+        <button id="btn-continue" class="menu-btn"> Continue Building</button>
+    </div>
+
+    <!-- Media Drag and Drop Fullscreen Container -->
+    <div id="media-overlay-container">
+        <div id="drop-zone">
+            <h2>LEVEL COMPLETE! </h2>
+            <p>Drag and drop a video or an image here to play it full screen!</p>
+        </div>
+        <div id="preview-display"></div>
+        <div id="media-controls">
+            <button id="btn-reset-media" class="overlay-btn">Clear Media</button>
+            <button id="btn-close-overlay" class="overlay-btn">Continue Building</button>
+        </div>
+    </div>
+
+    <!-- Code Editor Panel for Block Logic -->
+    <div id="code-panel">
+        <h3 style="margin-top:0;color:#a855f7;">Block Code Loop</h3>
+        <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;">Runs automatically inside game loop thread.</p>
+        <textarea id="code-input" placeholder="// Example:\n// health = Math.min(100, health + 0.1);\n// playerStars += 1;"></textarea>
+        <button onclick="saveBlockCode()" style="background:#a855f7;font-weight:bold;text-align:center;margin-top:5px;">Apply Loop Script</button>
+    </div>
+
+    <script>
+        const weaponTiers = [
+            { tier: 0, name: "Small Dagger", color: 0xa8a29e },
+            { tier: 1, name: "Slayer Shortsword", color: 0x38bdf8 },
+            { tier: 2, name: "Gladiator Gladius", color: 0xe2e8f0 },
+            { tier: 3, name: "Steel Broadsword", color: 0xeab308 },
+            { tier: 4, name: "Heavy Claymore", color: 0x06b6d4 },
+            { tier: 5, name: "Greatsword of Flame", color: 0xf97316 },
+            { tier: 6, name: "Starfire Zweihander", color: 0xa855f7 },
+            { tier: 7, name: "Mythril Colossus Blade", color: 0x10b981 },
+            { tier: 8, name: "Demonic Greatblade", color: 0xef4444 },
+            { tier: 9, name: "Divine Sun-Slayer", color: 0xfdba74 },
+            { tier: 10, name: "Cosmos Buster", color: 0xffd700 }
+        ];
+
+        const specialWeapons = [
+            { id: "wpnSpecial_water", name: "Water Power Weapon", color: 0x0000ff },
+            { id: "wpnSpecial_fire", name: "Fire Power Weapon", color: 0xff0000 },
+            { id: "wpnSpecial_lightning", name: "Lightning Weapon", color: 0xffff00 },
+            { id: "wpnSpecial_gold", name: "Golden Weapon", color: 0xffd700 }
+        ];
+
+        // Deleted "boatBlock" / ship and added "customBlock"
+        const buildingOptions = [
+          {
+            id: 21,
+            name: "customBlock",
+            category: "Special",
+            description: "Custom resizable block. Drag & drop a 3D model (.gltf / .glb) onto it!",
+            materialLook: { color: "#6366f1", texture: "custom_placeholder", opacity: 0.7 }
+          },
+          {
+            id: 1,
+            name: "woodBlock",
+            category: "Building",
+            description: "Classic wooden planks for houses & bridges.",
+            materialLook: { color: "#8B5A2B", texture: "brown_wood_grain", opacity: 1.0 }
+          },
+          {
+            id: 2,
+            name: "brickBlock",
+            category: "Building",
+            description: "Sturdy red bricks for walls and towers.",
+            materialLook: { color: "#B22222", texture: "red_brick_pattern", opacity: 1.0 }
+          },
+          {
+            id: 3,
+            name: "iceBlock",
+            category: "Terrain/Hazard",
+            description: "Slippery — player slides when walking on it.",
+            materialLook: { color: "#ADD8E6", texture: "light_blue_transparent", opacity: 0.7, physics: "slippery" }
+          },
+          {
+            id: 4,
+            name: "snowBlock",
+            category: "Terrain",
+            description: "White snow layer, nice with ice.",
+            materialLook: { color: "#FFFFFF", texture: "soft_white_sparkle", opacity: 1.0 }
+          },
+          {
+            id: 5,
+            name: "dirtBlock",
+            category: "Terrain",
+            description: "Basic dirt (can later have grass top variant).",
+            materialLook: { color: "#5C4033", texture: "brown_earthy", opacity: 1.0 }
+          },
+          {
+            id: 6,
+            name: "steelBlock",
+            category: "Building",
+            description: "Industrial metal plates.",
+            materialLook: { color: "#708090", texture: "dark_gray_metallic", opacity: 1.0 }
+          },
+          {
+            id: 7,
+            name: "glassBlock",
+            category: "Building",
+            description: "Transparent glass (great for windows).",
+            materialLook: { color: "#E0F7FA", texture: "light_blue_tint", opacity: 0.6 }
+          },
+          {
+            id: 8,
+            name: "goldBlock",
+            category: "Special",
+            description: "Shiny reward block.",
+            materialLook: { color: "#FFD700", texture: "bright_yellow_gold_reflective", opacity: 1.0, emissive: true }
+          },
+          {
+            id: 9,
+            name: "obsidianBlock",
+            category: "Building/Hazard",
+            description: "Very dark & tough looking.",
+            materialLook: { color: "#3B2F4F", texture: "black_purple_shine", opacity: 1.0 }
+          },
+          {
+            id: 10,
+            name: "fireBlock",
+            category: "Hazard",
+            description: "Damages player on contact + animated flames.",
+            materialLook: { color: "#FF4500", texture: "orange_red_emissive", particles: "flames", damageOnContact: true }
+          },
+          {
+            id: 11,
+            name: "poisonBlock",
+            category: "Hazard",
+            description: "Green bubbling acid — slow damage over time.",
+            materialLook: { color: "#39FF14", texture: "toxic_green_bubbles", particles: "bubbles", dotDamage: true }
+          },
+          {
+            id: 12,
+            name: "bounceBlock",
+            category: "Interactive",
+            description: "Trampoline — launches player high into the air.",
+            materialLook: { color: "#00FFFF", texture: "bright_cyan_spring", bounciness: 1.5 }
+          },
+          {
+            id: 13,
+            name: "spikeBlock",
+            category: "Hazard",
+            description: "Pointy trap — instant damage on touch.",
+            materialLook: { color: "#4F4F4F", texture: "dark_metal_spikes", instantDamage: true }
+          },
+          {
+            id: 14,
+            name: "leafBlock",
+            category: "Decorative",
+            description: "Foliage block for bushes and tree tops.",
+            materialLook: { color: "#228B22", texture: "bright_green_leafy", opacity: 1.0 }
+          },
+          {
+            id: 15,
+            name: "flowerBlock",
+            category: "Decorative",
+            description: "Small colorful flowers for decoration.",
+            materialLook: { color: "#FF69B4", texture: "pink_yellow_white_flowers", opacity: 1.0 }
+          },
+          {
+            id: 16,
+            name: "crystalBlock",
+            category: "Special",
+            description: "Glowing crystals.",
+            materialLook: { color: "#8A2BE2", texture: "purple_blue_emissive", lightEmission: 0.8 }
+          },
+          {
+            id: 17,
+            name: "cloudBlock",
+            category: "Terrain",
+            description: "Fluffy semi-solid cloud platform.",
+            materialLook: { color: "#F0F8FF", texture: "white_pale_blue_soft", opacity: 0.9, solidFromTopOnly: true }
+          },
+          {
+            id: 18,
+            name: "torchBlock",
+            category: "Decorative/Light",
+            description: "Light-emitting block.",
+            materialLook: { color: "#FF8C00", texture: "orange_glow_wooden_metal_base", lightEmission: 1.0 }
+          },
+          {
+            id: 19,
+            name: "hayBaleBlock",
+            category: "Decorative",
+            description: "Farm-style hay bales.",
+            materialLook: { color: "#F0E68C", texture: "yellow_tan_straw", opacity: 1.0 }
+          },
+          {
+            id: 20,
+            name: "vineBlock",
+            category: "Interactive",
+            description: "Climbable vines.",
+            materialLook: { color: "#2E8B57", texture: "green_hanging_vines", climbable: true }
+          }
+        ];
+
+        const gridSize = 4;
+        const skyY = 50;
+        const gravity = -0.012;
+        const jumpPower = 0.40;
+        let currentMode = 'startSquare';
+        let isPlayMode = false;
+        let isEraser = false;
+        let isDead = false;
+        let player = null, playerVelocity = new THREE.Vector3(), health = 100;
+        let lastPlayerPos = null;
+        let move = { forward: false, backward: false, left: false, right: false, jump: false, shift: false };
+        let buildKeys = { zoomIn: false, zoomOut: false };
+        let timeOfDay = 0;
+        let animatedWaters = [];
+        let animatedLavas = [];
+        let enemies = [];
+        let enemyZones = []; 
+        let playerStars = 0;
+        
+        let playerWeaponTier = 0; 
+
+        // Special Weapon States
+        let activeSpecialWeapon = null; 
+        let specialWeaponEndTime = 0;
+        let preSpecialWeaponTier = 0;
+        let isHoldingLeftClick = false;
+        let lightningBeamMesh = null;
+        
+        let selectedConfigEnemyType = "red";
+
+        let walkTime = 0;
+        let currentLayer = 1;
+        let startSquarePos = null;
+        let endLevelPos = null;
+        let endLevelMeshRef = null;
+        let activeCodeBlockKey = null;
+
+        // Custom Resize & Drag-and-drop mechanics
+        let selectedCustomBlock = null;
+        let selectedHandle = null;
+        let customBlockHandles = [];
+
+        const scene = new THREE.Scene();
+        
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.001);
+        
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+        camera.position.set(30, skyY + 30, 40);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+      
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, skyY, 0);
+        let dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        dirLight.position.set(50, skyY + 60, 30);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const blockRegistry = {};
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let projects = {};
+        let currentProjectName = null;
+        
+        const buildPlaneGeo = new THREE.PlaneGeometry(3200, 3200);
+        buildPlaneGeo.rotateX(-Math.PI / 2);
+        const buildPlaneMat = new THREE.MeshBasicMaterial({ visible: false });
+        const buildPlaneMesh = new THREE.Mesh(buildPlaneGeo, buildPlaneMat);
+        buildPlaneMesh.position.y = skyY;
+        scene.add(buildPlaneMesh);
+        const skyGrid = new THREE.GridHelper(3200, 800, 0x4f46e5, 0x312e81);
+        skyGrid.position.y = skyY;
+        scene.add(skyGrid);
+        
+        function createDirtTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#5c4033'; ctx.fillRect(0, 0, 128, 128);
+            for (let i = 0; i < 600; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#4b3228' : '#6d4c3f';
+                ctx.fillRect(Math.random() * 128, Math.random() * 128, 3 + Math.random() * 3, 3 + Math.random() * 3);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function createRockTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#4b5563'; ctx.fillRect(0, 0, 128, 128);
+            for (let i = 0; i < 500; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? '#1f2937' : '#6b7280';
+                ctx.fillRect(Math.random() * 128, Math.random() * 128, 4, 4);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function createBumpMap() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, 128, 128);
+            for (let i = 0; i < 2000; i++) {
+                const colorVal = Math.floor(Math.random() * 255);
+                ctx.fillStyle = `rgb(${colorVal},${colorVal},${colorVal})`;
+                ctx.fillRect(Math.random() * 128, Math.random() * 128, 3, 3);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+
+        function createProceduralTexture(type, baseColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(0, 0, 128, 128);
+            
+            if (type === 'woodBlock') {
+                ctx.fillStyle = '#6d4420';
+                for(let i=0; i<128; i+=16) {
+                    ctx.fillRect(0, i, 128, 4);
+                }
+            } else if (type === 'brickBlock') {
+                ctx.strokeStyle = '#cccccc';
+                ctx.lineWidth = 2;
+                for(let y=0; y<128; y+=32) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y); ctx.lineTo(128, y);
+                    ctx.stroke();
+                }
+            } else if (type === 'steelBlock') {
+                ctx.strokeRect(4, 4, 120, 120);
+            } else if (type === 'vineBlock') {
+                ctx.strokeStyle = '#16a34a';
+                ctx.lineWidth = 4;
+                for(let i=16; i<128; i+=32) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.quadraticCurveTo(i + (Math.random()-0.5)*30, 64, i, 128);
+                    ctx.stroke();
+                }
+            }
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            return tex;
+        }
+
+        const dirtTex = createDirtTexture();
+        const rockTex = createRockTexture();
+        const bumpMap = createBumpMap();
+
+        const dirtMatSide = new THREE.MeshStandardMaterial({ map: dirtTex, bumpMap: bumpMap, bumpScale: 0.18, roughness: 0.9 });
+        const grassBlockMaterials = [dirtMatSide, dirtMatSide, dirtMatSide, dirtMatSide, dirtMatSide, dirtMatSide];
+
+        const rockMat = new THREE.MeshStandardMaterial({ map: rockTex, bumpMap: bumpMap, bumpScale: 0.95, roughness: 1.0 });
+        const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.05, metalness: 0.1 });
+        const lavaMat = new THREE.MeshStandardMaterial({ color: 0xff3300, emissive: 0x660000, roughness: 0.4 });
+        const waterMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.7, roughness: 0.1 });
+        const deepWaterMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, transparent: true, opacity: 0.85, roughness: 0.1 });
+        const startMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x0891b2, roughness: 0.4 });
+        const endMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xd97706, roughness: 0.4 });
+        const programMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0x4c1d95, roughness: 0.2 });
+
+        function setupDynamicMaterials() {
+            const panel = document.getElementById("dynamic-materials-panel");
+            if (!panel) return;
+            panel.innerHTML = "";
+            buildingOptions.forEach(option => {
+                const btn = document.createElement("button");
+                btn.id = "btn-" + option.name;
+                btn.style.borderLeft = `5px solid ${option.materialLook.color}`;
+                btn.innerHTML = `${option.name.replace("Block", "")} <small style="color:#94a3b8; font-size:10px; display:block;">${option.category}</small>`;
+                btn.onclick = () => setMode(option.name);
+                panel.appendChild(btn);
+            });
+
+            const weaponPanel = document.getElementById("weapon-registry-panel");
+            if (weaponPanel) {
+                weaponPanel.innerHTML = "";
+                
+                specialWeapons.forEach(w => {
+                    const btn = document.createElement("button");
+                    btn.id = "btn-" + w.id;
+                    btn.style.borderLeft = `5px solid #${w.color.toString(16).padStart(6, '0')}`;
+                    btn.innerHTML = `${w.name} <small style="color:#cbd5e1; font-size:10px; display:block;">Special Temporary Weapon</small>`;
+                    btn.onclick = () => setMode(w.id);
+                    weaponPanel.appendChild(btn);
+                });
+
+                weaponTiers.forEach(w => {
+                    const btn = document.createElement("button");
+                    btn.id = "btn-wpn_" + w.tier;
+                    btn.style.borderLeft = `5px solid #${w.color.toString(16).padStart(6, '0')}`;
+                    btn.innerHTML = `${w.name} <small style="color:#cbd5e1; font-size:10px; display:block;">Tier ${w.tier} weapon collectable</small>`;
+                    btn.onclick = () => setMode("wpn_" + w.tier);
+                    weaponPanel.appendChild(btn);
+                });
+            }
+        }
+
+        const bladeGeo = new THREE.ConeGeometry(0.04, 0.65, 3);
+        bladeGeo.translate(0, 0.325, 0);
+        const bladeMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.95 });
+
+        function createRealisticHumanoid(isEnemy = false, skinColorHex = 0xffdbac, clothingColorHex = 0x2563eb) {
+            const pGroup = new THREE.Group();
+            
+            const skinMat = new THREE.MeshStandardMaterial({ color: skinColorHex, roughness: 0.6, metalness: 0.1 });
+            const clothMat = new THREE.MeshStandardMaterial({ color: clothingColorHex, roughness: 0.8 });
+            const leatherMat = new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.9 });
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.4, metalness: 0.85 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+
+            const torsoGroup = new THREE.Group();
+            const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.45, 1.15, 10), clothMat);
+            chestMesh.position.y = 0.95;
+            torsoGroup.add(chestMesh);
+
+            const chestArmor = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.68, 0.52), metalMat);
+            chestArmor.position.set(0, 1.02, 0.05);
+            torsoGroup.add(chestArmor);
+
+            const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.17, 10), leatherMat);
+            belt.position.y = 0.52;
+            torsoGroup.add(belt);
+
+            pGroup.add(torsoGroup);
+           
+            const headGroup = new THREE.Group();
+            const skull = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 16), skinMat);
+            skull.position.y = 1.72;
+            headGroup.add(skull);
+
+            const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), whiteMat);
+            leftEye.position.set(-0.12, 1.75, 0.32);
+            const leftIris = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), darkMat);
+            leftIris.position.set(-0.12, 1.75, 0.36);
+            headGroup.add(leftEye, leftIris);
+
+            const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), whiteMat);
+            rightEye.position.set(0.12, 1.75, 0.32);
+            const rightIris = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 8), darkMat);
+            rightIris.position.set(0.12, 1.75, 0.36);
+            headGroup.add(rightEye, rightIris);
+
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), skinMat);
+            nose.position.set(0, 1.65, 0.34);
+            headGroup.add(nose);
+            
+            pGroup.add(headGroup);
+
+            const lArmGroup = new THREE.Group();
+            lArmGroup.position.set(-0.58, 1.45, 0);
+            const lShoulder = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), metalMat);
+            const lBicep = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.55, 8), skinMat);
+            lBicep.position.y = -0.28;
+            const lBracer = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.11, 0.38, 8), metalMat);
+            lBracer.position.y = -0.68;
+            lArmGroup.add(lShoulder, lBicep, lBracer);
+            pGroup.add(lArmGroup);
+
+            const rArmGroup = new THREE.Group();
+            rArmGroup.position.set(0.58, 1.45, 0);
+            const rShoulder = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), metalMat);
+            const rBicep = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.55, 8), skinMat);
+            rBicep.position.y = -0.28;
+            const rBracer = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.11, 0.38, 8), metalMat);
+            rBracer.position.y = -0.68;
+            rArmGroup.add(rShoulder, rBicep, rBracer);
+            pGroup.add(rArmGroup);
+            
+            const lLegGroup = new THREE.Group();
+            lLegGroup.position.set(-0.22, 0.55, 0);
+            const lThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.5, 8), leatherMat);
+            lThigh.position.y = -0.1;
+            const lShin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.46, 8), leatherMat);
+            lShin.position.y = -0.42;
+            lLegGroup.add(lThigh, lShin);
+            pGroup.add(lLegGroup);
+
+            const rLegGroup = new THREE.Group();
+            rLegGroup.position.set(0.22, 0.55, 0);
+            const rThigh = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.14, 0.5, 8), leatherMat);
+            rThigh.position.y = -0.1;
+            const rShin = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.12, 0.46, 8), leatherMat);
+            rShin.position.y = -0.42;
+            rLegGroup.add(rThigh, rShin);
+            pGroup.add(rLegGroup);
+
+            pGroup.userData = { 
+                lLeg: lLegGroup, 
+                rLeg: rLegGroup, 
+                lArm: lArmGroup, 
+                rArm: rArmGroup,
+                head: headGroup,
+                torso: torsoGroup
+            };
+
+            return pGroup;
+        }
+
+        function createPlayerMesh() {
+            const pGroup = createRealisticHumanoid(false, 0xffdbac, 0x5c1d24);
+            updatePlayerWeaponVisual(pGroup, playerWeaponTier);
+            return pGroup;
+        }
+
+        function updatePlayerWeaponVisual(playerGroup, tier) {
+            const rArm = playerGroup.userData.rArm;
+            const oldWeapon = rArm.getObjectByName("playerWeapon");
+            if (oldWeapon) rArm.remove(oldWeapon);
+
+            const weaponGroup = new THREE.Group();
+            weaponGroup.name = "playerWeapon";
+            weaponGroup.position.set(0, -0.9, 0.15);
+            weaponGroup.rotation.set(0.4, 0, -Math.PI / 2);
+
+            let bladeLength = 0.75 + (tier * 0.42);  
+            let bladeWidth = 0.1 + (tier * 0.055);
+            let bladeThickness = 0.04 + (tier * 0.018);
+
+            let bladeColor = weaponTiers[Math.min(tier, weaponTiers.length - 1)].color;
+
+            const bladeGeo = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeThickness);
+            bladeGeo.translate(0, bladeLength / 2, 0);
+            
+            const bladeMat = new THREE.MeshStandardMaterial({
+                color: bladeColor, roughness: 0.15, metalness: 0.85,
+                emissive: bladeColor, emissiveIntensity: tier > 3 ? 0.6 : 0.1
+            });
+            const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
+            weaponGroup.add(bladeMesh);
+
+            const guardGeo = new THREE.BoxGeometry(bladeWidth * 3.6, 0.09 + (tier * 0.022), 0.09 + (tier * 0.012));
+            const guardMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.8 });
+            const guardMesh = new THREE.Mesh(guardGeo, guardMat);
+            weaponGroup.add(guardMesh);
+
+            let handleLength = 0.35 + (tier * 0.09);
+            const handleGeo = new THREE.CylinderGeometry(0.045 + (tier * 0.005), 0.045 + (tier * 0.005), handleLength, 8);
+            handleGeo.translate(0, -handleLength / 2, 0);
+            const handleMesh = new THREE.Mesh(handleGeo, new THREE.MeshStandardMaterial({ color: 0x2b1d0c }));
+            weaponGroup.add(handleMesh);
+
+            rArm.add(weaponGroup);
+        }
+
+        function createStandaloneWeaponMesh(tier) {
+            const container = new THREE.Group();
+            
+            const pedestal = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.8, 1.0, 1.0, 8),
+                new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 })
+            );
+            pedestal.position.y = 0.5;
+            container.add(pedestal);
+
+            const weaponGroup = new THREE.Group();
+            weaponGroup.name = "floatingWeapon";
+            weaponGroup.position.set(0, 2.5, 0);
+            weaponGroup.rotation.set(0, 0, Math.PI / 4);
+
+            let bladeLength = 0.75 + (tier * 0.42);  
+            let bladeWidth = 0.1 + (tier * 0.055);
+            let bladeThickness = 0.04 + (tier * 0.018);
+            let bladeColor = weaponTiers[Math.min(tier, weaponTiers.length - 1)].color;
+
+            const bladeGeo = new THREE.BoxGeometry(bladeWidth, bladeLength, bladeThickness);
+            bladeGeo.translate(0, bladeLength / 2, 0);
+            const bladeMat = new THREE.MeshStandardMaterial({
+                color: bladeColor, roughness: 0.15, metalness: 0.85,
+                emissive: bladeColor, emissiveIntensity: 0.8
+            });
+            const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
+            weaponGroup.add(bladeMesh);
+
+            const guardGeo = new THREE.BoxGeometry(bladeWidth * 3.6, 0.09 + (tier * 0.022), 0.09 + (tier * 0.012));
+            const guardMesh = new THREE.Mesh(guardGeo, new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            weaponGroup.add(guardMesh);
+
+            let handleLength = 0.35 + (tier * 0.09);
+            const handleGeo = new THREE.CylinderGeometry(0.045 + (tier * 0.005), 0.045 + (tier * 0.005), handleLength, 8);
+            handleGeo.translate(0, -handleLength / 2, 0);
+            const handleMesh = new THREE.Mesh(handleGeo, new THREE.MeshStandardMaterial({ color: 0x2b1d0c }));
+            weaponGroup.add(handleMesh);
+
+            container.add(weaponGroup);
+            return container;
+        }
+
+        function updatePlayerVisualsForSpecialWeapon() {
+            if (!player) return;
+            const isGold = activeSpecialWeapon === 'wpnSpecial_gold';
+            player.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    if (isGold) {
+                        if (!child.userData.origMat) child.userData.origMat = child.material;
+                        child.material = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.8 });
+                    } else {
+                        if (child.userData.origMat) {
+                            child.material = child.userData.origMat;
+                        }
+                    }
+                }
+            });
+            
+            updatePlayerWeaponVisual(player, preSpecialWeaponTier); 
+            if (activeSpecialWeapon) {
+                const weapon = player.userData.rArm.getObjectByName("playerWeapon");
+                if (weapon) {
+                    weapon.traverse((child) => {
+                        if (child.isMesh) {
+                            let wColor = 0xffffff;
+                            if (activeSpecialWeapon === 'wpnSpecial_water') wColor = 0x0000ff;
+                            if (activeSpecialWeapon === 'wpnSpecial_fire') wColor = 0xff0000;
+                            if (activeSpecialWeapon === 'wpnSpecial_lightning') wColor = 0xffff00;
+                            if (activeSpecialWeapon === 'wpnSpecial_gold') wColor = 0xffd700;
+                            child.material = new THREE.MeshStandardMaterial({ color: wColor, emissive: wColor, emissiveIntensity: 0.8 });
+                        }
+                    });
+                }
+            }
+        }
+
+        function getPlayerAABB(pos) {
+            return {
+                minX: pos.x - 0.5, maxX: pos.x + 0.5,
+                minY: pos.y, maxY: pos.y + 2.7,
+                minZ: pos.z - 0.5, maxZ: pos.z + 0.5
+            };
+        }
+
+        function getBlockAABB(blockGroup) {
+            const type = blockGroup.userData.type;
+            const pos = blockGroup.position;
+
+            if (type === 'customBlock') {
+                const size = blockGroup.userData.customSize || new THREE.Vector3(gridSize, gridSize, gridSize);
+                return {
+                    minX: pos.x - size.x / 2, maxX: pos.x + size.x / 2,
+                    minY: pos.y, maxY: pos.y + size.y,
+                    minZ: pos.z - size.z / 2, maxZ: pos.z + size.z / 2
+                };
+            }
+
+            if (type === 'waterBlock' || type === 'deepWaterBlock') {
+                if (activeSpecialWeapon === 'wpnSpecial_water') {
+                    return {
+                        minX: pos.x - (gridSize/2), maxX: pos.x + (gridSize/2),
+                        minY: pos.y, maxY: pos.y + (type === 'deepWaterBlock' ? gridSize*2 : gridSize-0.1),
+                        minZ: pos.z - (gridSize/2), maxZ: pos.z + (gridSize/2)
+                    };
+                }
+                return null;
+            }
+
+            if (type === 'lavaBlock' || type === 'fireBlock') {
+                if (activeSpecialWeapon === 'wpnSpecial_fire') {
+                    return {
+                        minX: pos.x - (gridSize/2), maxX: pos.x + (gridSize/2),
+                        minY: pos.y, maxY: pos.y + gridSize,
+                        minZ: pos.z - (gridSize/2), maxZ: pos.z + (gridSize/2)
+                    };
+                }
+            }
+
+            if (type === 'enemy' || type === 'endLevel' || type === 'starsSetup' || type === 'vineBlock' || type === 'programBlock' || type.startsWith("wpn")) return null;
+            
+            const matchedOpt = buildingOptions.find(o => o.name === type);
+            if (matchedOpt && matchedOpt.materialLook && matchedOpt.materialLook.climbable) return null;
+
+            if (type === 'tree' || type === 'pineTree' || type === 'willowTree' || type === 'cactusTree') {
+                return {
+                    minX: pos.x - 1.0, maxX: pos.x + 1.0,
+                    minY: pos.y, maxY: pos.y + 8.0,
+                    minZ: pos.z - 1.0, maxZ: pos.z + 1.0
+                };
+            }
+            if (type === 'boulder') {
+                return {
+                    minX: pos.x - 1.5, maxX: pos.x + 1.5,
+                    minY: pos.y, maxY: pos.y + 3.0,
+                    minZ: pos.z - 1.5, maxZ: pos.z + 1.5
+                };
+            }
+            if (type === 'startSquare') {
+                return {
+                    minX: pos.x - (gridSize/2), maxX: pos.x + (gridSize/2),
+                    minY: pos.y - 4.0, maxY: pos.y + 0.1,
+                    minZ: pos.z - (gridSize/2), maxZ: pos.z + (gridSize/2)
+                };
+            }
+           
+            return {
+                minX: pos.x - (gridSize/2), maxX: pos.x + (gridSize/2),
+                minY: pos.y, maxY: pos.y + gridSize,
+                minZ: pos.z - (gridSize/2), maxZ: pos.z + (gridSize/2)
+            };
+        }
+
+        function checkCollision(targetPos) {
+            const playerBox = getPlayerAABB(targetPos);
+           
+            for (let key in blockRegistry) {
+                const block = blockRegistry[key];
+                const blockBox = getBlockAABB(block);
+                if (!blockBox) continue;
+                const overlapX = playerBox.minX < blockBox.maxX && playerBox.maxX > blockBox.minX;
+                const overlapY = playerBox.minY < blockBox.maxY && playerBox.maxY > blockBox.minY;
+                const overlapZ = playerBox.minZ < blockBox.maxZ && playerBox.maxZ > blockBox.minZ;
+                if (overlapX && overlapY && overlapZ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function updateSelectedConfig() {
+            selectedConfigEnemyType = document.getElementById('config-enemy-type').value;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            isEraser = false;
+            document.getElementById('btn-eraser').style.background = '#334155';
+            document.querySelectorAll('#ui button').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('btn-' + mode);
+            if (btn) btn.classList.add('active');
+
+            const confPanel = document.getElementById('build-config-panel');
+            const confEnemy = document.getElementById('config-enemy');
+            const confWeapon = document.getElementById('config-weapon');
+            
+            confPanel.style.display = 'none';
+            confEnemy.style.display = 'none';
+            confWeapon.style.display = 'none';
+
+            if (mode === 'enemy') {
+                confPanel.style.display = 'block';
+                confEnemy.style.display = 'block';
+            }
+            if (mode.startsWith('wpnSpecial_')) {
+                confPanel.style.display = 'block';
+                confWeapon.style.display = 'block';
+            }
+            updateSelectedConfig();
+            clearResizer();
+        }
+
+        function toggleEraser() {
+            isEraser = !isEraser;
+            document.getElementById('btn-eraser').style.background = isEraser ? '#ef4444' : '#334155';
+            if (isEraser) {
+                document.querySelectorAll('#ui button').forEach(b => { if(b.id !== 'btn-eraser') b.classList.remove('active'); });
+                document.getElementById('build-config-panel').style.display = 'none';
+            }
+            clearResizer();
+        }
+
+        function changeLayer(val) {
+            currentLayer += val;
+            if (currentLayer < 1) currentLayer = 1;
+            document.getElementById('layer-display').textContent = "Building Layer: " + currentLayer;
+            buildPlaneMesh.position.y = skyY + (currentLayer - 1) * gridSize;
+            skyGrid.position.y = buildPlaneMesh.position.y;
+            clearResizer();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                changeLayer(1);
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                changeLayer(-1);
+            }
+        });
+
+        function removeBlockAtKey(key) {
+            if (blockRegistry[key]) {
+                const obj = blockRegistry[key];
+                if (selectedCustomBlock === obj) clearResizer();
+                scene.remove(obj);
+                animatedWaters = animatedWaters.filter(w => w !== obj);
+                animatedLavas = animatedLavas.filter(l => l !== obj);
+                
+                const foundEnemy = enemies.find(e => e.mesh === obj);
+                if (foundEnemy && foundEnemy.zoneMesh) {
+                    scene.remove(foundEnemy.zoneMesh);
+                    enemyZones = enemyZones.filter(z => z !== foundEnemy.zoneMesh);
+                }
+                enemies = enemies.filter(e => e.mesh !== obj);
+               
+                if (obj.userData.type === 'startSquare') startSquarePos = null;
+                if (obj.userData.type === 'endLevel') {
+                    endLevelPos = null;
+                    endLevelMeshRef = null;
+                }
+                delete blockRegistry[key];
+            }
+        }
+        
+        function getHighestSolidY(x, z) {
+            let highestY = -Infinity;
+            for (let key in blockRegistry) {
+                const grp = blockRegistry[key];
+                if (Math.abs(grp.position.x - x) < 0.1 && Math.abs(grp.position.z - z) < 0.1) {
+                    const type = grp.userData.type;
+                    if (type !== 'tree' && type !== 'pineTree' && type !== 'willowTree' && type !== 'cactusTree' && type !== 'boulder' && type !== 'enemy' && type !== 'starsSetup' && type !== 'endLevel' && !type.startsWith("wpn")) {
+                        const blockTop = grp.position.y + (type === 'startSquare' ? 0.1 : gridSize);
+                        if (blockTop > highestY) {
+                            highestY = blockTop;
+                        }
+                    }
+                }
+            }
+            return highestY !== -Infinity ? highestY : null;
+        }
+
+        function openBlockCodeEditor(key) {
+            activeCodeBlockKey = key;
+            const block = blockRegistry[key];
+            document.getElementById('code-input').value = block.userData.code || "";
+            document.getElementById('code-panel').style.display = 'block';
+        }
+
+        function saveBlockCode() {
+            if (activeCodeBlockKey && blockRegistry[activeCodeBlockKey]) {
+                blockRegistry[activeCodeBlockKey].userData.code = document.getElementById('code-input').value;
+                document.getElementById('code-panel').style.display = 'none';
+                activeCodeBlockKey = null;
+            }
+        }
+
+        function placeBlock(x, y, z, type, customData = null) {
+            y = skyY + (currentLayer - 1) * gridSize;
+
+            const key = `${x},${y},${z}`;
+            removeBlockAtKey(key);
+
+            if (type === 'startSquare' || type === 'endLevel') {
+                for (let k in blockRegistry) {
+                    if (blockRegistry[k].userData.type === type) removeBlockAtKey(k);
+                }
+            }
+
+            if (['tree', 'pineTree', 'willowTree', 'cactusTree', 'boulder', 'enemy', 'starsSetup', 'programBlock'].includes(type) || type.startsWith("wpn")) {
+                const groundY = getHighestSolidY(x, z);
+                if (groundY !== null) {
+                    y = groundY;
+                }
+            }
+
+            const group = new THREE.Group();
+            group.position.set(x, y, z);
+            group.userData = { type: type, coordKey: key, code: customData?.code || "" };
+            
+            const customMaterialOpt = buildingOptions.find(opt => opt.name === type);
+
+            if (type === 'customBlock') {
+                const savedSize = customData?.customSize ? new THREE.Vector3().copy(customData.customSize) : new THREE.Vector3(gridSize, gridSize, gridSize);
+                group.userData.customSize = savedSize;
+                
+                const wireframeGeom = new THREE.BoxGeometry(1, 1, 1);
+                const wireframeMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x6366f1, 
+                    transparent: true, 
+                    opacity: 0.5,
+                    roughness: 0.2
+                });
+                const boxMesh = new THREE.Mesh(wireframeGeom, wireframeMat);
+                boxMesh.name = "customMesh";
+                boxMesh.scale.copy(savedSize);
+                boxMesh.position.y = savedSize.y / 2;
+                group.add(boxMesh);
+
+                if (customData?.gltfData) {
+                    load3DModelFromData(group, customData.gltfData);
+                }
+            }
+            else if (type.startsWith("wpnSpecial_")) {
+                const timerVal = parseFloat(customData?.weaponTimer || document.getElementById('config-weapon-timer-input').value) || 10;
+                group.userData.weaponTimer = timerVal;
+                
+                const wpnData = specialWeapons.find(w => w.id === type);
+                const visual = createStandaloneWeaponMesh(1); 
+                
+                visual.traverse(child => {
+                    if(child.isMesh && child.parent.name === "floatingWeapon" && child.geometry.type === "BoxGeometry") {
+                        if (child.geometry.parameters.height > 1) { 
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: wpnData.color, emissive: wpnData.color, emissiveIntensity: 0.8
+                            });
+                        }
+                    }
+                });
+                group.add(visual);
+            }
+            else if (type.startsWith("wpn_")) {
+                const tier = parseInt(type.split("_")[1]);
+                group.userData.weaponTier = tier;
+                const visual = createStandaloneWeaponMesh(tier);
+                group.add(visual);
+            }
+            else if (customMaterialOpt) {
+                const matLook = customMaterialOpt.materialLook;
+                const opacity = matLook.opacity !== undefined ? matLook.opacity : 1.0;
+                const isTransparent = opacity < 1.0;
+                
+                const customMat = new THREE.MeshStandardMaterial({
+                    map: createProceduralTexture(type, matLook.color),
+                    color: new THREE.Color(matLook.color),
+                    transparent: isTransparent,
+                    opacity: opacity,
+                    roughness: 0.5,
+                    metalness: type === "steelBlock" ? 0.9 : 0.1,
+                    emissive: matLook.emissive ? new THREE.Color(matLook.color) : new THREE.Color(0x000000),
+                    emissiveIntensity: matLook.emissive ? 0.5 : 0.0
+                });
+
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize), customMat);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+                
+                if (type === "fireBlock") {
+                    animatedLavas.push(mesh);
+                }
+            }
+            else if (type === 'programBlock') {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize), programMat);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+            }
+            else if (type === 'startSquare') {
+                const pad = new THREE.Mesh(new THREE.BoxGeometry(gridSize, 0.05, gridSize), startMat);
+                pad.position.y = 0.025;
+                group.add(pad);
+                startSquarePos = new THREE.Vector3(x, y + 0.15, z);
+            }
+            else if (type === 'endLevel') {
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.4, 0.2, 12), endMat);
+                base.position.y = 0.1;
+                group.add(base);
+               
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 7.5, 8), new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.3 }));
+                pole.position.y = 3.75;
+                group.add(pole);
+
+                const flagGeom = new THREE.BufferGeometry();
+                const vertices = new Float32Array([
+                    0.1, 7.0, 0.0,
+                    0.1, 5.4, 0.0,
+                    1.9, 6.2, 0.0
+                ]);
+                flagGeom.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                flagGeom.computeVertexNormals();
+                const flagMat = new THREE.MeshStandardMaterial({ color: 0xd97706, side: THREE.DoubleSide, roughness: 0.4 });
+                const flagMesh = new THREE.Mesh(flagGeom, flagMat);
+                group.add(flagMesh);
+
+                endLevelPos = new THREE.Vector3(x, y + 0.4, z);
+                endLevelMeshRef = group;
+            }
+            else if (type === 'enemy') {
+                const enemyType = customData ? customData.enemyType : selectedConfigEnemyType;
+                group.userData.enemyType = enemyType;
+
+                let skinColor = 0xff7777;
+                let clothingColor = 0x991b1b;
+                let maxHits = 4;
+                let enemyScale = 1.0;
+                let speedMultiplier = 1.0;
+                let attackDamage = 15;
+
+                if (enemyType === 'red') {
+                    skinColor = 0xff3333; maxHits = 4; enemyScale = 1.0; speedMultiplier = 0.04; attackDamage = 10;
+                } else if (enemyType === 'orange') {
+                    skinColor = 0xffa500; maxHits = 12; enemyScale = 1.4; speedMultiplier = 0.055; attackDamage = 20;
+                } else if (enemyType === 'purple') {
+                    skinColor = 0x8a2be2; maxHits = 24; enemyScale = 1.9; speedMultiplier = 0.07; attackDamage = 35;
+                } else if (enemyType === 'super') {
+                    skinColor = 0x111111; clothingColor = 0xcc0000; maxHits = 60; enemyScale = 2.6; speedMultiplier = 0.045; attackDamage = 50; 
+                }
+
+                const eGroup = createRealisticHumanoid(true, skinColor, clothingColor);
+                eGroup.scale.setScalar(enemyScale);
+                group.add(eGroup);
+
+                const ringGeo = new THREE.RingGeometry(14.8, 15, 32);
+                ringGeo.rotateX(-Math.PI / 2);
+                const ringMat = new THREE.MeshBasicMaterial({ color: skinColor, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+                const zoneMesh = new THREE.Mesh(ringGeo, ringMat);
+                zoneMesh.position.set(x, y + 0.1, z);
+                zoneMesh.visible = !isPlayMode;
+                scene.add(zoneMesh);
+                enemyZones.push(zoneMesh);
+               
+                enemies.push({
+                    mesh: group,
+                    zoneMesh: zoneMesh,
+                    enemyType: enemyType,
+                    maxHits: maxHits,
+                    hitsReceived: 0,
+                    lastAttack: 0,
+                    scale: enemyScale,
+                    speed: speedMultiplier,
+                    damage: attackDamage,
+                    homePos: new THREE.Vector3(x, y, z)
+                });
+            }
+            else if (type === 'starsSetup') {
+                const starShape = new THREE.Group();
+                const starMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2, emissive: 0xffd700, emissiveIntensity: 0.4 });
+                
+                const starCore = new THREE.Mesh(new THREE.OctahedronGeometry(1.0, 0), starMat);
+                starCore.position.y = 1.5;
+                starShape.add(starCore);
+                group.add(starShape);
+            }
+            else if (type === 'grassBlock') {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize), grassBlockMaterials);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+
+                const instGrass = new THREE.InstancedMesh(bladeGeo, bladeMat, 260);
+                const dummy = new THREE.Object3D();
+                for (let i = 0; i < 260; i++) {
+                    const gx = (Math.random() - 0.5) * (gridSize - 0.25);
+                    const gz = (Math.random() - 0.5) * (gridSize - 0.25);
+                    const gy = gridSize;
+                    
+                    dummy.position.set(gx, gy, gz);
+                    dummy.rotation.set(
+                        (Math.random() - 0.5) * 0.25,
+                        Math.random() * Math.PI,
+                        (Math.random() - 0.5) * 0.25
+                    );
+                    dummy.scale.set(
+                        0.7 + Math.random() * 0.4,
+                        0.6 + Math.random() * 0.5,
+                        0.7 + Math.random() * 0.4
+                    );
+                    dummy.updateMatrix();
+                    instGrass.setMatrixAt(i, dummy.matrix);
+                }
+                group.add(instGrass);
+            }
+            else if (type === 'rockBlock') {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize), rockMat);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+            }
+            else if (type === 'marbleBlock') {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize), marbleMat);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+            }
+            else if (type === 'lavaBlock') {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, gridSize, gridSize, 4, 1, 4), lavaMat);
+                mesh.position.y = gridSize/2;
+                group.add(mesh);
+                animatedLavas.push(mesh);
+            }
+            else if (type === 'waterBlock' || type === 'deepWaterBlock') {
+                const isDeep = (type === 'deepWaterBlock');
+                const height = isDeep ? gridSize * 2 : gridSize - 0.1;
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(gridSize, height, gridSize, 4, 1, 4), isDeep ? deepWaterMat : waterMat);
+                mesh.position.y = isDeep ? gridSize : height / 2;
+                group.add(mesh);
+                animatedWaters.push(mesh);
+            }
+            else if (type === 'tree') {
+                const treeGroup = new THREE.Group();
+                const trunkGeo = new THREE.CylinderGeometry(0.5, 1.1, 8, 8);
+                const trunk = new THREE.Mesh(trunkGeo, rockMat);
+                trunk.position.y = 4.0;
+                treeGroup.add(trunk);
+                
+                const leafMat = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.9 });
+                const foliageMain = new THREE.Mesh(new THREE.IcosahedronGeometry(3.5, 1), leafMat);
+                foliageMain.position.y = 8.8;
+                treeGroup.add(foliageMain);
+                group.add(treeGroup);
+            }
+            else if (type === 'pineTree') {
+                const pineGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.3, 14, 8), rockMat);
+                trunk.position.y = 7.0;
+                pineGroup.add(trunk);
+
+                const pineMat = new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.95 });
+                for (let i = 0; i < 4; i++) {
+                    const radius = 5.0 - (i * 1.0);
+                    const height = 4.5;
+                    const cone = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 6), pineMat);
+                    cone.position.y = 6.0 + (i * 3.5);
+                    pineGroup.add(cone);
+                }
+                group.add(pineGroup);
+            }
+            else if (type === 'willowTree') {
+                const willowGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.4, 9, 8), rockMat);
+                trunk.position.y = 4.5;
+                willowGroup.add(trunk);
+
+                const foliageMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.85 });
+                const mainCrown = new THREE.Mesh(new THREE.SphereGeometry(4.0, 8, 8), foliageMat);
+                mainCrown.position.y = 9.0;
+                willowGroup.add(mainCrown);
+
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.4, 5, 4), foliageMat);
+                    hanger.position.set(Math.cos(angle) * 3.2, 6.5, Math.sin(angle) * 3.2);
+                    hanger.rotation.z = 0.1;
+                    willowGroup.add(hanger);
+                }
+                group.add(willowGroup);
+            }
+            else if (type === 'cactusTree') {
+                const cactusGroup = new THREE.Group();
+                const cactusMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+                
+                const mainStem = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 9, 8), cactusMat);
+                mainStem.position.y = 4.5;
+                cactusGroup.add(mainStem);
+
+                const leftArmNode = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 3, 8), cactusMat);
+                leftArmNode.rotation.z = Math.PI / 2;
+                leftArmNode.position.set(-1.8, 5.5, 0);
+                cactusGroup.add(leftArmNode);
+
+                const leftArmUp = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 4, 8), cactusMat);
+                leftArmUp.position.set(-3.0, 7.0, 0);
+                cactusGroup.add(leftArmUp);
+
+                const rightArmNode = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2.5, 8), cactusMat);
+                rightArmNode.rotation.z = Math.PI / 2;
+                rightArmNode.position.set(1.5, 4.0, 0);
+                cactusGroup.add(rightArmNode);
+
+                const rightArmUp = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 3.5, 8), cactusMat);
+                rightArmUp.position.set(2.5, 5.5, 0);
+                cactusGroup.add(rightArmUp);
+
+                group.add(cactusGroup);
+            }
+            else if (type === 'boulder') {
+                const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(1.8, 1), rockMat);
+                boulder.position.y = 1.8;
+                group.add(boulder);
+            }
+            scene.add(group);
+            blockRegistry[key] = group;
+
+            if (type === 'customBlock') {
+                selectCustomBlockForEditing(group);
+            }
+        }
+
+        /* ------------------ DRAG-AND-DROP 3D MODELS ENGINE ------------------ */
+        function load3DModelFromData(group, gltfString) {
+            const oldModel = group.getObjectByName("dropped3DModel");
+            if (oldModel) group.remove(oldModel);
+
+            const loader = new THREE.GLTFLoader();
+            loader.parse(gltfString, '', (gltf) => {
+                const model = gltf.scene;
+                model.name = "dropped3DModel";
+                
+                // Keep references to data for saving
+                group.userData.gltfData = gltfString;
+                
+                // Hide the placeholder wireframe box while showing custom model
+                const placeholder = group.getObjectByName("customMesh");
+                if (placeholder) placeholder.visible = false;
+
+                group.add(model);
+                resizeAndFit3DModel(group);
+            }, (error) => {
+                console.error("Failed parsing 3D model: ", error);
+            });
+        }
+
+        function resizeAndFit3DModel(group) {
+            const model = group.getObjectByName("dropped3DModel");
+            if (!model) return;
+
+            const size = group.userData.customSize || new THREE.Vector3(gridSize, gridSize, gridSize);
+            
+            // Normalize scale & position first
+            model.scale.set(1, 1, 1);
+            model.position.set(0, 0, 0);
+            
+            const bbox = new THREE.Box3().setFromObject(model);
+            const modelSize = new THREE.Vector3();
+            bbox.getSize(modelSize);
+            
+            const modelCenter = new THREE.Vector3();
+            bbox.getCenter(modelCenter);
+
+            // Scale to match target size
+            const scaleX = size.x / (modelSize.x || 1);
+            const scaleY = size.y / (modelSize.y || 1);
+            const scaleZ = size.z / (modelSize.z || 1);
+            
+            // Use uniform scaling to prevent stretching
+            const finalScale = Math.min(scaleX, scaleY, scaleZ);
+            model.scale.setScalar(finalScale);
+
+            // Shift so bottom of model bounds sits at the block base (y = 0)
+            model.position.x = -modelCenter.x * finalScale;
+            model.position.y = -bbox.min.y * finalScale;
+            model.position.z = -modelCenter.z * finalScale;
+        }
+
+        /* ------------------ CORNER RESIZING HANDLES SYSTEM ------------------ */
+        function selectCustomBlockForEditing(group) {
+            clearResizer();
+            selectedCustomBlock = group;
+            createResizingHandles(group);
+        }
+
+        function clearResizer() {
+            customBlockHandles.forEach(h => scene.remove(h));
+            customBlockHandles = [];
+            selectedCustomBlock = null;
+            selectedHandle = null;
+        }
+
+        function createResizingHandles(group) {
+            customBlockHandles.forEach(h => scene.remove(h));
+            customBlockHandles = [];
+
+            const size = group.userData.customSize || new THREE.Vector3(gridSize, gridSize, gridSize);
+            const halfX = size.x / 2;
+            const halfZ = size.z / 2;
+
+            // Places a draggable sphere at the top-right-front corner of the custom block bounding box
+            const handleGeo = new THREE.SphereGeometry(0.4, 16, 16);
+            const handleMat = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthTest: false, transparent: true, opacity: 0.9 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.renderOrder = 999;
+            
+            // Position at front corner
+            const localPos = new THREE.Vector3(halfX, size.y, halfZ);
+            handle.position.copy(group.position).add(localPos);
+            handle.userData = { parentGroup: group };
+            
+            scene.add(handle);
+            customBlockHandles.push(handle);
+        }
+
+        function updateResizerPosition() {
+            if (!selectedCustomBlock || customBlockHandles.length === 0) return;
+            const size = selectedCustomBlock.userData.customSize;
+            customBlockHandles[0].position.copy(selectedCustomBlock.position).add(new THREE.Vector3(size.x / 2, size.y, size.z / 2));
+        }
+
+        let isDragging = false;
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                if (isPlayMode) isHoldingLeftClick = true;
+                
+                // Detect interaction with corner handles
+                if (!isPlayMode) {
+                    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(customBlockHandles);
+                    if (intersects.length > 0) {
+                        controls.enabled = false; // Turn off OrbitControls while resizing
+                        selectedHandle = intersects[0].object;
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+            }
+            if (e.button === 2) isDragging = false;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (e.buttons === 2) isDragging = true;
+
+            if (selectedHandle && selectedCustomBlock) {
+                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                // Project ray onto virtual ground level of the handle
+                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -selectedHandle.position.y);
+                const intersectionPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(plane, intersectionPoint);
+
+                if (intersectionPoint) {
+                    const blockCenter = selectedCustomBlock.position;
+                    
+                    // Rescale using corner bounds difference from center coordinates
+                    const rawX = Math.max(1, Math.abs(intersectionPoint.x - blockCenter.x) * 2);
+                    const rawZ = Math.max(1, Math.abs(intersectionPoint.z - blockCenter.z) * 2);
+                    const rawY = Math.max(1, intersectionPoint.y - blockCenter.y);
+
+                    // Clamp scale dimensions to block-grid steps for easy planning
+                    const size = selectedCustomBlock.userData.customSize;
+                    size.set(
+                        Math.round(rawX / 2) * 2,
+                        Math.round(rawY / 2) * 2,
+                        Math.round(rawZ / 2) * 2
+                    );
+
+                    const meshPlaceholder = selectedCustomBlock.getObjectByName("customMesh");
+                    if (meshPlaceholder) {
+                        meshPlaceholder.scale.copy(size);
+                        meshPlaceholder.position.y = size.y / 2;
+                    }
+
+                    resizeAndFit3DModel(selectedCustomBlock);
+                    updateResizerPosition();
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (selectedHandle) {
+                controls.enabled = true;
+                selectedHandle = null;
+                return;
+            }
+
+            if (e.button === 0) {
+                isHoldingLeftClick = false;
+                if (lightningBeamMesh) { scene.remove(lightningBeamMesh); lightningBeamMesh = null; }
+            }
+
+            if (isPlayMode) return;
+            if (e.button !== 0) return;
+
+            if (e.target.closest('#ui') || e.target.closest('#shop-ui') || e.target.closest('#top-right-controls') || e.target.closest('#play-health') || e.target.closest('#game-over-screen') || e.target.closest('#media-overlay-container') || e.target.closest('#code-panel')) {
+                return;
+            }
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+           
+            const targetable = Object.values(blockRegistry).map(g => g.children).flat();
+            targetable.push(buildPlaneMesh);
+            const intersects = raycaster.intersectObjects(targetable, true);
+            if (intersects.length > 0) {
+                let hitObj = intersects[0].object;
+                let intersectPoint = intersects[0].point;
+               
+                let targetX, targetY, targetZ;
+               
+                if (hitObj === buildPlaneMesh) {
+                    targetX = Math.floor((intersectPoint.x) / gridSize) * gridSize + (gridSize/2);
+                    targetY = skyY + (currentLayer - 1) * gridSize;
+                    targetZ = Math.floor((intersectPoint.z) / gridSize) * gridSize + (gridSize/2);
+                } else {
+                    while (hitObj.parent && hitObj.parent !== scene) {
+                        hitObj = hitObj.parent;
+                    }
+                    if (isEraser) {
+                        if (hitObj.userData && hitObj.userData.coordKey) {
+                            removeBlockAtKey(hitObj.userData.coordKey);
+                        }
+                        return;
+                    }
+                    if (hitObj.userData && hitObj.userData.type === 'programBlock') {
+                        openBlockCodeEditor(hitObj.userData.coordKey);
+                        return;
+                    }
+                    if (hitObj.userData && hitObj.userData.type === 'customBlock') {
+                        selectCustomBlockForEditing(hitObj);
+                        return;
+                    }
+                    targetX = Math.floor((intersectPoint.x) / gridSize) * gridSize + (gridSize/2);
+                    targetY = skyY + (currentLayer - 1) * gridSize;
+                    targetZ = Math.floor((intersectPoint.z) / gridSize) * gridSize + (gridSize/2);
+                }
+               
+                placeBlock(targetX, targetY, targetZ, currentMode);
+            }
+        });
+
+        /* Setup drag and drop of local .gltf/.glb files */
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (isPlayMode || !selectedCustomBlock) return;
+
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.gltf') || file.name.endsWith('.glb'))) {
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function (ev) {
+                    load3DModelFromData(selectedCustomBlock, ev.target.result);
+                };
+            }
+        });
+
+        function performSwordAttack() {
+            let playerRef = player;
+            if (!playerRef) {
+                enemies.forEach(enemy => {
+                    let dist = camera.position.distanceTo(enemy.mesh.position);
+                    if (dist < 35.0) {
+                        processEnemyHit(enemy);
+                    }
+                });
+                return;
+            }
+
+            const weapon = playerRef.userData.rArm.getObjectByName("playerWeapon");
+            playerRef.userData.rArm.rotation.x = -1.6;
+            playerRef.userData.rArm.rotation.z = -0.7;
+            if (weapon) weapon.rotation.x = -1.0;
+
+            setTimeout(() => { 
+                if (player) {
+                    player.userData.rArm.rotation.x = 0;
+                    player.userData.rArm.rotation.z = 0;
+                    if (weapon) weapon.rotation.x = 0.4;
+                } 
+            }, 200);
+
+            enemies.forEach(enemy => {
+                let dist = playerRef.position.distanceTo(enemy.mesh.position);
+                if (dist < (4.5 + enemy.scale)) {
+                    processEnemyHit(enemy);
+                }
+            });
+        }
+
+        function processEnemyHit(enemy) {
+            const damageDealt = 1 + (playerWeaponTier * 1.5);
+            enemy.hitsReceived += damageDealt;
+
+            enemy.mesh.children[0].children.forEach(c => {
+                if (c.material) {
+                    const origColor = c.material.emissive ? c.material.emissive.getHex() : 0x000000;
+                    if (c.material.emissive) {
+                        c.material.emissive.setHex(0xff0000);
+                        setTimeout(() => c.material.emissive.setHex(origColor), 150);
+                    }
+                }
+            });
+
+            if (enemy.hitsReceived >= enemy.maxHits) {
+                removeBlockAtKey(enemy.mesh.userData.coordKey);
+                let reward = 5;
+                if (enemy.enemyType === 'orange') reward = 10;
+                if (enemy.enemyType === 'purple') reward = 15;
+                if (enemy.enemyType === 'super') reward = 30;
+                
+                playerStars += reward; 
+                document.getElementById('starValue').textContent = playerStars;
+            }
+        }
+
+        window.addEventListener('click', (e) => {
+            if (isDead || isDragging) return;
+            if (e.target.closest('#ui') || e.target.closest('#shop-ui') || e.target.closest('#top-right-controls') || e.target.closest('#play-health') || e.target.closest('#game-over-screen') || e.target.closest('#media-overlay-container') || e.target.closest('#code-panel')) {
+                return;
+            }
+            if (e.button === 0 && isPlayMode) {
+                if (activeSpecialWeapon !== 'wpnSpecial_lightning') {
+                    performSwordAttack();
+                }
+            }
+        });
+
+        function syncWeaponUI(tier) {
+            const name = weaponTiers[Math.min(tier, weaponTiers.length - 1)].name;
+            document.getElementById('weapon-level').textContent = `Weapon: ${name} (Tier ${tier})`;
+            if (tier >= 10) {
+                document.getElementById('btn-upgrade-weapon').textContent = "Max Weapon Tier!";
+                document.getElementById('btn-upgrade-weapon').disabled = true;
+            } else {
+                document.getElementById('btn-upgrade-weapon').textContent = "Upgrade Weapon (20 ¡ï)";
+                document.getElementById('btn-upgrade-weapon').disabled = false;
+            }
+        }
+
+        function tryUpgradeWeapon() {
+            if (playerStars >= 20 && playerWeaponTier < 10) {
+                playerStars -= 20;
+                playerWeaponTier++;
+                document.getElementById('starValue').textContent = playerStars;
+                
+                syncWeaponUI(playerWeaponTier);
+
+                if (player) {
+                    updatePlayerWeaponVisual(player, playerWeaponTier);
+                }
+            }
+        }
+
+        function cycleTime() {
+            timeOfDay = (timeOfDay + 1) % 3;
+            if (timeOfDay === 0) {
+                scene.background = new THREE.Color(0x0f172a);
+                dirLight.intensity = 1.0;
+            } else if (timeOfDay === 1) {
+                scene.background = new THREE.Color(0xf97316);
+                dirLight.intensity = 0.6;
+            } else {
+                scene.background = new THREE.Color(0x020617);
+                dirLight.intensity = 0.2;
+            }
+        }
+
+        function startPlayMode() {
+            clearResizer();
+            if (!startSquarePos) {
+                placeBlock(0, skyY, 0, 'startSquare');
+                placeBlock(0, skyY - 4, 0, 'grassBlock');
+                placeBlock(4, skyY - 4, 0, 'grassBlock');
+                placeBlock(-4, skyY - 4, 0, 'grassBlock');
+                placeBlock(0, skyY - 4, 4, 'grassBlock');
+                placeBlock(0, skyY - 4, -4, 'grassBlock');
+            }
+            if (!endLevelPos) {
+                placeBlock(16, skyY, 0, 'endLevel');
+                placeBlock(16, skyY - 4, 0, 'grassBlock');
+            }
+
+            isPlayMode = true;
+            isDead = false;
+            health = 100;
+            playerWeaponTier = 0;
+            
+            activeSpecialWeapon = null;
+            if (lightningBeamMesh) { scene.remove(lightningBeamMesh); lightningBeamMesh = null; }
+            
+            syncWeaponUI(playerWeaponTier);
+
+            skyGrid.visible = false;
+            enemyZones.forEach(zone => zone.visible = false);
+
+            document.getElementById('play-health-value').textContent = "100";
+            document.getElementById('ui').style.display = 'none';
+            document.getElementById('play-health').style.display = 'block';
+            document.getElementById('shop-ui').style.display = 'block';
+            document.getElementById('btn-play').style.display = 'none';
+            document.getElementById('btn-build').style.display = 'block';
+            
+            player = createPlayerMesh();
+            player.position.copy(startSquarePos);
+            scene.add(player);
+            
+            lastPlayerPos = player.position.clone();
+            playerVelocity.set(0, 0, 0);
+
+            controls.minDistance = 2;
+            controls.maxDistance = 14;
+            
+            const defaultBackVector = new THREE.Vector3(0, 6, 12); 
+            camera.position.copy(player.position).add(defaultBackVector);
+            controls.target.copy(player.position);
+        }
+
+        function stopPlayMode() {
+            isPlayMode = false;
+            buildKeys.zoomIn = false;
+            buildKeys.zoomOut = false;
+            isHoldingLeftClick = false;
+
+            skyGrid.visible = true;
+            enemyZones.forEach(zone => zone.visible = true);
+
+            activeSpecialWeapon = null;
+            if (lightningBeamMesh) { scene.remove(lightningBeamMesh); lightningBeamMesh = null; }
+
+            if (player) {
+                scene.remove(player);
+                player = null;
+            }
+            lastPlayerPos = null;
+            enemies.forEach(enemy => {
+                enemy.hitsReceived = 0;
+                enemy.mesh.position.copy(enemy.homePos);
+            });
+
+            controls.minDistance = 0;
+            controls.maxDistance = Infinity;
+
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('play-health').style.display = 'none';
+            document.getElementById('shop-ui').style.display = 'none';
+            document.getElementById('btn-play').style.display = 'block';
+            document.getElementById('btn-build').style.display = 'none';
+            document.getElementById('crosshair').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('code-panel').style.display = 'none';
+            controls.target.set(0, skyY, 0);
+        }
+        document.getElementById('btn-play').addEventListener('click', startPlayMode);
+        document.getElementById('btn-build').addEventListener('click', stopPlayMode);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isPlayMode) {
+                e.preventDefault();
+                stopPlayMode();
+                return;
+            }
+
+            if (!isPlayMode) {
+                if (e.key.toLowerCase() === 'w') buildKeys.zoomIn = true;
+                if (e.key.toLowerCase() === 's') buildKeys.zoomOut = true;
+                return;
+            }
+
+            switch (e.key.toLowerCase()) {
+                case 'w': move.forward = true; break;
+                case 's': move.backward = true; break;
+                case 'a': move.left = true; break;
+                case 'd': move.right = true; break;
+                case ' ': move.jump = true; break;
+                case 'shift': move.shift = true; break;
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (!isPlayMode) {
+                if (e.key.toLowerCase() === 'w') buildKeys.zoomIn = false;
+                if (e.key.toLowerCase() === 's') buildKeys.zoomOut = false;
+                return;
+            }
+            switch (e.key.toLowerCase()) {
+                case 'w': move.forward = false; break;
+                case 's': move.backward = false; break;
+                case 'a': move.left = false; break;
+                case 'd': move.right = false; break;
+                case ' ': move.jump = false; break;
+                case 'shift': move.shift = false; break;
+            }
+        });
+
+        function updateProjectList() {
+            const listEl = document.getElementById('project-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            const keys = Object.keys(projects);
+            if (keys.length === 0) {
+                listEl.innerHTML = '<div style="color:#64748b; font-style:italic;">No saved profiles</div>';
+                return;
+            }
+            keys.forEach(name => {
+                const item = document.createElement('div');
+                item.style.cssText = "display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding:6px; background:#1e293b; border-radius:4px;";
+               
+                const title = document.createElement('span');
+                title.textContent = name;
+                title.style.cssText = "cursor:pointer; color:#ffd700; font-weight:bold; flex-grow:1;";
+                title.onclick = () => loadProject(name);
+                item.appendChild(title);
+                listEl.appendChild(item);
+            });
+        }
+        function loadProject(name) {
+            for (let k in blockRegistry) removeBlockAtKey(k);
+            currentProjectName = name;
+            const saved = projects[name];
+            if (saved) {
+                saved.forEach(b => {
+                    placeBlock(b.x, b.y, b.z, b.type, {
+                        enemyType: b.enemyType,
+                        code: b.code || "",
+                        weaponTimer: b.weaponTimer,
+                        customSize: b.customSize ? new THREE.Vector3(b.customSize.x, b.customSize.y, b.customSize.z) : null,
+                        gltfData: b.gltfData
+                    });
+                });
+            }
+            document.getElementById('home-screen').style.display = 'none';
+            document.getElementById('top-right-controls').style.display = 'flex';
+        }
+        document.getElementById('btn-create-project').onclick = () => {
+            const name = prompt("Enter a name for your Sky World:", "My Floating Kingdom");
+            if (!name) return;
+            currentProjectName = name;
+            projects[name] = [];
+            localStorage.setItem('3dskybuilder_projects', JSON.stringify(projects));
+            updateProjectList();
+            loadProject(name);
+        };
+        document.getElementById('btn-save').onclick = () => {
+            if (!currentProjectName) return;
+            const list = [];
+            for (let k in blockRegistry) {
+                const g = blockRegistry[k];
+                list.push({ 
+                    x: g.position.x, 
+                    y: g.position.y, 
+                    z: g.position.z, 
+                    type: g.userData.type,
+                    enemyType: g.userData.enemyType,
+                    code: g.userData.code || "",
+                    weaponTimer: g.userData.weaponTimer,
+                    customSize: g.userData.customSize ? { x: g.userData.customSize.x, y: g.userData.customSize.y, z: g.userData.customSize.z } : null,
+                    gltfData: g.userData.gltfData
+                });
+            }
+            projects[currentProjectName] = list;
+            localStorage.setItem('3dskybuilder_projects', JSON.stringify(projects));
+            alert("World configuration saved!");
+            updateProjectList();
+        };
+        document.getElementById('btn-home').onclick = () => {
+            stopPlayMode();
+            document.getElementById('home-screen').style.display = 'flex';
+            document.getElementById('top-right-controls').style.display = 'none';
+        };
+        function triggerDeath(reason) {
+            isDead = true;
+            if (reason === "LEVEL COMPLETE!") {
+                openMediaOverlay();
+            } else {
+                document.getElementById('death-reason').textContent = reason;
+                document.getElementById('game-over-screen').style.display = 'flex';
+            }
+        }
+        document.getElementById('btn-restart').onclick = () => {
+            stopPlayMode();
+            startPlayMode();
+        };
+        document.getElementById('btn-continue').onclick = () => {
+            stopPlayMode();
+        };
+
+        const mediaContainer = document.getElementById('media-overlay-container');
+        const dropZone = document.getElementById('drop-zone');
+        const previewDisplay = document.getElementById('preview-display');
+        const btnCloseOverlay = document.getElementById('btn-close-overlay');
+        const btnResetMedia = document.getElementById('btn-reset-media');
+
+        function openMediaOverlay() {
+            mediaContainer.style.display = 'flex';
+        }
+
+        function closeMediaOverlay() {
+            mediaContainer.style.display = 'none';
+            resetMediaPreview();
+            stopPlayMode();
+        }
+
+        function resetMediaPreview() {
+            previewDisplay.innerHTML = '';
+            previewDisplay.style.display = 'none';
+            btnResetMedia.style.display = 'none';
+            dropZone.style.display = 'flex';
+        }
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            resetMediaPreview();
+            const reader = new FileReader();
+
+            if (file.type.startsWith('image/')) {
+                reader.readAsDataURL(file);
+                reader.onloadend = function() {
+                    const img = document.createElement('img');
+                    img.src = reader.result;
+                    previewDisplay.appendChild(img);
+                    previewDisplay.style.display = 'flex';
+                    btnResetMedia.style.display = 'block';
+                    dropZone.style.display = 'none';
+                }
+            } else if (file.type.startsWith('video/')) {
+                const url = URL.createObjectURL(file);
+                const video = document.createElement('video');
+                video.src = url;
+                video.autoplay = true;
+                video.controls = true;
+                video.loop = true;
+                video.playsInline = true;
+                previewDisplay.appendChild(video);
+                previewDisplay.style.display = 'flex';
+                btnResetMedia.style.display = 'block';
+                dropZone.style.display = 'none';
+            } else {
+                alert('Unrecognized format. Please drop an image or a video file.');
+            }
+        }
+
+        btnCloseOverlay.onclick = closeMediaOverlay;
+        btnResetMedia.onclick = resetMediaPreview;
+
+        function update() {
+            requestAnimationFrame(update);
+            const time = performance.now();
+            
+            if (!isPlayMode) {
+                if (buildKeys.zoomIn || buildKeys.zoomOut) {
+                    const toTarget = new THREE.Vector3().subVectors(camera.position, controls.target);
+                    if (buildKeys.zoomIn) toTarget.multiplyScalar(0.97);
+                    if (buildKeys.zoomOut) toTarget.multiplyScalar(1.03);
+                    camera.position.copy(controls.target).add(toTarget);
+                }
+            }
+
+            animatedWaters.forEach(water => {
+                const posAttr = water.geometry.attributes.position;
+                const tempV = new THREE.Vector3();
+                for (let i = 0; i < posAttr.count; i++) {
+                    tempV.fromBufferAttribute(posAttr, i);
+                    if (tempV.y > 0) {
+                        const globalX = water.parent.position.x + tempV.x;
+                        const globalZ = water.parent.position.z + tempV.z;
+                        const wave = Math.sin(globalX * 0.4 + time * 0.003) * 0.12 + Math.cos(globalZ * 0.4 + time * 0.002) * 0.12;
+                        posAttr.setY(i, (water.geometry.parameters.height / 2) + wave);
+                    }
+                }
+                posAttr.needsUpdate = true;
+            });
+
+            animatedLavas.forEach(lava => {
+                const posAttr = lava.geometry.attributes.position;
+                const tempV = new THREE.Vector3();
+                for (let i = 0; i < posAttr.count; i++) {
+                    tempV.fromBufferAttribute(posAttr, i);
+                    if (tempV.y > 0) {
+                        const globalX = lava.parent.position.x + tempV.x;
+                        const globalZ = lava.parent.position.z + tempV.z;
+                        const wave = Math.sin(globalX * 0.2 + time * 0.001) * 0.08 + Math.cos(globalZ * 0.2 + time * 0.0008) * 0.08;
+                        posAttr.setY(i, (gridSize / 2) + wave);
+                    }
+                }
+                posAttr.needsUpdate = true;
+            });
+
+            for (let k in blockRegistry) {
+                const grp = blockRegistry[k];
+                if (grp.userData.type === 'starsSetup') {
+                    grp.children[0].rotation.y = time * 0.0015;
+                    grp.children[0].position.y = Math.sin(time * 0.003) * 0.2;
+                }
+
+                if (grp.userData.type.startsWith("wpn")) {
+                    const fl = grp.getObjectByName("floatingWeapon");
+                    if (fl) {
+                        fl.rotation.y = time * 0.0015;
+                        fl.position.y = 1.8 + Math.sin(time * 0.0025) * 0.22;
+                    }
+                }
+                
+                // Program Loop Execution Engine
+                if (grp.userData.type === 'programBlock' && grp.userData.code) {
+                    try {
+                        eval(grp.userData.code);
+                    } catch(err) {
+                        console.error("Code Block Evaluation Loop Error: ", err);
+                    }
+                }
+            }
+
+            enemyZones.forEach(zone => {
+                if (zone.visible) {
+                    const scale = 1.0 + Math.sin(time * 0.004) * 0.05;
+                    zone.scale.set(scale, scale, 1);
+                }
+            });
+
+            if (isPlayMode && player && !isDead) {
+
+                if (activeSpecialWeapon) {
+                    let timeLeft = Math.max(0, Math.ceil((specialWeaponEndTime - performance.now())/1000));
+                    let wName = specialWeapons.find(w => w.id === activeSpecialWeapon).name;
+                    document.getElementById('weapon-level').textContent = `Weapon: ${wName} (${timeLeft}s)`;
+                    
+                    if (activeSpecialWeapon === 'wpnSpecial_lightning' && isHoldingLeftClick) {
+                        if (!lightningBeamMesh) {
+                            const geo = new THREE.CylinderGeometry(0.2, 0.2, 40);
+                            geo.translate(0, 20, 0);
+                            geo.rotateX(Math.PI / 2);
+                            const mat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+                            lightningBeamMesh = new THREE.Mesh(geo, mat);
+                            scene.add(lightningBeamMesh);
+                        }
+                        
+                        const camDirL = new THREE.Vector3();
+                        camera.getWorldDirection(camDirL);
+                        camDirL.normalize();
+                        
+                        lightningBeamMesh.position.copy(player.position).add(new THREE.Vector3(0, 1.5, 0));
+                        lightningBeamMesh.lookAt(lightningBeamMesh.position.clone().add(camDirL));
+                        
+                        const beamEnd = lightningBeamMesh.position.clone().addScaledVector(camDirL, 40);
+                        const line = new THREE.Line3(lightningBeamMesh.position, beamEnd);
+                        
+                        enemies.forEach(enemy => {
+                            const closestPoint = new THREE.Vector3();
+                            line.closestPointToPoint(enemy.mesh.position, true, closestPoint);
+                            if (closestPoint.distanceTo(enemy.mesh.position) < 3.0 + enemy.scale) {
+                                processEnemyHit(enemy); 
+                            }
+                        });
+                    } else {
+                        if (lightningBeamMesh) { scene.remove(lightningBeamMesh); lightningBeamMesh = null; }
+                    }
+
+                    if (activeSpecialWeapon === 'wpnSpecial_gold') {
+                        enemies.forEach(enemy => {
+                            if (player.position.distanceTo(enemy.mesh.position) < 6.0 + enemy.scale) {
+                                enemy.hitsReceived += 100;
+                                processEnemyHit(enemy);
+                            }
+                        });
+                    }
+
+                    if (performance.now() > specialWeaponEndTime) {
+                        activeSpecialWeapon = null;
+                        playerWeaponTier = preSpecialWeaponTier;
+                        syncWeaponUI(playerWeaponTier);
+                        updatePlayerVisualsForSpecialWeapon(); 
+                        if (lightningBeamMesh) { scene.remove(lightningBeamMesh); lightningBeamMesh = null; }
+                    }
+                }
+
+                if (player.position.y < (skyY - 30)) {
+                    triggerDeath("YOU FELL OUT OF THE SKY!");
+                }
+                if (endLevelPos) {
+                    const dist = player.position.distanceTo(endLevelPos);
+                    if (dist < 2.5) {
+                        triggerDeath("LEVEL COMPLETE!");
+                    }
+                }
+                
+                enemies.forEach(enemy => {
+                    const dist = player.position.distanceTo(enemy.mesh.position);
+                    const enemyCore = enemy.mesh.children[0]; 
+                    
+                    if (dist < 15.0) {
+                        enemy.mesh.lookAt(player.position.x, enemy.mesh.position.y, player.position.z);
+                        const dir = new THREE.Vector3().subVectors(player.position, enemy.mesh.position);
+                        dir.y = 0;
+                        dir.normalize();
+                       
+                        const nextEnemyPos = enemy.mesh.position.clone().addScaledVector(dir, enemy.speed);
+                        enemy.mesh.position.copy(nextEnemyPos);
+
+                        const limbs = enemyCore.userData;
+                        if (limbs) {
+                            const enemyWalkCycle = Math.sin(time * 0.012);
+                            limbs.lLeg.rotation.x = enemyWalkCycle * 0.7;
+                            limbs.rLeg.rotation.x = -enemyWalkCycle * 0.7;
+                            limbs.lArm.rotation.x = -enemyWalkCycle * 0.7;
+                            limbs.rArm.rotation.x = enemyWalkCycle * 0.7;
+                            limbs.head.rotation.y = Math.sin(time * 0.002) * 0.1;
+                        }
+
+                        if (dist < (1.5 + enemy.scale) && time - enemy.lastAttack > 1000) {
+                            health -= enemy.damage;
+                            enemy.lastAttack = time;
+                            document.getElementById('play-health-value').textContent = Math.floor(health);
+                            if (health <= 0) {
+                                triggerDeath("YOU WERE KILLED BY AN ENEMY!");
+                            }
+                        }
+                    } else {
+                        const limbs = enemyCore.userData;
+                        if (limbs) {
+                            limbs.lLeg.rotation.x = 0;
+                            limbs.rLeg.rotation.x = 0;
+                            limbs.lArm.rotation.x = 0;
+                            limbs.rArm.rotation.x = 0;
+                            limbs.head.rotation.y = 0;
+                        }
+                    }
+                });
+
+                for (let k in blockRegistry) {
+                    const grp = blockRegistry[k];
+                    const type = grp.userData.type;
+                    
+                    if (type === 'starsSetup') {
+                        const d = player.position.distanceTo(grp.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+                        if (d < 2.2) {
+                            removeBlockAtKey(grp.userData.coordKey);
+                            playerStars += 1;
+                            document.getElementById('starValue').textContent = playerStars;
+                        }
+                    }
+
+                    if (type.startsWith("wpnSpecial_")) {
+                        const d = player.position.distanceTo(grp.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+                        if (d < 2.5) {
+                            preSpecialWeaponTier = playerWeaponTier;
+                            activeSpecialWeapon = type;
+                            specialWeaponEndTime = performance.now() + (grp.userData.weaponTimer * 1000);
+                            removeBlockAtKey(grp.userData.coordKey);
+                            updatePlayerVisualsForSpecialWeapon(); 
+                        }
+                    }
+
+                    if (type.startsWith("wpn_")) {
+                        const d = player.position.distanceTo(grp.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+                        if (d < 2.5) {
+                            const tier = grp.userData.weaponTier;
+                            playerWeaponTier = Math.max(playerWeaponTier, tier);
+                            removeBlockAtKey(grp.userData.coordKey);
+                            syncWeaponUI(playerWeaponTier);
+                            updatePlayerWeaponVisual(player, playerWeaponTier);
+                        }
+                    }
+                }
+
+                // Complex Player Kinematics
+                let inShallowWater = false;
+                let inDeepWater = false;
+                let inLava = false;
+                let inFire = false;
+                let onIce = false;
+                let climbableActive = false;
+                let bouncinessFactor = 0.0;
+                let trampolineTrigger = false;
+
+                const tempAABB = getPlayerAABB(player.position);
+                for (let k in blockRegistry) {
+                    const block = blockRegistry[k];
+                    const bType = block.userData.type;
+                    const bPos = block.position;
+
+                    const matchO = buildingOptions.find(o => o.name === bType);
+                    const look = matchO ? matchO.materialLook : null;
+
+                    if (bType === 'waterBlock' || bType === 'deepWaterBlock' || bType === 'lavaBlock' || bType === 'fireBlock' || (look && (look.climbable || look.damageOnContact || look.dotDamage || look.bounciness))) {
+                        let wH = gridSize;
+                        if (bType === 'waterBlock') wH = gridSize - 0.1;
+                        if (bType === 'deepWaterBlock') wH = gridSize * 2;
+                        
+                        const minX = bPos.x - gridSize/2, maxX = bPos.x + gridSize/2;
+                        const minY = bPos.y, maxY = bPos.y + wH;
+                        const minZ = bPos.z - gridSize/2, maxZ = bPos.z + gridSize/2;
+
+                        const overlap = tempAABB.minX < maxX && tempAABB.maxX > minX &&
+                                        tempAABB.minY < maxY && tempAABB.maxY > minY &&
+                                        tempAABB.minZ < maxZ && tempAABB.maxZ > minZ;
+
+                        if (overlap) {
+                            if (bType === 'waterBlock') inShallowWater = true;
+                            if (bType === 'deepWaterBlock') inDeepWater = true;
+                            if (bType === 'lavaBlock') inLava = true;
+                            if (bType === 'fireBlock' || (look && look.damageOnContact)) inFire = true;
+                            if (look && look.climbable) climbableActive = true;
+                            if (look && look.dotDamage) inLava = true; 
+                            if (look && look.bounciness) {
+                                bouncinessFactor = look.bounciness;
+                                trampolineTrigger = true;
+                            }
+                        }
+                    }
+                }
+
+                const currentTileX = Math.floor(player.position.x / gridSize) * gridSize + (gridSize/2);
+                const currentTileZ = Math.floor(player.position.z / gridSize) * gridSize + (gridSize/2);
+                const blockUnderKey = `${currentTileX},${Math.floor((player.position.y - 0.1 - skyY)/gridSize)*gridSize + skyY},${currentTileZ}`;
+                if (blockRegistry[blockUnderKey]) {
+                    const bUnderType = blockRegistry[blockUnderKey].userData.type;
+                    const matchO = buildingOptions.find(o => o.name === bUnderType);
+                    if (matchO && matchO.materialLook && matchO.materialLook.physics === "slippery") {
+                        onIce = true;
+                    }
+                }
+
+                let speedLimit = inDeepWater ? 0.05 : (inShallowWater || inLava ? 0.08 : 0.15);
+                if (move.shift && !inDeepWater && !inShallowWater && !inLava) speedLimit = 0.25;
+
+                const camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+                camDir.y = 0;
+                camDir.normalize();
+                const camRight = new THREE.Vector3(-camDir.z, 0, camDir.x).normalize();
+
+                const wishDir = new THREE.Vector3();
+                if (move.forward) wishDir.add(camDir);
+                if (move.backward) wishDir.sub(camDir);
+                if (move.left) wishDir.sub(camRight);
+                if (move.right) wishDir.add(camRight);
+                wishDir.normalize();
+
+                const accel = onIce ? 0.008 : 0.15;
+                const friction = onIce ? 0.985 : 0.70;
+
+                const targetVelX = wishDir.x * speedLimit;
+                const targetVelZ = wishDir.z * speedLimit;
+
+                playerVelocity.x = THREE.MathUtils.lerp(playerVelocity.x, targetVelX, accel);
+                playerVelocity.z = THREE.MathUtils.lerp(playerVelocity.z, targetVelZ, accel);
+                if (!onIce) {
+                    playerVelocity.x *= friction;
+                    playerVelocity.z *= friction;
+                }
+
+                if (inDeepWater) {
+                    document.getElementById('play-swim-status').style.display = 'inline';
+                    playerVelocity.y *= 0.8; 
+                    if (move.jump) playerVelocity.y = 0.12; 
+                    if (move.shift) playerVelocity.y = -0.12; 
+                } else if (climbableActive) {
+                    playerVelocity.y = 0;
+                    if (move.forward) playerVelocity.y = 0.12;
+                    if (move.backward) playerVelocity.y = -0.12;
+                } else {
+                    document.getElementById('play-swim-status').style.display = 'none';
+                    playerVelocity.y += gravity;
+                }
+
+                let nextPlayerPos = player.position.clone().add(playerVelocity);
+
+                if (trampolineTrigger && playerVelocity.y < 0) {
+                    playerVelocity.y = jumpPower * bouncinessFactor;
+                    nextPlayerPos.y = player.position.y + playerVelocity.y;
+                }
+
+                const checkY = new THREE.Vector3(player.position.x, nextPlayerPos.y, player.position.z);
+                if (checkCollision(checkY)) {
+                    if (playerVelocity.y < 0) {
+                        playerVelocity.y = 0;
+                        
+                        if (move.jump && !inDeepWater && !climbableActive) {
+                            playerVelocity.y = jumpPower;
+                        }
+                    } else {
+                        playerVelocity.y = 0;
+                    }
+                    nextPlayerPos.y = player.position.y;
+                }
+
+                const checkX = new THREE.Vector3(nextPlayerPos.x, player.position.y, player.position.z);
+                if (checkCollision(checkX)) {
+                    playerVelocity.x = 0;
+                    nextPlayerPos.x = player.position.x;
+                }
+
+                const checkZ = new THREE.Vector3(player.position.x, player.position.y, nextPlayerPos.z);
+                if (checkCollision(checkZ)) {
+                    playerVelocity.z = 0;
+                    nextPlayerPos.z = player.position.z;
+                }
+
+                player.position.copy(nextPlayerPos);
+
+                if (inLava && (activeSpecialWeapon !== 'wpnSpecial_fire')) {
+                    health -= 1.8;
+                    document.getElementById('play-health-value').textContent = Math.floor(Math.max(0, health));
+                    if (health <= 0) triggerDeath("YOU MELTED IN LAVA!");
+                }
+                if (inFire && (activeSpecialWeapon !== 'wpnSpecial_fire')) {
+                    health -= 0.7;
+                    document.getElementById('play-health-value').textContent = Math.floor(Math.max(0, health));
+                    if (health <= 0) triggerDeath("YOU BURNED TO DEATH!");
+                }
+
+                const distWalked = new THREE.Vector3(player.position.x, 0, player.position.z).distanceTo(new THREE.Vector3(lastPlayerPos.x, 0, lastPlayerPos.z));
+                if (distWalked > 0.01 && playerVelocity.y === 0) {
+                    walkTime += distWalked * 4.5;
+                    const legRotation = Math.sin(walkTime);
+                    player.userData.lLeg.rotation.x = legRotation * 0.75;
+                    player.userData.rLeg.rotation.x = -legRotation * 0.75;
+                    player.userData.lArm.rotation.x = -legRotation * 0.75;
+                    player.userData.rArm.rotation.x = legRotation * 0.75;
+                } else {
+                    player.userData.lLeg.rotation.x = 0;
+                    player.userData.rLeg.rotation.x = 0;
+                    player.userData.lArm.rotation.x = 0;
+                    player.userData.rArm.rotation.x = 0;
+                }
+                lastPlayerPos.copy(player.position);
+
+                let lookAtTarget = player.position.clone();
+                
+                if (wishDir.lengthSq() > 0.001) {
+                    const angle = Math.atan2(wishDir.x, wishDir.z);
+                    player.rotation.y = angle;
+                }
+
+                controls.target.copy(player.position).add(new THREE.Vector3(0, 1.5, 0));
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        setupDynamicMaterials();
+        updateProjectList();
+        update();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

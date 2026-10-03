@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khazad-dûm Economy Simulator</title>
+    <style>
+        :root {
+            --stone: #1e1e1e;
+            --deep-stone: #121212;
+            --gold: #d4af37;
+            --iron: #7f8c8d;
+            --text: #e0e0e0;
+            --danger: #c0392b;
+            --success: #27ae60;
+        }
+
+        body {
+            background-color: var(--deep-stone);
+            color: var(--text);
+            font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 2px 2px 4px #000;
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 10px;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .panel {
+            background-color: var(--stone);
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            flex: 1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        }
+
+        .panel h2 {
+            color: var(--gold);
+            margin-top: 0;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: var(--gold);
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #2c3e50;
+            color: white;
+            border: 2px solid #34495e;
+            padding: 12px;
+            font-size: 1em;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #34495e;
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        button:disabled {
+            background-color: #555;
+            color: #888;
+            border-color: #444;
+            cursor: not-allowed;
+        }
+
+        #log {
+            background-color: #0a0a0a;
+            border: 1px solid #333;
+            height: 200px;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 0.9em;
+            width: 100%;
+            max-width: 800px;
+            box-sizing: border-box;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 5px;
+        }
+
+        .faucet { color: var(--success); }
+        .sink { color: var(--danger); }
+        .market { color: var(--gold); }
+    </style>
+</head>
+<body>
+
+    <h1>Return to Moria: The Economy</h1>
+
+    <div class="dashboard">
+        <!-- Player Inventory -->
+        <div class="panel">
+            <h2>Your Stash</h2>
+            <div class="stat-row">
+                <span>Gold Coins:</span>
+                <span id="gold" class="stat-value">0</span>
+            </div>
+            <div class="stat-row">
+                <span>Iron Ore:</span>
+                <span id="ore" class="stat-value" style="color: var(--iron);">0</span>
+            </div>
+            <div class="stat-row">
+                <span>Pickaxe Durability:</span>
+                <span id="durability" class="stat-value">100%</span>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="panel btn-group">
+            <h2>Actions</h2>
+            <!-- Faucet -->
+            <button id="btn-mine" onclick="mine()">⛏️ Mine the Deep (Faucet)</button>
+            
+            <!-- Sinks -->
+            <button id="btn-repair" onclick="repair()">⚒️ Repair Pickaxe (15 Gold) (Sink)</button>
+            <button id="btn-ale" onclick="buyAle()">🍺 Buy Dwarven Ale (5 Gold) (Sink)</button>
+            
+            <!-- Market -->
+            <button id="btn-trade" onclick="sellOre()">⚖️ Sell 1 Iron Ore at Trading Post</button>
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div id="log">
+        <div class="log-entry" style="color: #aaa;">[SYSTEM] Welcome to Khazad-dûm. Start mining to generate wealth.</div>
+    </div>
+
+    <script>
+        // Game State
+        let player = {
+            gold: 0,
+            ore: 0,
+            durability: 100
+        };
+
+        // Market State
+        const TAVERN_PRICE = 5;
+        const REPAIR_PRICE = 15;
+        const TAX_RATE = 0.15; // Durin's Tax (15%)
+
+        // UI Elements
+        const elGold = document.getElementById('gold');
+        const elOre = document.getElementById('ore');
+        const elDurability = document.getElementById('durability');
+        const elLog = document.getElementById('log');
+        const btnMine = document.getElementById('btn-mine');
+
+        function updateUI() {
+            elGold.innerText = Math.floor(player.gold);
+            elOre.innerText = player.ore;
+            elDurability.innerText = player.durability + '%';
+            
+            if (player.durability <= 0) {
+                elDurability.style.color = 'var(--danger)';
+                btnMine.disabled = true;
+            } else {
+                elDurability.style.color = 'var(--gold)';
+                btnMine.disabled = false;
+            }
+        }
+
+        function logEvent(message, typeClass) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry ' + typeClass;
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+            elLog.prepend(entry);
+        }
+
+        // 1. THE FAUCET: Injecting new resources into the game
+        function mine() {
+            if (player.durability <= 0) return;
+
+            const oreFound = Math.floor(Math.random() * 3) + 1; // Find 1-3 ore
+            const goldFound = Math.floor(Math.random() * 5);    // Sometimes find loose gold
+            const wear = Math.floor(Math.random() * 10) + 5;    // Pickaxe degrades by 5-14%
+
+            player.ore += oreFound;
+            player.gold += goldFound;
+            player.durability = Math.max(0, player.durability - wear);
+
+            logEvent(`Struck the earth! Found ${oreFound} Iron Ore and ${goldFound} Gold. (-${wear}% Durability)`, 'faucet');
+            updateUI();
+        }
+
+        // 2. THE SINK: Removing money from the economy to prevent inflation
+        function repair() {
+            if (player.gold >= REPAIR_PRICE && player.durability < 100) {
+                player.gold -= REPAIR_PRICE;
+                player.durability = 100;
+                logEvent(`Paid the Smith ${REPAIR_PRICE} Gold. Pickaxe fully restored! (Money removed from server)`, 'sink');
+                updateUI();
+            } else if (player.gold < REPAIR_PRICE) {
+                logEvent(`Not enough gold to repair! You need ${REPAIR_PRICE}.`, '');
+            } else {
+                logEvent(`Pickaxe is already in perfect condition.`, '');
+            }
+        }
+
+        function buyAle() {
+            if (player.gold >= TAVERN_PRICE) {
+                player.gold -= TAVERN_PRICE;
+                logEvent(`Chugged a pint of Orophin's Best for ${TAVERN_PRICE} Gold. Morale restored! (Money removed from server)`, 'sink');
+                updateUI();
+            } else {
+                logEvent(`The Barkeep turns you away. You need ${TAVERN_PRICE} Gold.`, '');
+            }
+        }
+
+        // 3. THE MARKET: Player-to-System trading with taxes
+        function sellOre() {
+            if (player.ore >= 1) {
+                // Dynamic market price: fluctuates between 8 and 20 gold per ore
+                const marketPrice = Math.floor(Math.random() * 13) + 8; 
+                
+                // Sink: The server takes a cut of the trade
+                const tax = Math.ceil(marketPrice * TAX_RATE);
+                const finalProfit = marketPrice - tax;
+
+                player.ore -= 1;
+                player.gold += finalProfit;
+
+                logEvent(`Traded 1 Ore for ${marketPrice} Gold. Durin's Tax took ${tax} Gold. You kept ${finalProfit}!`, 'market');
+                updateUI();
+            } else {
+                logEvent(`You have no Iron Ore to sell! Get back to the mines.`, '');
+            }
+        }
+    </script>
+</body>
+</html>

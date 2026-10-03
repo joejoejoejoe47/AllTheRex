@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuclear Chain Reaction Escape</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 5px 0;
+            text-shadow: 0 0 10px #ff3300;
+        }
+        #gameContainer {
+            position: relative;
+            box-shadow: 0 0 30px rgba(255, 68, 0, 0.5);
+        }
+        canvas {
+            background: #1a1515;
+            display: block;
+            border: 2px solid #ff4400;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px #000;
+            pointer-events: none;
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            border: 3px solid #ff0000;
+            border-radius: 10px;
+        }
+        button {
+            background: #ff4400;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-family: inherit;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+            box-shadow: 0 0 10px #ff4400;
+        }
+        button:hover {
+            background: #ff6622;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>NUCLEAR ESCAPE</h1>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="900" height="500"></canvas>
+        <div id="ui">
+            Distance: <span id="scoreDisplay">0</span>m<br>
+            Threat Level: <span id="threatDisplay" style="color: #ff3300;">INITIAL BLAST</span>
+        </div>
+        <div id="gameOverScreen">
+            <h2 style="color: #ff0000; margin: 0; font-size: 36px;">CAUGHT IN THE BLAST</h2>
+            <p style="font-size: 20px;">You vaporized after escaping <span id="finalScore">0</span> meters.</p>
+            <button onclick="resetGame()">TRY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game State Variables
+        let player, cameraX, blasts, keys, gameActive, score, nextBombTrigger;
+
+        // Player configuration
+        class Player {
+            constructor() {
+                this.x = 200;
+                this.y = 400;
+                this.width = 20;
+                this.height = 35;
+                this.speed = 6;
+                this.vx = 0;
+                this.vy = 0;
+            }
+            update() {
+                // Movement inputs
+                this.vx = 0;
+                this.vy = 0;
+                if (keys['ArrowLeft'] || keys['KeyA']) this.vx = -this.speed;
+                if (keys['ArrowRight'] || keys['KeyD']) this.vx = this.speed * 1.2; // slight boost running forward
+                if (keys['ArrowUp'] || keys['KeyW']) this.vy = -this.speed;
+                if (keys['ArrowDown'] || keys['KeyS']) this.vy = this.speed;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen boundaries (Y-axis)
+                if (this.y < 50) this.y = 50;
+                if (this.y > canvas.height - this.height - 20) this.y = canvas.height - this.height - 20;
+                
+                // Can't run off the left side of the camera view
+                if (this.x < cameraX) this.x = cameraX;
+            }
+            draw() {
+                ctx.fillStyle = "#00ffcc";
+                // Draw a simple running hazmat suit character
+                ctx.fillRect(this.x - cameraX, this.y, this.width, this.height);
+                // Visor
+                ctx.fillStyle = "#000";
+                ctx.fillRect(this.x - cameraX + (this.vx >= 0 ? 10 : 2), this.y + 5, 8, 6);
+            }
+        }
+
+        // Nuclear Blast configuration
+        class BombBlast {
+            constructor(startX, startRadius, expansionSpeed, color) {
+                this.x = startX;
+                this.y = canvas.height / 2; // Center of the map
+                this.radius = startRadius;
+                this.speed = expansionSpeed;
+                this.color = color || "rgba(255, 68, 0, 0.4)";
+                this.coreColor = "rgba(255, 255, 200, 0.8)";
+            }
+            update() {
+                this.radius += this.speed;
+            }
+            draw() {
+                // Outer shockwave
+                let gradient = ctx.createRadialGradient(
+                    this.x - cameraX, this.y, this.radius * 0.2,
+                    this.x - cameraX, this.y, this.radius
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                gradient.addColorStop(0.2, 'rgba(255, 150, 0, 0.7)');
+                gradient.addColorStop(0.6, 'rgba(255, 50, 0, 0.4)');
+                gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x - cameraX, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            collidesWith(p) {
+                // Check if any corner of the player box falls inside the blast radius
+                let corners = [
+                    {x: p.x, y: p.y},
+                    {x: p.x + p.width, y: p.y},
+                    {x: p.x, y: p.y + p.height},
+                    {x: p.x + p.width, y: p.y + p.height}
+                ];
+                for (let corner of corners) {
+                    let dx = corner.x - this.x;
+                    let dy = corner.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < this.radius * 0.9) { // 0.9 for slight leniency
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        // Initialize/Reset game variables
+        function resetGame() {
+            player = new Player();
+            cameraX = 0;
+            score = 0;
+            nextBombTrigger = 600; // Trigger a new bomb ahead when player crosses this X point
+            gameActive = true;
+            keys = {};
+
+            blasts = [
+                // The main massive original bomb chasing you from far left
+                new BombBlast(-400, 500, 3.8, "rgba(255, 30, 0, 0.5)")
+            ];
+
+            document.getElementById("gameOverScreen").style.display = "none";
+            document.getElementById("threatDisplay").innerText = "INITIAL BLAST";
+            document.getElementById("threatDisplay").style.color = "#ff3300";
+        }
+
+        // Input Listeners
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        function spawnForwardBomb() {
+            // Drop a new nuke a bit ahead of the player's current view
+            let spawnX = player.x + 800;
+            // Spawn a smaller, fast expanding shockwave ahead!
+            blasts.push(new BombBlast(spawnX, 10, 4.5, "rgba(255, 100, 0, 0.5)"));
+            
+            // Set up the next trigger threshold further down the road
+            nextBombTrigger += Math.floor(Math.random() * 500) + 600;
+            
+            // Visual threat updates
+            document.getElementById("threatDisplay").innerText = "CHAIN REACTION DETECTED!";
+            document.getElementById("threatDisplay").style.color = "#ff0000";
+            setTimeout(() => {
+                if(gameActive) {
+                    document.getElementById("threatDisplay").innerText = "RUN!!";
+                    document.getElementById("threatDisplay").style.color = "#ffaa00";
+                }
+            }, 1500);
+        }
+
+        function drawBackground() {
+            // Draw a scrolling apocalyptic grid/ground
+            ctx.strokeStyle = "#3a2015";
+            ctx.lineWidth = 2;
+            let gridSize = 50;
+            let startOffsetX = -(cameraX % gridSize);
+
+            for (let x = startOffsetX; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Silhouettes of distant structures being destroyed
+            ctx.fillStyle = "#22110a";
+            for (let i = 0; i < 10; i++) {
+                let blockX = (i * 150) - (cameraX * 0.3 % 1500);
+                ctx.fillRect(blockX, canvas.height - 120, 40, 120);
+                ctx.fillRect(blockX + 60, canvas.height - 80, 50, 80);
+            }
+
+            // Hazard floor lines
+            ctx.fillStyle = "#331100";
+            ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+            ctx.fillRect(0, 0, canvas.width, 50);
+        }
+
+        // Main Game Loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameActive) {
+                // Update Player
+                player.update();
+
+                // Camera follows player smoothly but stays a bit behind him
+                if (player.x - cameraX > 300) {
+                    cameraX += (player.x - cameraX - 300) * 0.1;
+                }
+
+                // Dynamic Bomb Chain Reactions:
+                // As you progress past milestones, more bombs go off ahead!
+                if (player.x > nextBombTrigger) {
+                    spawnForwardBomb();
+                }
+
+                // Track score based on max distance reached
+                score = Math.floor(player.x / 10);
+                document.getElementById("scoreDisplay").innerText = score;
+
+                // Draw World
+                drawBackground();
+
+                // Update and Draw Blasts
+                for (let blast of blasts) {
+                    blast.update();
+                    blast.draw();
+
+                    // Collision Check
+                    if (blast.collidesWith(player)) {
+                        gameActive = false;
+                        document.getElementById("finalScore").innerText = score;
+                        document.getElementById("gameOverScreen").style.display = "block";
+                    }
+                }
+
+                // Draw Player
+                player.draw();
+            } else {
+                // Keep rendering background and blasts even on game over screen
+                drawBackground();
+                for (let blast of blasts) { blast.draw(); }
+                player.draw();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        resetGame();
+        gameLoop();
+    </script>
+</body>
+</html>

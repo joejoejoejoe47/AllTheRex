@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ MORTISIFY ULTRA ⚡ - Custom Creator Edition</title>
+    <style>
+        :root {
+            --bg-color: #050508;
+            --card-bg: #12131c;
+            --card-hover: #1a1c29;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --neon-pink: #ff007f;
+            --neon-blue: #00f0ff;
+            --neon-purple: #bd00ff;
+            --neon-green: #39ff14;
+            --accent-glow: rgba(0, 240, 255, 0.4);
+            --border-color: rgba(0, 240, 255, 0.2);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --card-hover: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --neon-pink: #d9006c;
+            --neon-blue: #0077ff;
+            --neon-purple: #8b00ff;
+            --neon-green: #008000;
+            --accent-glow: rgba(0, 119, 255, 0.3);
+            --border-color: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .view {
+            display: none;
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+            width: 100%;
+        }
+
+        .view.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* HEADER */
+        header {
+            background: var(--card-bg);
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 2px solid var(--border-color);
+            box-shadow: 0 0 20px var(--accent-glow);
+            backdrop-filter: blur(12px);
+        }
+
+        .logo {
+            font-size: 30px;
+            font-weight: 900;
+            cursor: pointer;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .logo span {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-pink), var(--neon-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .header-btn {
+            background: var(--card-hover);
+            border: 2px solid var(--neon-blue);
+            color: var(--text-primary);
+            padding: 10px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: var(--transition);
+        }
+
+        .header-btn:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-blue);
+            transform: scale(1.05);
+        }
+
+        main {
+            padding: 40px;
+            max-width: 1500px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* UPLOAD PAGE (MODAL / FULL VIEW) */
+        #uploadView {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            text-align: center;
+        }
+
+        .upload-card {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-pink);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 0 40px rgba(255, 0, 127, 0.2);
+            width: 100%;
+            max-width: 600px;
+            text-align: left;
+        }
+
+        .upload-card h2 {
+            margin-bottom: 20px;
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-secondary);
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-primary);
+            font-size: 16px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 15px var(--neon-pink);
+        }
+
+        .create-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--neon-pink), var(--neon-purple));
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--neon-pink);
+            transition: var(--transition);
+        }
+
+        .create-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px var(--neon-pink);
+        }
+
+        /* SEARCH BAR */
+        .search-container {
+            margin-bottom: 40px;
+            display: flex;
+            gap: 15px;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 20px 30px;
+            font-size: 18px;
+            border-radius: 16px;
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-primary);
+            transition: var(--transition);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 25px var(--neon-blue);
+        }
+
+        .global-search-btn {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            color: white;
+            border: none;
+            padding: 0 35px;
+            border-radius: 16px;
+            font-weight: 900;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--neon-purple);
+            transition: var(--transition);
+        }
+
+        .global-search-btn:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 0 25px var(--neon-blue);
+        }
+
+        /* GRID */
+        .section-title {
+            font-size: 32px;
+            margin-bottom: 24px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 30px;
+        }
+
+        .movie-card {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid var(--border-color);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .movie-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 30px var(--neon-pink);
+        }
+
+        .movie-poster {
+            width: 100%;
+            height: 280px;
+            object-fit: cover;
+            background: var(--border-color);
+        }
+
+        .movie-info { padding: 18px; }
+        .movie-title {
+            font-size: 17px;
+            font-weight: 800;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* DETAIL VIEW */
+        .back-btn {
+            background: var(--card-bg);
+            border: 2px solid var(--neon-blue);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 30px;
+            font-weight: bold;
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: var(--transition);
+        }
+
+        .back-btn:hover { border-color: var(--neon-pink); background: var(--neon-blue); color: #000; transform: translateX(-4px); }
+
+        .detail-layout {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 50px;
+            align-items: start;
+        }
+
+        @media (max-width: 1000px) {
+            .detail-layout { grid-template-columns: 1fr; }
+        }
+
+        .sticky-column { position: sticky; top: 100px; }
+
+        .detail-poster {
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 0 30px var(--neon-purple);
+            border: 2px solid var(--neon-blue);
+            margin-bottom: 20px;
+        }
+
+        .detail-content h2 { font-size: 40px; margin-bottom: 8px; font-weight: 900; }
+
+        /* PLAYER BOX */
+        .player-box {
+            background-color: var(--card-bg);
+            border-radius: 24px;
+            padding: 28px;
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 30px rgba(57, 255, 20, 0.2);
+            text-align: center;
+        }
+
+        .player-box h4 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: var(--neon-green);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 900;
+        }
+
+        .full-player-frame {
+            width: 100%;
+            height: 152px;
+            border-radius: 16px;
+            border: none;
+            background: var(--bg-color);
+            margin-bottom: 16px;
+        }
+
+        .pro-controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .ctrl-btn {
+            background: var(--card-hover);
+            border: 2px solid var(--neon-blue);
+            color: var(--text-primary);
+            padding: 10px 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: var(--transition);
+        }
+
+        .ctrl-btn:hover {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-blue);
+            transform: scale(1.05);
+        }
+
+        .speed-selector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            font-weight: bold;
+        }
+
+        .speed-selector select {
+            background: var(--card-hover);
+            color: var(--text-primary);
+            border: 2px solid var(--neon-purple);
+            padding: 8px 14px;
+            border-radius: 10px;
+            outline: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .loading-text {
+            color: var(--neon-green);
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+            font-weight: bold;
+        }
+
+        /* SONG LIST */
+        .song-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        .song-item {
+            background-color: var(--card-bg);
+            padding: 18px 24px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 2px solid var(--border-color);
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .song-item:hover {
+            border-color: var(--neon-blue);
+            background-color: var(--card-hover);
+            transform: translateX(6px);
+            box-shadow: 0 0 20px var(--neon-blue);
+        }
+
+        .song-item.active-song {
+            border-color: var(--neon-green);
+            background-color: rgba(57, 255, 20, 0.1);
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        .song-action {
+            color: #000;
+            background: var(--neon-green);
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 900;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <!-- HEADER -->
+    <header>
+        <div class="logo" onclick="showHub()">
+            <span>⚡ MORTISIFY ULTRA ⚡</span>
+        </div>
+        <div class="header-controls">
+            <button class="header-btn" onclick="showUploadPage()" style="border-color: var(--neon-pink); color: var(--neon-pink);">➕ Upload Song</button>
+            <button class="header-btn" onclick="toggleTheme()">🎨 Theme</button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        
+        <!-- UPLOAD VIEW (PAGE AT THE BEGINNING) -->
+        <div id="uploadView" class="view active">
+            <div class="upload-card">
+                <h2>✨ Upload Custom Song ✨</h2>
+                <div class="form-group">
+                    <label for="uploadTitle">Song / Album Name</label>
+                    <input type="text" id="uploadTitle" placeholder="Enter song title...">
+                </div>
+                <div class="form-group">
+                    <label for="uploadArtist">Artist Name</label>
+                    <input type="text" id="uploadArtist" placeholder="Enter artist name...">
+                </div>
+                <div class="form-group">
+                    <label for="uploadImage">Paste Image Link (URL)</label>
+                    <input type="text" id="uploadImage" placeholder="Paste image address here...">
+                </div>
+                <button class="create-btn" onclick="createCustomSong()">Create Song 🚀</button>
+            </div>
+        </div>
+
+        <!-- HUB VIEW (HOME PAGE) -->
+        <div id="hubView" class="view">
+            <h2 class="section-title">🌟 Magical Soundtracks & Full Songs 🌍🎶</h2>
+            
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search any song, movie, or artist... 🔍" onkeyup="filterAlbums()">
+                <button class="global-search-btn" onclick="searchGlobalAlbums()">Search World DB 🚀</button>
+            </div>
+
+            <div class="movie-grid" id="movieGrid"></div>
+        </div>
+
+        <!-- DETAIL & PLAYER VIEW -->
+        <div id="detailView" class="view">
+            <button class="back-btn" onclick="showHub()">⬅ Back to Library 📚</button>
+            
+            <div class="detail-layout">
+                <div class="sticky-column">
+                    <img id="detailPoster" class="detail-poster" src="" alt="Album Artwork">
+                    
+                    <div class="player-box">
+                        <h4 id="nowPlayingText">Select a full song to play! 🎧</h4>
+                        
+                        <iframe id="fullAudioPlayer" class="full-player-frame" src="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
+                        <div id="loadingStatus" class="loading-text">Loading full song from beginning to end... 🎵</div>
+
+                        <div class="pro-controls">
+                            <button class="ctrl-btn" onclick="skipTime(-10)">⏪ -10s</button>
+                            <button class="ctrl-btn" onclick="skipTime(10)">+10s ⏩</button>
+                        </div>
+
+                        <div class="speed-selector">
+                            <label for="playbackSpeed">Fun Speed 🎛️:</label>
+                            <select id="playbackSpeed" onchange="changeSpeed(this.value)">
+                                <option value="0.5">0.5x (Half Speed)</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1.0" selected>1.0x (Normal)</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="2.0">2.0x (Fast)</option>
+                                <option value="2.5">2.5x (Turbo Speed)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-content">
+                    <h2 id="detailTitle">Album Title</h2>
+                    <p id="detailArtist" style="color: var(--neon-blue); font-size: 18px; margin-bottom: 24px; font-weight: bold;"></p>
+                    <h3 class="section-title" style="font-size: 22px; border-left: 6px solid var(--neon-green); padding-left: 12px;">Tracklist ✨</h3>
+                    <div class="song-list" id="songList"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const localAlbums = [
+            {
+                id: "moana2", title: "Moana 2 Soundtrack", artist: "Various Artists", poster: "https://lumiere-a.akamaihd.net/v1/images/p_moana2_disneyplus_893_02bfa7ea.jpeg",
+                songs: ["Tulou Tagaloa (Sei e Va'ai Mai)", "We're Back", "Tuputupu (The Feast)", "Beyond", "My Wish for You (Innocent Warrior)", "Finding the Way", "What Could Be Better Than This?", "Get Lost", "Can I Get a Chee Hoo?", "Mana Vavau", "Nuku O Kaiga", "We Know the Way"]
+            },
+            {
+                id: "moana", title: "Moana Soundtrack", artist: "Opetaia Foa'i & Lin-Manuel Miranda", poster: "https://lumiere-a.akamaihd.net/v1/images/open-uri20150422-20810-14qbaez_9fb43f65.jpeg",
+                songs: ["Tulou Tagaloa", "Where You Are", "How Far I'll Go", "We Know The Way", "You're Welcome", "Shiny", "I Am Moana"]
+            },
+            {
+                id: "frozen2", title: "Frozen 2 Soundtrack", artist: "Kristen Bell, Idina Menzel", poster: "https://lumiere-a.akamaihd.net/v1/images/p_frozen2_19645_453c07c1.jpeg",
+                songs: ["All Is Found", "Some Things Never Change", "Into the Unknown", "When I Am Older", "Lost in the Woods", "Show Yourself", "The Next Right Thing"]
+            },
+            {
+                id: "frozen", title: "Frozen Soundtrack", artist: "Kristen Bell, Idina Menzel, Demi Lovato", poster: "https://lumiere-a.akamaihd.net/v1/images/open-uri20150422-12561-137e8xi_d39763bc.jpeg",
+                songs: ["Frozen Heart", "Do You Want to Build a Snowman?", "For the First Time in Forever", "Love Is an Open Door", "Let It Go", "In Summer", "Fixer Upper"]
+            },
+            {
+                id: "encanto", title: "Encanto Soundtrack", artist: "Lin-Manuel Miranda", poster: "https://lumiere-a.akamaihd.net/v1/images/p_encanto_home_25224_ed34524c.jpeg",
+                songs: ["The Family Madrigal", "Waiting on a Miracle", "Surface Pressure", "We Don't Talk About Bruno", "What Else Can I Do?", "Dos Oruguitas", "All of You"]
+            },
+            {
+                id: "lionking", title: "The Lion King Soundtrack", artist: "Elton John & Tim Rice", poster: "https://lumiere-a.akamaihd.net/v1/images/open-uri20150422-20810-1m8z2y6_06d338ce.jpeg",
+                songs: ["Circle of Life", "I Just Can't Wait to Be King", "Be Prepared", "Hakuna Matata", "Can You Feel the Love Tonight"]
+            },
+            {
+                id: "aladdin", title: "Aladdin Soundtrack", artist: "Alan Menken, Howard Ashman, Tim Rice", poster: "https://lumiere-a.akamaihd.net/v1/images/open-uri20150422-20810-m888o4_f284e365.jpeg",
+                songs: ["Arabian Nights", "One Jump Ahead", "Friend Like Me", "Prince Ali", "A Whole New World"]
+            },
+            {
+                id: "tangled", title: "Tangled Soundtrack", artist: "Mandy Moore & Zachary Levi", poster: "https://lumiere-a.akamaihd.net/v1/images/open-uri20150422-20810-m0853p_4b31643c.jpeg",
+                songs: ["When Will My Life Begin?", "Mother Knows Best", "I've Got a Dream", "I See the Light"]
+            }
+        ];
+
+        let currentAlbumTitle = "";
+
+        // Initial setup on load
+        window.onload = function() {
+            renderHub(localAlbums);
+        };
+
+        function showUploadPage() {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('uploadView').classList.add('active');
+        }
+
+        function createCustomSong() {
+            const title = document.getElementById('uploadTitle').value.trim();
+            const artist = document.getElementById('uploadArtist').value.trim();
+            const image = document.getElementById('uploadImage').value.trim();
+
+            if (!title || !artist || !image) {
+                alert("Please fill out all fields and provide an image link!");
+                return;
+            }
+
+            const newAlbum = {
+                id: "custom_" + Date.now(),
+                title: title,
+                artist: artist,
+                poster: image,
+                songs: [title, "Acoustic Version", "Remix Instrumental", "Live Concert Edit"]
+            };
+
+            localAlbums.unshift(newAlbum);
+
+            // Re-render hub so the new song shows up immediately
+            renderHub(localAlbums);
+
+            // Switch to Hub (Home Page)
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('hubView').classList.add('active');
+            window.scrollTo(0,0);
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.setAttribute('data-theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+            }
+        }
+
+        function skipTime(seconds) {
+            const iframe = document.getElementById('fullAudioPlayer');
+            try {
+                iframe.contentWindow.postMessage({ method: seconds > 0 ? 'forward' : 'rewind', size: Math.abs(seconds) }, '*');
+            } catch(e) {
+                console.log("Time jump executed");
+            }
+        }
+
+        function changeSpeed(speed) {
+            const iframe = document.getElementById('fullAudioPlayer');
+            try {
+                iframe.contentWindow.postMessage({ method: 'setPlaybackRate', value: parseFloat(speed) }, '*');
+            } catch(e) {
+                console.log("Speed set to " + speed);
+            }
+        }
+
+        function renderHub(dataToRender) {
+            const grid = document.getElementById('movieGrid');
+            if (dataToRender.length === 0) {
+                grid.innerHTML = '<div style="color: var(--text-secondary); grid-column: 1/-1;">No albums found.</div>';
+                return;
+            }
+            grid.innerHTML = dataToRender.map(album => `
+                <div class="movie-card" onclick="openLocalAlbum('${album.id}')">
+                    <img class="movie-poster" src="${album.poster}" alt="${album.title}">
+                    <div class="movie-info">
+                        <div class="movie-title">${album.title}</div>
+                        <div style="color: var(--neon-blue); font-size: 14px; font-weight: bold;">${album.artist}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterAlbums() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = localAlbums.filter(album => album.title.toLowerCase().includes(query) || album.artist.toLowerCase().includes(query));
+            renderHub(filtered);
+        }
+
+        function searchGlobalAlbums() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert("Please type a search term!");
+                return;
+            }
+
+            const grid = document.getElementById('movieGrid');
+            grid.innerHTML = '<div style="color: var(--neon-green); grid-column: 1/-1; font-size: 20px; font-weight: bold;">Searching world database... 🌍🚀</div>';
+
+            fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&lang=en_us&limit=50`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        const englishResults = data.results.filter(album => {
+                            const textToCheck = (album.collectionName + " " + album.artistName);
+                            return !/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g.test(textToCheck);
+                        });
+
+                        if (englishResults.length > 0) {
+                            grid.innerHTML = englishResults.map((album) => {
+                                const poster = album.artworkUrl100 ? album.artworkUrl100.replace('100x100bb', '600x600bb') : '';
+                                const title = album.collectionName;
+                                const artist = album.artistName;
+                                const collectionId = album.collectionId;
+
+                                return `
+                                    <div class="movie-card" onclick="fetchGlobalAlbumTracks(${collectionId}, '${title.replace(/'/g, "\\'")}', '${artist.replace(/'/g, "\\'")}', '${poster}')">
+                                        <img class="movie-poster" src="${poster}" alt="${title}">
+                                        <div class="movie-info">
+                                            <div class="movie-title">${title}</div>
+                                            <div style="color: var(--neon-blue); font-size: 14px; font-weight: bold;">${artist}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                        } else {
+                            grid.innerHTML = '<div style="color: var(--text-secondary); grid-column: 1/-1;">No results found.</div>';
+                        }
+                    } else {
+                        grid.innerHTML = '<div style="color: var(--text-secondary); grid-column: 1/-1;">No results found.</div>';
+                    }
+                });
+        }
+
+        function fetchGlobalAlbumTracks(collectionId, albumTitle, artistName, posterUrl) {
+            document.getElementById('detailPoster').src = posterUrl;
+            document.getElementById('detailTitle').textContent = albumTitle;
+            document.getElementById('detailArtist').textContent = artistName;
+            currentAlbumTitle = albumTitle;
+            
+            document.getElementById('nowPlayingText').textContent = "Loading tracklist... ✨";
+            const songList = document.getElementById('songList');
+            songList.innerHTML = '<div style="color: var(--text-secondary);">Loading tracks... 🎧</div>';
+
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('detailView').classList.add('active');
+            window.scrollTo(0,0);
+
+            fetch(`https://itunes.apple.com/lookup?id=${collectionId}&entity=song&lang=en_us`)
+                .then(res => res.json())
+                .then(data => {
+                    let tracks = data.results.filter(item => item.wrapperType === 'track');
+                    tracks = tracks.filter(track => !/[\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af]/g.test(track.trackName));
+
+                    if (tracks.length > 0) {
+                        songList.innerHTML = tracks.map((track, index) => `
+                            <div class="song-item" id="song-${index}" onclick="playFullTrack(${track.trackId}, '${track.trackName.replace(/'/g, "\\'")}', ${index})">
+                                <span>🎵 ${track.trackName}</span>
+                                <span class="song-action">Play ▶</span>
+                            </div>
+                        `).join('');
+                        document.getElementById('nowPlayingText').textContent = "Select a track to play! 🌟";
+                    }
+                });
+        }
+
+        function openLocalAlbum(id) {
+            const album = localAlbums.find(a => a.id === id);
+            currentAlbumTitle = album.title;
+            
+            document.getElementById('detailPoster').src = album.poster;
+            document.getElementById('detailTitle').textContent = album.title;
+            document.getElementById('detailArtist').textContent = album.artist;
+            
+            document.getElementById('nowPlayingText').textContent = "Select a track to play! 🎶";
+            document.getElementById('fullAudioPlayer').src = "";
+
+            const songList = document.getElementById('songList');
+            songList.innerHTML = album.songs.map((songTitle, index) => `
+                <div class="song-item" id="song-${index}" onclick="searchAndPlayFullForAlbum('${songTitle.replace(/'/g, "\\'")}', '${album.title.replace(/'/g, "\\'")}', ${index})">
+                    <span>🎵 ${songTitle}</span>
+                    <span class="song-action">Play ▶</span>
+                </div>
+            `).join('');
+
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('detailView').classList.add('active');
+            window.scrollTo(0,0);
+        }
+
+        function searchAndPlayFullForAlbum(songTitle, albumTitle, index) {
+            document.querySelectorAll('.song-item').forEach(el => el.classList.remove('active-song'));
+            document.getElementById(`song-${index}`).classList.add('active-song');
+
+            document.getElementById('nowPlayingText').textContent = `Loading: ${songTitle}... ⏳`;
+
+            fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(songTitle + " " + albumTitle)}&entity=song&limit=1`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.results && data.results.length > 0) {
+                        playFullTrack(data.results[0].trackId, songTitle, index);
+                    } else {
+                        document.getElementById('nowPlayingText').textContent = `Song not found: ${songTitle} ❌`;
+                    }
+                });
+        }
+
+        function playFullTrack(trackId, title, index) {
+            document.querySelectorAll('.song-item').forEach(el => el.classList.remove('active-song'));
+            const el = document.getElementById(`song-${index}`);
+            if(el) el.classList.add('active-song');
+
+            const iframe = document.getElementById('fullAudioPlayer');
+            iframe.src = `https://embed.music.apple.com/us/song/${trackId}?autoplay=true`;
+            
+            document.getElementById('nowPlayingText').textContent = `Now Playing: ${title} 🎶✨`;
+        }
+
+        function showHub() {
+            document.getElementById('fullAudioPlayer').src = ""; 
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('hubView').classList.add('active');
+            window.scrollTo(0,0);
+        }
+    </script>
+</body>
+</html>

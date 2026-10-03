@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML5 Canvas AI Video Studio</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #0e0e11; 
+            color: #ececf1; 
+        }
+        .app-layout { 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        
+        /* Control Panel Sidebar */
+        .sidebar { 
+            width: 360px; 
+            background: #17171e; 
+            border-right: 1px solid #2a2a36; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            overflow-y: auto;
+        }
+        h1 { 
+            font-size: 1.1rem; 
+            margin: 0 0 10px 0; 
+            color: #6366f1; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+        }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.85rem; color: #a1a1aa; font-weight: 500; }
+        
+        input[type="password"], textarea, select { 
+            width: 100%; 
+            padding: 10px; 
+            border-radius: 6px; 
+            border: 1px solid #2a2a36; 
+            background: #0e0e11; 
+            color: #fff; 
+            font-size: 0.85rem; 
+        }
+        textarea { height: 90px; resize: none; }
+        input[type="password"]:focus, textarea:focus, select:focus { 
+            border-color: #6366f1; 
+            outline: none; 
+        }
+        
+        .btn-primary { 
+            padding: 12px; 
+            background: #6366f1; 
+            border: none; 
+            border-radius: 6px; 
+            color: white; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: background 0.2s; 
+        }
+        .btn-primary:hover { background: #4f46e5; }
+        .btn-primary:disabled { background: #3730a3; opacity: 0.6; cursor: not-allowed; }
+
+        /* Canvas Workspace Area */
+        .main-workspace { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            background: #08080a; 
+            position: relative; 
+            padding: 20px; 
+        }
+        
+        .canvas-container { 
+            position: relative; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6); 
+            border-radius: 8px; 
+            overflow: hidden; 
+            border: 1px solid #2a2a36; 
+        }
+        canvas { display: block; background: #000; }
+        
+        /* Canvas Floating Overlay Controls */
+        .canvas-controls { 
+            position: absolute; 
+            bottom: 12px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: rgba(14, 14, 17, 0.85); 
+            backdrop-filter: blur(8px); 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            display: flex; 
+            gap: 12px; 
+            align-items: center; 
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
+        .btn-icon { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 0.9rem; }
+        
+        .status-badge { 
+            font-size: 0.8rem; 
+            padding: 8px 10px; 
+            border-radius: 4px; 
+            background: #1e1e2d; 
+            color: #818cf8; 
+            text-align: center; 
+            word-break: break-word;
+        }
+
+        #sourceVideo { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- Sidebar Control Panel -->
+    <div class="sidebar">
+        <h1>Canvas Video AI</h1>
+
+        <div class="form-group">
+            <label for="apiKey">Gemini API Key</label>
+            <input type="password" id="apiKey" placeholder="AIzaSy..." />
+        </div>
+        
+        <div class="form-group">
+            <label for="engine">Model Engine</label>
+            <select id="engine">
+                <option value="omni">Gemini Omni Flash (Default & Conversational)</option>
+                <option value="veo">Veo 3.1 (Specialized Extensions)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="prompt">Prompt / Edit Instruction</label>
+            <textarea id="prompt" placeholder="e.g. A robotic astronaut exploring a glowing neon jungle on an alien planet..."></textarea>
+        </div>
+
+        <button id="renderBtn" class="btn-primary" onclick="requestGeneration()">Render to Canvas</button>
+
+        <div id="status" class="status-badge">Ready for prompt</div>
+    </div>
+
+    <!-- HTML5 Canvas Workspace -->
+    <div class="main-workspace">
+        <div class="canvas-container">
+            <canvas id="videoCanvas" width="854" height="480"></canvas>
+            
+            <div class="canvas-controls">
+                <button class="btn-icon" onclick="togglePlayPause()" id="playBtn">▶ Play</button>
+                <span id="timeDisplay" style="font-size: 0.8rem; font-family: monospace;">00:00 / 00:00</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<video id="sourceVideo" crossorigin="anonymous" playsinline loop></video>
+
+<script>
+const canvas = document.getElementById('videoCanvas');
+const ctx = canvas.getContext('2d');
+const video = document.getElementById('sourceVideo');
+
+let currentInteractionId = null;
+
+// Draw Initial Placeholder on Canvas
+function drawCanvasPlaceholder(text = "Enter API key & prompt to render video onto canvas") {
+    ctx.fillStyle = "#0e0e11";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = "#52525b";
+    ctx.font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+}
+
+drawCanvasPlaceholder();
+
+// Frame Animation Loop for Canvas
+function renderCanvasFrame() {
+    if (!video.paused && !video.ended) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        updateTimeline();
+        requestAnimationFrame(renderCanvasFrame);
+    }
+}
+
+function togglePlayPause() {
+    if (!video.src) return;
+    if (video.paused) {
+        video.play();
+        document.getElementById('playBtn').innerText = '⏸ Pause';
+        requestAnimationFrame(renderCanvasFrame);
+    } else {
+        video.pause();
+        document.getElementById('playBtn').innerText = '▶ Play';
+    }
+}
+
+function updateTimeline() {
+    const cur = formatTime(video.currentTime);
+    const dur = formatTime(video.duration || 0);
+    document.getElementById('timeDisplay').innerText = `${cur} / ${dur}`;
+}
+
+function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+}
+
+// Client-Side Direct API Call
+async function requestGeneration() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const prompt = document.getElementById('prompt').value.trim();
+    const engine = document.getElementById('engine').value;
+    const statusDiv = document.getElementById('status');
+    const renderBtn = document.getElementById('renderBtn');
+
+    if (!apiKey) {
+        alert('Please enter your Gemini API key.');
+        return;
+    }
+    if (!prompt) {
+        alert('Please enter a prompt.');
+        return;
+    }
+
+    renderBtn.disabled = true;
+    statusDiv.innerText = "Rendering frames via Gemini API...";
+    drawCanvasPlaceholder("Rendering scene to video canvas...");
+
+    let endpoint = '';
+    let payload = {};
+
+    if (engine === 'veo') {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/models/veo-3.1:generateContent?key=${apiKey}`;
+        payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+    } else {
+        endpoint = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${apiKey}`;
+        payload = {
+            model: 'gemini-omni-flash-preview',
+            input: prompt
+        };
+        if (currentInteractionId) {
+            payload.previous_interaction_id = currentInteractionId;
+        }
+    }
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error?.message || 'API Request failed');
+        }
+
+        let base64Video = '';
+        if (engine === 'veo') {
+            base64Video = result.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || '';
+        } else {
+            base64Video = result.output_video?.data || '';
+            if (result.id) {
+                currentInteractionId = result.id;
+            }
+        }
+
+        if (base64Video) {
+            statusDiv.innerText = "Render Complete";
+            video.src = 'data:video/mp4;base64,' + base64Video;
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                document.getElementById('playBtn').innerText = '⏸ Pause';
+                requestAnimationFrame(renderCanvasFrame);
+            };
+        } else {
+            throw new Error('No video frame data returned from endpoint.');
+        }
+
+    } catch (err) {
+        statusDiv.innerText = "Error: " + err.message;
+        drawCanvasPlaceholder("Generation failed: " + err.message);
+        console.error(err);
+    } finally {
+        renderBtn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>

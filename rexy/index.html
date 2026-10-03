@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rexy — Escape the Hunters</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a0a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    color: #e8d5a3;
+    overflow: hidden;
+  }
+  h1 {
+    font-size: 2rem;
+    letter-spacing: 0.15em;
+    color: #f5c842;
+    text-shadow: 0 0 20px #f5c84255;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+  }
+  #subtitle {
+    font-size: 0.75rem;
+    color: #a08060;
+    letter-spacing: 0.2em;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+  }
+  #hud {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+  }
+  #hud span { color: #f5c842; }
+  canvas {
+    border: 2px solid #3a2060;
+    border-radius: 4px;
+    display: block;
+    image-rendering: pixelated;
+  }
+  #controls {
+    margin-top: 0.6rem;
+    font-size: 0.7rem;
+    color: #706050;
+    letter-spacing: 0.1em;
+  }
+  #overlay {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    background: rgba(10,4,20,0.88);
+    border: 2px solid #3a2060;
+    border-radius: 8px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+  }
+  #overlay h2 { font-size: 1.8rem; color: #f5c842; letter-spacing: 0.1em; }
+  #overlay p { font-size: 0.9rem; color: #a08060; max-width: 280px; line-height: 1.6; }
+  #overlay button {
+    margin-top: 0.5rem;
+    background: #f5c842;
+    color: #1a0a2e;
+    border: none;
+    padding: 0.6rem 2rem;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  #overlay button:hover { background: #ffe066; }
+  #lives-display { display: flex; gap: 6px; align-items: center; }
+  .heart { color: #e24b4a; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<h1>🦕 Rexy</h1>
+<div id="subtitle">Escape the Hunters</div>
+
+<div id="hud">
+  <div>Level: <span id="hud-level">1</span></div>
+  <div id="lives-display"></div>
+  <div>Score: <span id="hud-score">0</span></div>
+</div>
+
+<canvas id="game" width="800" height="360"></canvas>
+
+<div id="controls">← → arrow keys to move &nbsp;|&nbsp; ↑ or Space to jump &nbsp;|&nbsp; ↓ to duck</div>
+
+<div id="overlay">
+  <h2>🦕 Rexy</h2>
+  <p>You're a T-Rex on the run! Dodge dinosaur hunters and reach the flag at the end of each level.</p>
+  <p style="font-size:0.78rem; color:#706050;">Arrow keys to move &nbsp;·&nbsp; ↑ / Space to jump &nbsp;·&nbsp; ↓ to duck</p>
+  <button id="start-btn">Start Game</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('start-btn');
+const hudLevel = document.getElementById('hud-level');
+const hudScore = document.getElementById('hud-score');
+const livesDisplay = document.getElementById('lives-display');
+
+const W = canvas.width, H = canvas.height;
+const GROUND = H - 60;
+const TILE = 40;
+
+// ── Palette ──────────────────────────────────────────────
+const PAL = {
+  sky: ['#1a0a2e','#2a1548','#3a1f60'],
+  ground: '#2d1b00',
+  groundTop: '#4a3010',
+  grass: '#2d6e1a',
+  platform: '#5c3a1a',
+  platformTop: '#7a5028',
+  rexy: '#5dca82',
+  rexyDark: '#1d8050',
+  rexyEye: '#fff',
+  hunter: '#d85a30',
+  hunterDark: '#712b13',
+  flag: '#f5c842',
+  flagPole: '#888',
+  coin: '#f5c842',
+  rock: '#888780',
+  rockDark: '#5f5e5a',
+  net: '#b4a060',
+  star: '#f5c842',
+  text: '#e8d5a3',
+  danger: '#e24b4a',
+};
+
+// ── State ─────────────────────────────────────────────────
+let keys = {};
+let state = 'title'; // title | playing | dead | levelclear | gameover | win
+let level = 1;
+let score = 0;
+let lives = 3;
+let frameCount = 0;
+let animTick = 0;
+
+// ── Player ───────────────────────────────────────────────
+const PLAYER_W = 36, PLAYER_H = 48;
+let player = {};
+
+function resetPlayer() {
+  player = {
+    x: 80, y: GROUND - PLAYER_H,
+    vx: 0, vy: 0,
+    onGround: false,
+    ducking: false,
+    facing: 1,
+    walkFrame: 0,
+    walkTick: 0,
+    invincible: 0,
+  };
+}
+
+// ── Camera ───────────────────────────────────────────────
+let camX = 0;
+
+// ── Level data ────────────────────────────────────────────
+let platforms = [], hunters = [], coins = [], flagX = 0, levelW = 0;
+
+const LEVEL_CONFIGS = [
+  { // Level 1 — gentle intro
+    width: 3200,
+    platforms: [
+      {x:400,y:GROUND-80,w:120},{x:600,y:GROUND-120,w:100},
+      {x:900,y:GROUND-80,w:140},{x:1100,y:GROUND-140,w:100},
+      {x:1400,y:GROUND-80,w:120},{x:1700,y:GROUND-100,w:140},
+      {x:2000,y:GROUND-80,w:120},{x:2300,y:GROUND-140,w:100},
+    ],
+    hunters: [
+      {x:700,patrol:[620,820],speed:1.2,type:'net'},
+      {x:1200,patrol:[1100,1350],speed:1.4,type:'net'},
+      {x:1900,patrol:[1800,2080],speed:1.6,type:'net'},
+      {x:2500,patrol:[2400,2650],speed:1.8,type:'net'},
+    ],
+    coins: [420,440,460, 920,940,960, 1420,1440, 2020,2040,2060],
+  },
+  { // Level 2 — more hunters, faster
+    width: 3800,
+    platforms: [
+      {x:300,y:GROUND-100,w:120},{x:500,y:GROUND-160,w:80},
+      {x:750,y:GROUND-100,w:140},{x:1000,y:GROUND-180,w:80},
+      {x:1250,y:GROUND-100,w:120},{x:1500,y:GROUND-160,w:100},
+      {x:1750,y:GROUND-100,w:120},{x:2100,y:GROUND-160,w:100},
+      {x:2400,y:GROUND-100,w:140},{x:2700,y:GROUND-180,w:80},
+      {x:3000,y:GROUND-100,w:120},
+    ],
+    hunters: [
+      {x:400,patrol:[320,560],speed:1.6,type:'net'},
+      {x:850,patrol:[750,1020],speed:1.8,type:'net'},
+      {x:1350,patrol:[1250,1560],speed:2.0,type:'net'},
+      {x:1900,patrol:[1800,2060],speed:2.0,type:'net'},
+      {x:2600,patrol:[2500,2780],speed:2.2,type:'net'},
+      {x:3100,patrol:[3000,3300],speed:2.4,type:'net'},
+    ],
+    coins: [310,330,350, 760,780,800, 1260,1280, 1760,1780,1800, 2410,2430, 3010,3030,3050],
+  },
+  { // Level 3 — gauntlet
+    width: 4400,
+    platforms: [
+      {x:200,y:GROUND-120,w:80},{x:400,y:GROUND-180,w:80},
+      {x:650,y:GROUND-120,w:100},{x:900,y:GROUND-200,w:80},
+      {x:1150,y:GROUND-120,w:100},{x:1400,y:GROUND-180,w:80},
+      {x:1700,y:GROUND-120,w:120},{x:2000,y:GROUND-200,w:80},
+      {x:2300,y:GROUND-120,w:100},{x:2600,y:GROUND-180,w:80},
+      {x:2900,y:GROUND-120,w:140},{x:3200,y:GROUND-200,w:80},
+      {x:3500,y:GROUND-120,w:120},
+    ],
+    hunters: [
+      {x:350,patrol:[280,500],speed:2.0,type:'net'},
+      {x:700,patrol:[600,950],speed:2.2,type:'net'},
+      {x:1050,patrol:[960,1250],speed:2.0,type:'net'},
+      {x:1550,patrol:[1450,1780],speed:2.4,type:'net'},
+      {x:1900,patrol:[1820,2050],speed:2.2,type:'net'},
+      {x:2350,patrol:[2250,2680],speed:2.6,type:'net'},
+      {x:2700,patrol:[2640,2980],speed:2.4,type:'net'},
+      {x:3050,patrol:[2960,3300],speed:2.8,type:'net'},
+      {x:3600,patrol:[3520,3900],speed:3.0,type:'net'},
+    ],
+    coins: [210,230, 660,680,700, 1160,1180, 1710,1730,1750, 2310,2330, 2910,2930,2950, 3510,3530,3550],
+  },
+];
+
+function buildLevel(lvl) {
+  const cfg = LEVEL_CONFIGS[lvl - 1];
+  levelW = cfg.width;
+  flagX = levelW - 120;
+
+  platforms = cfg.platforms.map(p => ({...p, h: 16}));
+
+  hunters = cfg.hunters.map(h => ({
+    x: h.x, y: GROUND - 44,
+    w: 32, h: 44,
+    patrol: h.patrol,
+    speed: h.speed,
+    dir: 1,
+    type: h.type,
+    walkFrame: 0,
+    walkTick: 0,
+  }));
+
+  coins = cfg.coins.map(cx => ({
+    x: cx, y: GROUND - 24,
+    collected: false,
+    bob: Math.random() * Math.PI * 2,
+  }));
+
+  camX = 0;
+}
+
+// ── Input ─────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// ── Physics constants ─────────────────────────────────────
+const GRAVITY = 0.55;
+const JUMP = -12.5;
+const SPEED = 3.8;
+const MAX_VY = 16;
+
+// ── Collision helpers ─────────────────────────────────────
+function rectOverlap(ax,ay,aw,ah,bx,by,bw,bh) {
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+
+// ── Update ────────────────────────────────────────────────
+function update() {
+  if (state !== 'playing') return;
+  frameCount++;
+  animTick++;
+
+  // Player input
+  const ph = player.ducking ? PLAYER_H * 0.6 : PLAYER_H;
+  const py_offset = player.ducking ? PLAYER_H - ph : 0;
+
+  player.ducking = !!(keys['ArrowDown'] || keys['KeyS']);
+
+  const spd = SPEED;
+  if (keys['ArrowLeft'] || keys['KeyA']) {
+    player.vx = -spd;
+    player.facing = -1;
+  } else if (keys['ArrowRight'] || keys['KeyD']) {
+    player.vx = spd;
+    player.facing = 1;
+  } else {
+    player.vx *= 0.8;
+  }
+
+  if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && player.onGround) {
+    player.vy = JUMP;
+    player.onGround = false;
+  }
+
+  player.vy = Math.min(player.vy + GRAVITY, MAX_VY);
+
+  player.x += player.vx;
+  player.y += player.vy;
+
+  // Clamp left edge
+  if (player.x < 0) player.x = 0;
+  // Don't let player scroll right beyond camera view edge by huge amount
+  if (player.x > levelW - PLAYER_W) player.x = levelW - PLAYER_W;
+
+  // Ground collision
+  player.onGround = false;
+  const px = player.x, py = player.y + py_offset;
+
+  if (py + ph >= GROUND) {
+    player.y = GROUND - ph - py_offset;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // Platform collision
+  for (const pl of platforms) {
+    if (rectOverlap(px, py, PLAYER_W, ph, pl.x, pl.y, pl.w, pl.h)) {
+      // Land on top
+      if (player.vy >= 0 && py + ph - player.vy <= pl.y + 4) {
+        player.y = pl.y - ph - py_offset;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+  }
+
+  // Walk animation
+  if (Math.abs(player.vx) > 0.5 && player.onGround) {
+    player.walkTick++;
+    if (player.walkTick > 8) { player.walkFrame = (player.walkFrame+1)%4; player.walkTick=0; }
+  }
+
+  // Invincibility countdown
+  if (player.invincible > 0) player.invincible--;
+
+  // Hunters update
+  for (const h of hunters) {
+    h.walkTick++;
+    if (h.walkTick > 10) { h.walkFrame = (h.walkFrame+1)%4; h.walkTick=0; }
+    h.x += h.speed * h.dir;
+    if (h.x <= h.patrol[0]) { h.x = h.patrol[0]; h.dir = 1; }
+    if (h.x >= h.patrol[1]) { h.x = h.patrol[1]; h.dir = -1; }
+
+    // Hit player
+    if (player.invincible === 0) {
+      const ppx = player.x, ppy = player.y + py_offset;
+      if (rectOverlap(ppx+4,ppy+4,PLAYER_W-8,ph-8, h.x,h.y,h.w,h.h)) {
+        lives--;
+        player.invincible = 120;
+        if (lives <= 0) { state = 'gameover'; showOverlay('gameover'); }
+        else { showOverlay('dead'); state = 'dead'; }
+      }
+    }
+  }
+
+  // Coins
+  for (const c of coins) {
+    if (!c.collected) {
+      c.bob += 0.08;
+      const ppx = player.x, ppy = player.y + py_offset;
+      if (rectOverlap(ppx, ppy, PLAYER_W, ph, c.x-10, c.y-10+Math.sin(c.bob)*4, 20, 20)) {
+        c.collected = true;
+        score += 10;
+      }
+    }
+  }
+
+  // Reach flag
+  if (player.x + PLAYER_W > flagX && player.x < flagX + 20) {
+    score += level * 100;
+    if (level >= LEVEL_CONFIGS.length) {
+      state = 'win'; showOverlay('win');
+    } else {
+      state = 'levelclear'; showOverlay('levelclear');
+    }
+  }
+
+  // Camera
+  const targetCamX = player.x - W * 0.35;
+  camX += (targetCamX - camX) * 0.12;
+  camX = Math.max(0, Math.min(camX, levelW - W));
+
+  // HUD
+  hudScore.textContent = score;
+  hudLevel.textContent = level;
+  updateLivesHUD();
+}
+
+function updateLivesHUD() {
+  livesDisplay.innerHTML = '';
+  for (let i=0;i<3;i++) {
+    const s = document.createElement('span');
+    s.className = 'heart';
+    s.textContent = i < lives ? '♥' : '♡';
+    livesDisplay.appendChild(s);
+  }
+}
+
+// ── Draw helpers ──────────────────────────────────────────
+function drawRexy(x, y, facing, ducking, walkFrame, invincible) {
+  const blink = invincible > 0 && Math.floor(invincible/6)%2===0;
+  if (blink) { ctx.globalAlpha = 0.4; }
+
+  const h = ducking ? PLAYER_H*0.6 : PLAYER_H;
+  const bodyY = ducking ? y + PLAYER_H*0.4 : y;
+  ctx.save();
+  ctx.translate(x + PLAYER_W/2, bodyY + h/2);
+  if (facing < 0) ctx.scale(-1,1);
+
+  // Body
+  ctx.fillStyle = PAL.rexy;
+  ctx.beginPath();
+  ctx.roundRect(-14, -h/2, 28, ducking ? h*0.7 : h*0.8, 8);
+  ctx.fill();
+
+  // Belly
+  ctx.fillStyle = '#a8e8b8';
+  ctx.beginPath();
+  ctx.ellipse(2, ducking ? 0 : 4, 9, ducking ? h*0.25 : h*0.3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  if (!ducking) {
+    // Head
+    ctx.fillStyle = PAL.rexy;
+    ctx.beginPath();
+    ctx.roundRect(8, -h/2-18, 22, 20, 5);
+    ctx.fill();
+
+    // Snout / jaw
+    ctx.fillStyle = PAL.rexyDark;
+    ctx.beginPath();
+    ctx.roundRect(14, -h/2-10, 18, 10, 3);
+    ctx.fill();
+
+    // Eye
+    ctx.fillStyle = PAL.rexyEye;
+    ctx.beginPath();
+    ctx.arc(22, -h/2-12, 3.5, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(23, -h/2-12, 1.5, 0, Math.PI*2);
+    ctx.fill();
+
+    // Tiny arms
+    ctx.fillStyle = PAL.rexy;
+    ctx.fillRect(10, -h/2+8, 8, 5);
+  }
+
+  // Tail
+  ctx.fillStyle = PAL.rexy;
+  ctx.beginPath();
+  ctx.moveTo(-14, ducking ? 0 : h*0.1);
+  ctx.lineTo(-28, ducking ? h*0.2 : h*0.3);
+  ctx.lineTo(-14, ducking ? h*0.4 : h*0.5);
+  ctx.fill();
+
+  // Legs (animated)
+  const legSwing = Math.sin(walkFrame/4 * Math.PI * 2) * 8;
+  ctx.fillStyle = PAL.rexyDark;
+  // Left leg
+  ctx.save();
+  ctx.translate(-4, h*0.35);
+  ctx.rotate((legSwing * Math.PI)/180);
+  ctx.fillRect(-4, 0, 8, ducking ? 10 : 16);
+  ctx.restore();
+  // Right leg
+  ctx.save();
+  ctx.translate(6, h*0.35);
+  ctx.rotate((-legSwing * Math.PI)/180);
+  ctx.fillRect(-4, 0, 8, ducking ? 10 : 16);
+  ctx.restore();
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawHunter(h) {
+  ctx.save();
+  ctx.translate(h.x + h.w/2, h.y + h.h/2);
+  if (h.dir < 0) ctx.scale(-1,1);
+
+  // Body
+  ctx.fillStyle = PAL.hunter;
+  ctx.fillRect(-12, -h.h/2+8, 24, h.h*0.55);
+
+  // Hat
+  ctx.fillStyle = PAL.hunterDark;
+  ctx.fillRect(-11, -h.h/2, 22, 10);
+  ctx.fillRect(-14, -h.h/2+10, 28, 4);
+
+  // Head
+  ctx.fillStyle = '#e8c090';
+  ctx.beginPath();
+  ctx.arc(0, -h.h/2+20, 10, 0, Math.PI*2);
+  ctx.fill();
+
+  // Eye
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(4, -h.h/2+18, 2, 0, Math.PI*2);
+  ctx.fill();
+
+  // Net / weapon
+  ctx.strokeStyle = PAL.net;
+  ctx.lineWidth = 1.5;
+  const netSwing = Math.sin(h.walkFrame/4 * Math.PI*2) * 20;
+  ctx.save();
+  ctx.translate(14, -h.h/2+24);
+  ctx.rotate((netSwing * Math.PI)/180);
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(0,22);
+  ctx.stroke();
+  ctx.strokeRect(-8, 20, 16, 10);
+  ctx.restore();
+
+  // Legs
+  const ls = Math.sin(h.walkFrame/4 * Math.PI*2) * 10;
+  ctx.fillStyle = '#3a2010';
+  ctx.save(); ctx.translate(-5, h.h*0.1); ctx.rotate((ls*Math.PI)/180);
+  ctx.fillRect(-4,0,8,14); ctx.restore();
+  ctx.save(); ctx.translate(5, h.h*0.1); ctx.rotate((-ls*Math.PI)/180);
+  ctx.fillRect(-4,0,8,14); ctx.restore();
+
+  ctx.restore();
+}
+
+function drawCoin(c) {
+  if (c.collected) return;
+  const bob = Math.sin(c.bob) * 4;
+  ctx.save();
+  ctx.translate(c.x, c.y + bob);
+  ctx.fillStyle = PAL.coin;
+  ctx.strokeStyle = '#c49a00';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 9, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#c49a00';
+  ctx.font = 'bold 10px Courier New';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$', 0, 1);
+  ctx.restore();
+}
+
+function drawBackground() {
+  // Sky gradient layers
+  const cx = camX;
+  // Far bg stars
+  ctx.fillStyle = PAL.sky[0];
+  ctx.fillRect(0,0,W,H);
+
+  // Parallax stars
+  ctx.fillStyle = '#ffffff22';
+  for (let i=0;i<60;i++) {
+    const sx = ((i*137+50) % (levelW*0.2)) - cx*0.05;
+    const sy = ((i*89) % (GROUND*0.7));
+    const ss = (i%3===0)?2:1;
+    ctx.fillRect(((sx%W)+W)%W, sy, ss, ss);
+  }
+
+  // Distant mountains
+  ctx.fillStyle = '#2a1060';
+  for (let i=0;i<8;i++) {
+    const mx = ((i*400) - cx*0.15 + levelW) % (levelW+400) - 200;
+    const mh = 80 + (i*37%60);
+    ctx.beginPath();
+    ctx.moveTo(mx,GROUND);
+    ctx.lineTo(mx+120,GROUND-mh);
+    ctx.lineTo(mx+240,GROUND);
+    ctx.fill();
+  }
+
+  // Mid-bg silhouette trees
+  ctx.fillStyle = '#1a0840';
+  for (let i=0;i<16;i++) {
+    const tx = ((i*220+80) - cx*0.3 + levelW*2) % (levelW+220) - 110;
+    ctx.beginPath();
+    ctx.moveTo(tx,GROUND);
+    ctx.lineTo(tx+10,GROUND-70);
+    ctx.lineTo(tx+30,GROUND-50);
+    ctx.lineTo(tx+20,GROUND-80);
+    ctx.lineTo(tx+40,GROUND-60);
+    ctx.lineTo(tx+50,GROUND);
+    ctx.fill();
+  }
+}
+
+function drawGround() {
+  // Ground fill
+  ctx.fillStyle = PAL.ground;
+  ctx.fillRect(-camX, GROUND, levelW, H - GROUND);
+
+  // Ground top strip
+  ctx.fillStyle = PAL.groundTop;
+  ctx.fillRect(-camX, GROUND, levelW, 10);
+
+  // Grass bumps
+  ctx.fillStyle = PAL.grass;
+  for (let i=0;i<Math.ceil(levelW/40)+2;i++) {
+    const gx = i*40 - camX;
+    ctx.beginPath();
+    ctx.arc(gx, GROUND, 6, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // Ground texture lines
+  ctx.strokeStyle = '#3a2008';
+  ctx.lineWidth = 1;
+  for (let i=0;i<Math.ceil(levelW/80);i++) {
+    const lx = i*80 - camX;
+    ctx.beginPath();
+    ctx.moveTo(lx, GROUND+14);
+    ctx.lineTo(lx+40, GROUND+14);
+    ctx.stroke();
+  }
+}
+
+function drawPlatforms() {
+  for (const pl of platforms) {
+    const px = pl.x - camX;
+    // Platform body
+    ctx.fillStyle = PAL.platform;
+    ctx.fillRect(px, pl.y, pl.w, pl.h);
+    // Top
+    ctx.fillStyle = PAL.platformTop;
+    ctx.fillRect(px, pl.y, pl.w, 5);
+    // Grass on top
+    ctx.fillStyle = PAL.grass;
+    for (let i=0;i<Math.ceil(pl.w/20);i++) {
+      ctx.beginPath();
+      ctx.arc(px+i*20+10, pl.y, 4, Math.PI, 0);
+      ctx.fill();
+    }
+    // Underside detail
+    ctx.fillStyle = '#3a200a';
+    ctx.fillRect(px+4, pl.y+pl.h-4, pl.w-8, 4);
+  }
+}
+
+function drawFlag() {
+  const fx = flagX - camX;
+  // Pole
+  ctx.strokeStyle = PAL.flagPole;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(fx+10, GROUND);
+  ctx.lineTo(fx+10, GROUND-100);
+  ctx.stroke();
+  // Flag wave
+  const wave = Math.sin(animTick*0.08)*6;
+  ctx.fillStyle = PAL.flag;
+  ctx.beginPath();
+  ctx.moveTo(fx+10, GROUND-100);
+  ctx.lineTo(fx+40+wave, GROUND-85);
+  ctx.lineTo(fx+10, GROUND-70);
+  ctx.fill();
+  // Base
+  ctx.fillStyle = PAL.flagPole;
+  ctx.fillRect(fx+4, GROUND-4, 14, 8);
+}
+
+function drawHUD() {
+  // Score popup area (drawn on canvas)
+}
+
+// ── Main draw ─────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0,0,W,H);
+
+  drawBackground();
+
+  ctx.save();
+  ctx.translate(-camX, 0);
+
+  drawGround();
+  drawPlatforms();
+  drawFlag();
+
+  for (const c of coins) drawCoin(c);
+  for (const h of hunters) drawHunter(h);
+
+  const ph = player.ducking ? PLAYER_H*0.6 : PLAYER_H;
+  const py_offset = player.ducking ? PLAYER_H*0.4 : 0;
+  drawRexy(player.x, player.y + py_offset, player.facing, player.ducking, player.walkFrame, player.invincible);
+
+  ctx.restore();
+
+  // Distance progress bar
+  const progress = Math.min(player.x / (flagX - 100), 1);
+  ctx.fillStyle = '#2a1548';
+  ctx.fillRect(20, H-18, W-40, 8);
+  ctx.fillStyle = PAL.flag;
+  ctx.fillRect(20, H-18, (W-40)*progress, 8);
+  ctx.strokeStyle = '#3a2060';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(20, H-18, W-40, 8);
+  // Flag icon at end
+  ctx.fillStyle = PAL.flag;
+  ctx.font = '10px Courier New';
+  ctx.fillText('🚩', W-26, H-11);
+}
+
+// ── Overlay management ────────────────────────────────────
+function showOverlay(type) {
+  overlay.style.display = 'flex';
+  const h2 = overlay.querySelector('h2');
+  const p1 = overlay.querySelector('p');
+  const btn = overlay.querySelector('button');
+  switch(type) {
+    case 'title':
+      h2.textContent = '🦕 Rexy';
+      p1.textContent = "You're a T-Rex on the run! Dodge dinosaur hunters and reach the flag at the end of each level.";
+      btn.textContent = 'Start Game';
+      btn.onclick = () => startGame();
+      break;
+    case 'dead':
+      h2.textContent = '😵 Caught!';
+      p1.textContent = `A hunter got you! You have ${lives} ${lives===1?'life':'lives'} remaining. Keep going!`;
+      btn.textContent = 'Try Again';
+      btn.onclick = () => respawn();
+      break;
+    case 'levelclear':
+      h2.textContent = '🎉 Level Clear!';
+      p1.textContent = `Great escape! Score: ${score}. The hunters are calling for backup...`;
+      btn.textContent = 'Next Level';
+      btn.onclick = () => nextLevel();
+      break;
+    case 'gameover':
+      h2.textContent = '☠️ Game Over';
+      p1.textContent = `The hunters got you. Final score: ${score}. Rexy will return...`;
+      btn.textContent = 'Play Again';
+      btn.onclick = () => restartGame();
+      break;
+    case 'win':
+      h2.textContent = '🏆 You Escaped!';
+      p1.textContent = `Rexy is free! You outran every hunter across all 3 levels. Final score: ${score}!`;
+      btn.textContent = 'Play Again';
+      btn.onclick = () => restartGame();
+      break;
+  }
+}
+
+function hideOverlay() { overlay.style.display = 'none'; }
+
+function startGame() {
+  lives = 3; score = 0; level = 1;
+  buildLevel(level);
+  resetPlayer();
+  updateLivesHUD();
+  hideOverlay();
+  state = 'playing';
+}
+
+function respawn() {
+  buildLevel(level);
+  resetPlayer();
+  hideOverlay();
+  state = 'playing';
+}
+
+function nextLevel() {
+  level++;
+  buildLevel(level);
+  resetPlayer();
+  hideOverlay();
+  state = 'playing';
+}
+
+function restartGame() {
+  lives = 3; score = 0; level = 1;
+  buildLevel(level);
+  resetPlayer();
+  updateLivesHUD();
+  hideOverlay();
+  state = 'playing';
+}
+
+// ── Game loop ─────────────────────────────────────────────
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Boot ──────────────────────────────────────────────────
+buildLevel(1);
+resetPlayer();
+updateLivesHUD();
+startBtn.onclick = () => startGame();
+loop();
+</script>
+</body>
+</html>

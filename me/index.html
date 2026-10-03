@@ -1,0 +1,135 @@
+import json
+import time
+import requests
+from openai import OpenAI
+
+# Initialize OpenAI Client (Ensure OPENAI_API_KEY is set in your environment variables)
+client = OpenAI()
+
+# Configuration
+D_ID_API_KEY = "YOUR_D_ID_API_KEY"  # Replace with your D-ID API key
+
+
+def analyze_story_and_create_script(
+    character_name, role, story_text, voice_gender="male"
+):
+    """Uses LLM to analyze the story and write a first-person interview script for the character."""
+    print(" Analyzing story and generating interview script...")
+
+    prompt = f"""
+    You are an actor who played the character '{character_name}', who is the {role} in the following story.
+    
+    STORY:
+    {story_text}
+    
+    TASK:
+    1. Provide a short visual description of what '{character_name}' looks like as a high-quality portrait (for AI image generation).
+    2. Write a short 2-3 sentence monologue as '{character_name}' reflecting on what they did in the story during an actor interview. Speak in the first person ("I").
+    
+    Output strictly as JSON with keys 'image_prompt' and 'interview_script'.
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+    )
+
+    data = json.loads(response.choices[0].message.content)
+    return data["image_prompt"], data["interview_script"]
+
+
+def generate_character_image(image_prompt, role):
+    """Generates a portrait image using DALL-E 3."""
+    print(" Generating character avatar image...")
+
+    full_prompt = f"A realistic front-facing centered portrait photo of a character, actor style interview setup, lighting cinematic, {role} archetype: {image_prompt}"
+
+    response = client.images.generate(
+        model="dall-e-3",
+        prompt=full_prompt,
+        size="1024x1024",
+        quality="standard",
+        n=1,
+    )
+
+    image_url = response.data[0].url
+    return image_url
+
+
+def create_talking_video(image_url, script_text):
+    """Uses D-ID API to generate a talking head video from the image and text script."""
+    print(" Submitting job to generate talking video...")
+
+    url = "https://api.d-id.com/talks"
+    headers = {
+        "Authorization": f"Basic {D_ID_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "script": {
+            "type": "text",
+            "subtitles": "false",
+            "provider": {
+                "type": "microsoft",
+                "voice_id": "en-US-GuyNeural",  # You can adjust voice models here
+            },
+            "input": script_text,
+        },
+        "config": {"fluent": "false", "pad_audio": "0.0"},
+        "source_url": image_url,
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    talk_data = response.json()
+
+    if "id" not in talk_data:
+        print("Error creating video job:", talk_data)
+        return None
+
+    talk_id = talk_data["id"]
+    print(f" Video job created ID: {talk_id}. Waiting for rendering...")
+
+    # Poll until video processing is complete
+    status_url = f"https://api.d-id.com/talks/{talk_id}"
+    while True:
+        status_response = requests.get(status_url, headers=headers).json()
+        status = status_response.get("status")
+
+        if status == "done":
+            return status_response.get("result_url")
+        elif status == "error":
+            print("Failed to generate video.")
+            return None
+
+        time.sleep(5)
+
+
+# ==========================================
+# RUNNING THE PIPELINE
+# ==========================================
+
+if __name__ == "__main__":
+    # 1. User Inputs
+    character_name = "Eldrin"
+    role = "Protagonist"  # Options: Protagonist / Antagonist
+    story = """
+    In the quiet village of Oakhaven, Eldrin discovered an ancient map hidden inside an old spellbook. 
+    Despite warnings from the town elders, he ventured into the Whispering Woods, faced the Shadow Beasts, 
+    and recovered the lost Crystal of Light, saving his village from perpetual darkness.
+    """
+
+    # 2. Extract Details & Script
+    img_prompt, interview_monologue = analyze_story_and_create_script(
+        character_name, role, story
+    )
+    print(f"\n[Interview Script Generated]:\n\"{interview_monologue}\"\n")
+
+    # 3. Generate Image
+    avatar_url = generate_character_image(img_prompt, role)
+    print(f"[Image URL]: {avatar_url}\n")
+
+    # 4. Generate Video (Requires valid D-ID API Key)
+    # video_url = create_talking_video(avatar_url, interview_monologue)
+    # print(f" Final Interview Video URL: {video_url}")

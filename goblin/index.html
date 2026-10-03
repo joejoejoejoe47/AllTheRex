@@ -1,0 +1,2077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Node & Secret Screen Builder</title>
+    <!-- Lucide Icons & Tailwind CSS -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Base Canvas and Layout Styles */
+        .grid-pattern {
+            background-size: 24px 24px;
+            background-image: radial-gradient(circle, #374151 1px, transparent 1px);
+        }
+        .node-card.selected {
+            border-color: #818cf8 !important;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Resize Handle Styles */
+        .resize-handle {
+            width: 12px;
+            height: 12px;
+            background: #818cf8;
+            border: 2px solid white;
+            position: absolute;
+            border-radius: 3px;
+            z-index: 40;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        }
+        .resize-handle:hover {
+            background: #a5b4fc;
+            transform: scale(1.15);
+        }
+        .rh-nw { top: -6px; left: -6px; cursor: nw-resize; }
+        .rh-ne { top: -6px; right: -6px; cursor: ne-resize; }
+        .rh-sw { bottom: -6px; left: -6px; cursor: sw-resize; }
+        .rh-se { bottom: -6px; right: -6px; cursor: se-resize; }
+        .rh-n  { top: -6px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+        .rh-s  { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+        .rh-w  { left: -6px; top: 50%; transform: translateY(-50%); cursor: w-resize; }
+        .rh-e  { right: -6px; top: 50%; transform: translateY(-50%); cursor: e-resize; }
+
+        /* Scrollbar Formatting */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+
+        /* Shared-link boot screen: prevents the dashboard from flashing
+           while we fetch the shared project from the server */
+        #sharedBootScreen {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            background: #030712;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        #sharedBootScreen .spinner {
+            width: 32px;
+            height: 32px;
+            border-radius: 9999px;
+            border: 3px solid rgba(99,102,241,0.25);
+            border-top-color: #818cf8;
+            animation: sharedBootSpin 0.8s linear infinite;
+        }
+        @keyframes sharedBootSpin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 h-screen flex flex-col font-sans overflow-hidden select-none">
+
+    <!-- SHARED-LINK BOOT SCREEN (shown instead of the dashboard while a shared app loads) -->
+    <div id="sharedBootScreen">
+        <div class="spinner"></div>
+        <p class="text-xs text-gray-500">Loading app…</p>
+    </div>
+
+    <!-- PROJECTS DASHBOARD HOME PAGE -->
+    <div id="projectsDashboard" class="fixed inset-0 bg-gray-950 z-40 flex flex-col p-8 overflow-y-auto">
+        <div class="max-w-6xl w-full mx-auto flex-1 flex flex-col">
+            <div class="flex items-center justify-between mb-8 pb-4 border-b border-gray-800">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-indigo-600 rounded-xl shadow-lg shadow-indigo-500/30">
+                        <i data-lucide="folder-kanban" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-black bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent">
+                            Tree App Projects
+                        </h1>
+                        <p class="text-xs text-gray-400">Select an existing project or create a new visual tree architecture</p>
+                    </div>
+                </div>
+                <button onclick="openCreateProjectModal()" class="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Create New Project
+                </button>
+            </div>
+
+            <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+    </div>
+
+    <!-- CREATE PROJECT MODAL -->
+    <div id="createProjectModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="folder-plus" class="w-5 h-5 text-indigo-400"></i> Create New Project
+                </h3>
+                <button onclick="closeCreateProjectModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-400 mb-1.5 block">Project Name</label>
+                <input type="text" id="newProjectNameInput" placeholder="My Awesome Tree App" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition select-text">
+            </div>
+            <div class="flex justify-end gap-2 mt-2">
+                <button onclick="closeCreateProjectModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold transition">Cancel</button>
+                <button onclick="createNewProject()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow transition">Create & Edit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARE APP MODAL -->
+    <div id="shareAppModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-purple-500/30 rounded-2xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-5 relative">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-800">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-purple-600/20 text-purple-400 rounded-xl border border-purple-500/30">
+                        <i data-lucide="share-2" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">App Saved & Ready to Share</h3>
+                        <p class="text-xs text-gray-400">Direct standalone link (opens full screen)</p>
+                    </div>
+                </div>
+                <button onclick="closeShareModal()" class="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="bg-gray-950 border border-gray-800 rounded-xl p-3.5 flex items-center justify-between">
+                <div>
+                    <span class="text-[10px] uppercase font-bold tracking-wider text-gray-500 block">Project ID</span>
+                    <span id="shareModalAppId" class="text-sm font-mono font-bold text-indigo-400">--</span>
+                </div>
+                <span class="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full font-medium">Saved to Server</span>
+            </div>
+
+            <div>
+                <label class="text-xs font-semibold text-gray-300 mb-1.5 block">Full Screen App Share Link</label>
+                <div class="flex gap-2">
+                    <input type="text" id="shareModalUrlInput" readonly class="flex-1 bg-gray-950 border border-gray-700 rounded-xl px-3.5 py-2.5 text-xs text-purple-200 font-mono outline-none focus:border-purple-500 transition select-all">
+                    <button id="copyShareBtn" onclick="copyShareUrlFromModal()" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/20 transition flex items-center gap-1.5">
+                        <i data-lucide="copy" class="w-4 h-4"></i> <span id="copyBtnText">Copy Link</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+                <a id="shareModalPreviewLink" href="#" target="_blank" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline">
+                    Test App in New Tab <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                </a>
+                <button onclick="closeShareModal()" class="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-xs font-semibold transition">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENHANCED NAV BAR CONFIG MODAL -->
+    <div id="navBarModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-indigo-500/30 rounded-2xl w-full max-w-xl p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-hidden">
+            <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="panel-top" class="w-5 h-5 text-indigo-400"></i> Nav Bar Settings
+                </h3>
+                <button onclick="closeNavBarModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="flex items-center justify-between bg-gray-950 p-3 rounded-xl border border-gray-800">
+                <span class="text-xs font-bold text-gray-200">Enable Canvas Nav Bar Box</span>
+                <input type="checkbox" id="navBarEnabledCheckbox" class="w-4 h-4 accent-indigo-600 rounded cursor-pointer">
+            </div>
+
+            <div>
+                <label class="text-xs font-semibold text-gray-300 mb-1 block">Title / Branding Text</label>
+                <input type="text" id="navBarTitleInput" placeholder="App Header Title" class="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-indigo-500 select-text">
+            </div>
+
+            <div class="flex justify-between items-center pt-2 border-t border-gray-800">
+                <h4 class="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                    <i data-lucide="sliders" class="w-4 h-4"></i> Custom Nav Links
+                </h4>
+                <button onclick="addNavBarCustomButton()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Nav Link
+                </button>
+            </div>
+
+            <div id="navButtonsAdminList" class="flex flex-col gap-3 overflow-y-auto pr-1 max-h-[300px]"></div>
+
+            <div class="flex justify-end gap-2 mt-2 pt-3 border-t border-gray-800">
+                <button onclick="closeNavBarModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold transition">Cancel</button>
+                <button onclick="saveNavBarConfig()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow transition">Save & Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TIV SELECTION MODAL -->
+    <div id="tivSelectModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-cyan-500/30 rounded-2xl w-full max-w-sm p-6 shadow-2xl flex flex-col gap-5">
+            <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i> Add Interactive Element
+                </h3>
+                <button onclick="closeTivModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="bg-gray-950 p-3 rounded-xl border border-gray-800 flex flex-col gap-1.5">
+                <label class="text-xs font-bold text-cyan-400">TIV File / Element Name:</label>
+                <span id="tivPendingNameDisplay" class="text-sm font-mono font-bold text-white">--</span>
+            </div>
+
+            <p class="text-xs text-gray-400">Select the element type for this file:</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="confirmAddTivElement('video')" class="p-3 bg-gray-800 hover:bg-cyan-600/20 border border-gray-700 hover:border-cyan-500 rounded-xl text-left transition flex items-center gap-3 group">
+                    <div class="p-2 bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white rounded-lg transition">
+                        <i data-lucide="video" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">Video Element</div>
+                        <div class="text-[10px] text-gray-400">Allows dragging hour-long videos during Play App mode</div>
+                    </div>
+                </button>
+                <button onclick="confirmAddTivElement('image')" class="p-3 bg-gray-800 hover:bg-emerald-600/20 border border-gray-700 hover:border-emerald-500 rounded-xl text-left transition flex items-center gap-3 group">
+                    <div class="p-2 bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white rounded-lg transition">
+                        <i data-lucide="image" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">Image Element</div>
+                        <div class="text-[10px] text-gray-400">Allows dragging images during Play App mode</div>
+                    </div>
+                </button>
+                <button onclick="confirmAddTivElement('text')" class="p-3 bg-gray-800 hover:bg-purple-600/20 border border-gray-700 hover:border-purple-500 rounded-xl text-left transition flex items-center gap-3 group">
+                    <div class="p-2 bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white rounded-lg transition">
+                        <i data-lucide="type" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <div class="text-sm font-bold text-white">Gemini Text Box</div>
+                        <div class="text-[10px] text-gray-400">Interactive sleek text prompt typing area during Play App mode</div>
+                    </div>
+                </button>
+            </div>
+            <button onclick="closeTivModal()" class="w-full py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-xs font-semibold transition">Cancel</button>
+        </div>
+    </div>
+
+    <!-- MAIN EDITOR HEADER NAVIGATION -->
+    <header class="h-14 border-b border-gray-800 bg-gray-900 px-4 flex items-center justify-between z-10">
+        <div class="flex items-center gap-3">
+            <button onclick="returnToProjects()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 rounded-lg text-xs font-semibold transition" title="Back to All Projects">
+                <i data-lucide="grid" class="w-4 h-4 text-indigo-400"></i>
+                <span class="hidden sm:inline">Projects</span>
+            </button>
+            <div class="h-5 w-[1px] bg-gray-800"></div>
+            <div class="flex items-center gap-2">
+                <div class="p-1.5 bg-indigo-600 rounded-lg">
+                    <i data-lucide="network" class="w-4 h-4 text-white"></i>
+                </div>
+                <span id="currentProjectTitle" class="font-bold text-sm bg-gradient-to-r from-indigo-400 to-pink-400 bg-clip-text text-transparent truncate max-w-[140px] sm:max-w-none">
+                    Tree App Architect
+                </span>
+            </div>
+        </div>
+
+        <!-- CENTER NAVIGATION MODE SWITCHER -->
+        <div class="flex items-center bg-gray-950 p-1 rounded-xl border border-gray-800 shadow-inner">
+            <button id="tabTreeBtn" onclick="switchBuildTab('tree')" class="px-3.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="git-fork" class="w-3.5 h-3.5"></i> Tree
+            </button>
+            <button id="tabCanvasBtn" onclick="switchBuildTab('canvas')" class="px-3.5 py-1 text-gray-400 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="layout" class="w-3.5 h-3.5"></i> Editor
+            </button>
+        </div>
+
+        <!-- RIGHT ACTION TOOLBAR -->
+        <div class="flex items-center gap-2">
+            <button onclick="shareAppURL()" class="p-1.5 sm:px-3 sm:py-1.5 text-xs bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 rounded-lg border border-purple-500/30 transition flex items-center gap-1.5" title="Share App">
+                <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                <span class="hidden md:inline">Share</span>
+            </button>
+            <button onclick="saveCurrentProject()" class="p-1.5 sm:px-3 sm:py-1.5 text-xs text-indigo-300 hover:bg-indigo-500/10 rounded-lg border border-indigo-500/30 transition flex items-center gap-1.5" title="Save Project">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                <span class="hidden md:inline">Save</span>
+            </button>
+            <button onclick="resetTree()" class="p-1.5 sm:px-3 sm:py-1.5 text-xs text-red-400 hover:bg-red-500/10 rounded-lg border border-red-500/20 transition" title="Reset Project">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 sm:hidden"></i>
+                <span class="hidden sm:inline">Reset</span>
+            </button>
+            <button onclick="enterPlayMode()" class="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition shadow-lg shadow-emerald-500/20">
+                <i data-lucide="play" class="w-3.5 h-3.5 fill-white"></i> Play
+            </button>
+        </div>
+    </header>
+
+    <!-- WORKSPACE -->
+    <div id="editorWorkspace" class="flex-1 flex overflow-hidden">
+        <main id="treeViewTab" class="flex-1 bg-gray-950 grid-pattern p-8 overflow-auto relative flex justify-center items-start">
+            <div class="absolute top-4 right-4 z-20 flex items-center gap-1 bg-gray-900/90 border border-gray-800 p-1 rounded-xl shadow-xl backdrop-blur">
+                <button onclick="zoomTree(-0.1)" class="p-1.5 hover:bg-gray-800 text-gray-300 rounded-lg text-xs transition">
+                    <i data-lucide="zoom-out" class="w-4 h-4"></i>
+                </button>
+                <span id="zoomLevelDisplay" onclick="resetZoomTree()" class="text-[11px] font-mono font-semibold px-2 text-indigo-400 cursor-pointer hover:underline">100%</span>
+                <button onclick="zoomTree(0.1)" class="p-1.5 hover:bg-gray-800 text-gray-300 rounded-lg text-xs transition">
+                    <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="flex flex-col items-center gap-12 min-w-[800px] pt-8 transition-transform duration-150 origin-top" id="treeContainer"></div>
+        </main>
+
+        <main id="canvasViewTab" class="hidden flex-1 bg-gray-950 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+            <div class="w-full max-w-[896px] flex items-center justify-between mb-3 px-2">
+                <div class="flex items-center gap-2">
+                    <button onclick="switchBuildTab('tree')" class="p-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 border border-gray-700 text-xs flex items-center gap-1">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Tree
+                    </button>
+                    <span class="text-xs text-gray-400">Editing Page:</span>
+                    <span id="canvasPageTitle" class="text-sm font-bold text-white bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">Home</span>
+                </div>
+                
+                <!-- REDESIGNED LESS CHEESY CANVAS TOOLBAR BUTTONS -->
+                <div class="flex items-center gap-1.5">
+                    <button onclick="openNavBarModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium shadow-sm transition">
+                        <i data-lucide="panel-top" class="w-3.5 h-3.5 text-indigo-400"></i> Global Nav Bar Admin
+                    </button>
+                    <button onclick="openTivModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium shadow-sm transition">
+                        <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-cyan-400"></i> TIV
+                    </button>
+                    <button id="aftBtn" onclick="addAftElement()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium shadow-sm transition">
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i> AFT
+                    </button>
+                    <button onclick="document.getElementById('bgFileInput').click()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium shadow-sm transition">
+                        <i data-lucide="image" class="w-3.5 h-3.5 text-indigo-400"></i> Upload Image/Video
+                    </button>
+                    <button onclick="pasteVideoUrl()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-medium shadow-sm transition">
+                        <i data-lucide="link" class="w-3.5 h-3.5 text-purple-400"></i> Paste Video URL
+                    </button>
+                    <button onclick="removeBackground()" class="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 text-xs transition" title="Remove Background">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                    <input type="file" id="bgFileInput" class="hidden" accept="image/*,video/*" onchange="handleBgUpload(event)">
+                </div>
+            </div>
+
+            <div id="funkEditorContainer" class="w-full max-w-[896px] mb-3 hidden flex-col gap-1">
+                <label class="text-xs font-bold text-purple-400 flex items-center gap-1">
+                    <i data-lucide="code" class="w-4 h-4"></i> Paste Custom HTML Code for this Funk Page:
+                </label>
+                <textarea id="funkCodeArea" oninput="saveFunkCode()" placeholder="Paste HTML / JS / CSS code here..." class="w-full h-24 bg-gray-900 border border-purple-500/40 rounded-xl p-2.5 text-xs font-mono text-purple-200 outline-none focus:border-purple-400 transition select-text"></textarea>
+            </div>
+
+            <div id="pageCanvas" class="w-[896px] h-[560px] bg-gray-900 border-2 border-gray-800 rounded-2xl relative overflow-hidden shadow-2xl transition-all">
+                <div id="bgVideoContainer" class="absolute inset-0 pointer-events-none hidden">
+                    <video id="bgVideo" class="w-full h-full object-cover" autoplay loop muted playsinline></video>
+                </div>
+                <div id="canvasEmptyState" class="absolute inset-0 flex flex-col items-center justify-center text-gray-600 pointer-events-none">
+                    <i data-lucide="image" class="w-12 h-12 mb-2 opacity-40"></i>
+                    <p class="text-sm">Click "Upload Image/Video" or "Paste Video URL"</p>
+                </div>
+                <div id="canvasButtonLayer" class="absolute inset-0"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- FULL SCREEN PLAY MODE OVERLAY -->
+    <div id="playModeOverlay" class="fixed inset-0 bg-black z-50 hidden w-screen h-screen">
+        <div id="exitPlayBtnWrapper" class="absolute top-4 right-4 z-50">
+            <button onclick="exitPlayMode()" class="flex items-center gap-1.5 text-xs bg-gray-900/90 hover:bg-red-600 text-white px-3.5 py-1.5 rounded-xl border border-gray-700 shadow-2xl backdrop-blur transition">
+                <i data-lucide="x-circle" class="w-4 h-4"></i> Exit Fullscreen
+            </button>
+        </div>
+        <div id="playCanvas" class="w-full h-full relative overflow-hidden bg-gray-950"></div>
+    </div>
+
+    <script>
+        let projects = {};
+        let activeProjectId = null;
+
+        let pageCount = 0;
+        let selectedNodeId = "home";
+        let playNodeId = "home";
+        let activeTab = "tree";
+        let draggingBtn = null;
+        let resizingBtn = null;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let initialWidth = 0, initialHeight = 0, initialX = 0, initialY = 0, initialMouseX = 0, initialMouseY = 0;
+        let resizeDir = null;
+        let treeZoomLevel = 1.0;
+
+        let sessionData = {};
+        let pendingTivName = "";
+
+        // True as soon as we detect this page load is a shared "?id=...&play=true" link.
+        // Used to suppress the projects dashboard / editor UI from ever rendering visibly.
+        let isSharedPlayLink = false;
+
+        let treeData = {
+            id: "home",
+            title: "Home",
+            pageNum: 0,
+            bgMedia: null,
+            bgType: null,
+            tivElements: [],
+            aftElements: [],
+            navBar: {
+                enabled: true,
+                title: "App Header",
+                x: 0,
+                y: 0,
+                w: 896,
+                h: 56,
+                mediaSrc: null,
+                mediaType: null,
+                buttons: [
+                    { id: 'navbtn_home', label: 'Home', targetId: 'home' }
+                ]
+            },
+            children: []
+        };
+
+        window.onload = async () => {
+            // --- Detect shared play links BEFORE anything else paints ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedAppId = urlParams.get('id');
+            const isPlayOnly = urlParams.get('play') === 'true';
+            isSharedPlayLink = !!(sharedAppId && isPlayOnly);
+
+            if (isSharedPlayLink) {
+                // Hide every "home base" UI element immediately, synchronously,
+                // before we ever touch localStorage or fetch anything.
+                document.getElementById('projectsDashboard').classList.add('hidden');
+                document.querySelector('header').style.display = 'none';
+                document.getElementById('exitPlayBtnWrapper').style.display = 'none';
+                const boot = document.getElementById('sharedBootScreen');
+                boot.style.display = 'flex';
+            }
+
+            loadProjectsFromStorage();
+            await checkSharedUrl();
+
+            if (isSharedPlayLink) {
+                document.getElementById('sharedBootScreen').style.display = 'none';
+            }
+
+            lucide.createIcons();
+            setupGlobalMouseEvents();
+            setupTreeZoomWheel();
+        };
+
+        async function shareAppURL() {
+            saveCurrentProject();
+            const currentProjectData = projects[activeProjectId];
+
+            try {
+                const response = await fetch('save.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentProjectData)
+                });
+                
+                const result = await response.json();
+                if (result.status === 'success') {
+                    const shareUrl = `${window.location.origin}${window.location.pathname}?id=${result.id}&play=true`;
+                    openShareModal(result.id, shareUrl);
+                } else {
+                    alert('Error saving app: ' + (result.message || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Could not connect to save.php backend script.');
+            }
+        }
+
+        function openShareModal(appId, shareUrl) {
+            document.getElementById('shareModalAppId').innerText = appId;
+            const input = document.getElementById('shareModalUrlInput');
+            input.value = shareUrl;
+            document.getElementById('shareModalPreviewLink').href = shareUrl;
+            
+            const modal = document.getElementById('shareAppModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            setTimeout(() => input.select(), 100);
+            lucide.createIcons();
+        }
+
+        function closeShareModal() {
+            const modal = document.getElementById('shareAppModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('copyBtnText').innerText = 'Copy Link';
+        }
+
+        async function copyShareUrlFromModal() {
+            const input = document.getElementById('shareModalUrlInput');
+            input.select();
+            
+            try {
+                await navigator.clipboard.writeText(input.value);
+                document.getElementById('copyBtnText').innerText = 'Copied!';
+                setTimeout(() => {
+                    document.getElementById('copyBtnText').innerText = 'Copy Link';
+                }, 2000);
+            } catch (err) {
+                document.execCommand('copy');
+                document.getElementById('copyBtnText').innerText = 'Copied!';
+            }
+        }
+
+        async function checkSharedUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const appId = urlParams.get('id');
+            const isPlayOnly = urlParams.get('play') === 'true';
+
+            if (appId) {
+                try {
+                    const res = await fetch(`get.php?id=${appId}`);
+                    if (res.ok) {
+                        const loadedProject = await res.json();
+                        if (loadedProject && loadedProject.id) {
+                            const localProjects = JSON.parse(localStorage.getItem('treeApp_projects') || '{}');
+                            localProjects[loadedProject.id] = loadedProject;
+                            localStorage.setItem('treeApp_projects', JSON.stringify(localProjects));
+                            activeProjectId = loadedProject.id;
+
+                            openProject(loadedProject.id);
+
+                            if (isPlayOnly) {
+                                enterPlayMode();
+                                document.querySelector('header').style.display = 'none';
+                                document.getElementById('projectsDashboard').classList.add('hidden');
+                                document.getElementById('exitPlayBtnWrapper').style.display = 'none';
+                            }
+                        }
+                    } else {
+                        alert('Shared app not found on server.');
+                    }
+                } catch (e) {
+                    console.error("Failed to load shared app from server", e);
+                }
+            }
+        }
+
+        function getAllNodesList(node, list = []) {
+            list.push(node);
+            if (node.children) {
+                node.children.forEach(c => getAllNodesList(c, list));
+            }
+            return list;
+        }
+
+        function getAllTivNames() {
+            const nodes = getAllNodesList(treeData);
+            const names = new Set();
+            nodes.forEach(n => {
+                if (n.tivElements) {
+                    n.tivElements.forEach(tiv => {
+                        if (tiv.name) names.add(tiv.name);
+                    });
+                }
+            });
+            return Array.from(names);
+        }
+
+        let tempNavButtons = [];
+
+        function openNavBarModal() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            if (!currentNode.navBar) {
+                currentNode.navBar = {
+                    enabled: true,
+                    title: currentNode.title,
+                    x: 0,
+                    y: 0,
+                    w: 896,
+                    h: 56,
+                    mediaSrc: null,
+                    mediaType: null,
+                    buttons: [{ id: 'navbtn_home', label: 'Home', targetId: 'home' }]
+                };
+            }
+
+            document.getElementById('navBarEnabledCheckbox').checked = currentNode.navBar.enabled;
+            document.getElementById('navBarTitleInput').value = currentNode.navBar.title || currentNode.title;
+
+            tempNavButtons = currentNode.navBar.buttons ? JSON.parse(JSON.stringify(currentNode.navBar.buttons)) : [];
+            renderNavButtonsAdminList();
+
+            const modal = document.getElementById('navBarModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function renderNavButtonsAdminList() {
+            const container = document.getElementById('navButtonsAdminList');
+            container.innerHTML = '';
+            const allNodes = getAllNodesList(treeData);
+
+            if (tempNavButtons.length === 0) {
+                container.innerHTML = `<div class="text-xs text-gray-500 italic p-3 text-center border border-dashed border-gray-800 rounded-xl">No custom inner buttons added. Add one below!</div>`;
+                return;
+            }
+
+            tempNavButtons.forEach((btn, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-gray-950 p-2.5 rounded-xl border border-gray-800';
+                
+                let selectOptions = '';
+                allNodes.forEach(n => {
+                    const selected = n.id === btn.targetId ? 'selected' : '';
+                    selectOptions += `<option value="${n.id}" ${selected}>${n.id === 'home' ? 'Home' : n.title}</option>`;
+                });
+
+                row.innerHTML = `
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 font-semibold block mb-0.5">Button Label</label>
+                        <input type="text" value="${btn.label}" oninput="tempNavButtons[${index}].label = this.value" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-500 select-text">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-[10px] text-gray-400 font-semibold block mb-0.5">Target Screen</label>
+                        <select onchange="tempNavButtons[${index}].targetId = this.value" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white outline-none focus:border-indigo-500">
+                            ${selectOptions}
+                        </select>
+                    </div>
+                    <button onclick="removeNavBarCustomButton(${index})" class="mt-4 p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `;
+                container.appendChild(row);
+            });
+            lucide.createIcons();
+        }
+
+        function addNavBarCustomButton() {
+            tempNavButtons.push({
+                id: 'navbtn_' + Date.now(),
+                label: 'New Link',
+                targetId: 'home'
+            });
+            renderNavButtonsAdminList();
+        }
+
+        function removeNavBarCustomButton(index) {
+            tempNavButtons.splice(index, 1);
+            renderNavButtonsAdminList();
+        }
+
+        function closeNavBarModal() {
+            const modal = document.getElementById('navBarModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveNavBarConfig() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (currentNode) {
+                if (!currentNode.navBar) {
+                    currentNode.navBar = { x: 0, y: 0, w: 896, h: 56, mediaSrc: null, mediaType: null };
+                }
+                currentNode.navBar.enabled = document.getElementById('navBarEnabledCheckbox').checked;
+                currentNode.navBar.title = document.getElementById('navBarTitleInput').value.trim() || currentNode.title;
+                currentNode.navBar.buttons = JSON.parse(JSON.stringify(tempNavButtons));
+                saveCurrentProject();
+                renderCanvasEditor();
+            }
+            closeNavBarModal();
+        }
+
+        function openTivModal() {
+            const name = prompt("Enter a name for this TIV file (e.g., Play):");
+            if (!name || !name.trim()) return;
+            
+            pendingTivName = name.trim();
+            document.getElementById('tivPendingNameDisplay').innerText = pendingTivName;
+
+            const modal = document.getElementById('tivSelectModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeTivModal() {
+            const modal = document.getElementById('tivSelectModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            pendingTivName = "";
+        }
+
+        function confirmAddTivElement(type) {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            if (!currentNode.tivElements) currentNode.tivElements = [];
+
+            const id = 'tiv_' + Date.now();
+            const newElem = {
+                id: id,
+                name: pendingTivName,
+                type: type,
+                x: 100 + (currentNode.tivElements.length * 20),
+                y: 100 + (currentNode.tivElements.length * 20),
+                w: type === 'text' ? 320 : 280,
+                h: type === 'text' ? 140 : 180
+            };
+
+            currentNode.tivElements.push(newElem);
+            closeTivModal();
+            saveCurrentProject();
+            renderCanvasEditor();
+        }
+
+        function addAftElement() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            if (!currentNode.aftElements) currentNode.aftElements = [];
+
+            const tivNames = getAllTivNames();
+            let targetFileName = "";
+
+            if (tivNames.length === 0) {
+                targetFileName = prompt("Which file would you like this AFT to refer to? (e.g., Play):");
+            } else {
+                targetFileName = prompt(`Which file would you like this AFT to refer to?\nAvailable files: ${tivNames.join(", ")}`, tivNames[0]);
+            }
+
+            if (!targetFileName || !targetFileName.trim()) return;
+
+            const id = 'aft_' + Date.now();
+            const newElem = {
+                id: id,
+                targetFileName: targetFileName.trim(),
+                x: 140 + (currentNode.aftElements.length * 20),
+                y: 140 + (currentNode.aftElements.length * 20),
+                w: 280,
+                h: 180
+            };
+
+            currentNode.aftElements.push(newElem);
+            saveCurrentProject();
+            renderCanvasEditor();
+        }
+
+        function removeTivElement(e, id) {
+            e.stopPropagation();
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode || !currentNode.tivElements) return;
+            currentNode.tivElements = currentNode.tivElements.filter(el => el.id !== id);
+            saveCurrentProject();
+            renderCanvasEditor();
+        }
+
+        function removeAftElement(e, id) {
+            e.stopPropagation();
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode || !currentNode.aftElements) return;
+            currentNode.aftElements = currentNode.aftElements.filter(el => el.id !== id);
+            saveCurrentProject();
+            renderCanvasEditor();
+        }
+
+        function zoomTree(delta) {
+            treeZoomLevel = Math.max(0.1, Math.min(2.5, parseFloat((treeZoomLevel + delta).toFixed(2))));
+            updateTreeZoomTransform();
+        }
+
+        function resetZoomTree() {
+            treeZoomLevel = 1.0;
+            updateTreeZoomTransform();
+        }
+
+        function updateTreeZoomTransform() {
+            const container = document.getElementById('treeContainer');
+            const display = document.getElementById('zoomLevelDisplay');
+            if (container) {
+                container.style.transform = `scale(${treeZoomLevel})`;
+            }
+            if (display) {
+                display.innerText = `${Math.round(treeZoomLevel * 100)}%`;
+            }
+        }
+
+        function setupTreeZoomWheel() {
+            const treeTab = document.getElementById('treeViewTab');
+            if (treeTab) {
+                treeTab.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+                        zoomTree(delta);
+                    }
+                }, { passive: false });
+            }
+        }
+
+        function loadProjectsFromStorage() {
+            const stored = localStorage.getItem('treeApp_projects');
+            if (stored) {
+                try {
+                    projects = JSON.parse(stored);
+                } catch(e) {
+                    projects = {};
+                }
+            }
+            if (Object.keys(projects).length === 0) {
+                const defaultId = 'proj_' + Date.now();
+                projects[defaultId] = {
+                    id: defaultId,
+                    name: 'My First Project',
+                    pageCount: 0,
+                    treeData: {
+                        id: "home",
+                        title: "Home",
+                        pageNum: 0,
+                        bgMedia: null,
+                        bgType: null,
+                        tivElements: [],
+                        aftElements: [],
+                        navBar: {
+                            enabled: true,
+                            title: "App Header",
+                            x: 0, y: 0, w: 896, h: 56,
+                            mediaSrc: null,
+                            mediaType: null,
+                            buttons: [{ id: 'navbtn_home', label: 'Home', targetId: 'home' }]
+                        },
+                        children: []
+                    }
+                };
+                saveProjectsToStorage();
+            }
+
+            // Skip rendering / touching the dashboard entirely for shared play links.
+            if (isSharedPlayLink) return;
+
+            renderProjectsDashboard();
+
+            if (activeProjectId && projects[activeProjectId]) {
+                openProject(activeProjectId);
+            }
+        }
+
+        function saveProjectsToStorage() {
+            try {
+                localStorage.setItem('treeApp_projects', JSON.stringify(projects));
+            } catch (e) {}
+        }
+
+        function renderProjectsDashboard() {
+            const grid = document.getElementById('projectsGrid');
+            grid.innerHTML = '';
+
+            Object.values(projects).forEach(proj => {
+                const card = document.createElement('div');
+                card.className = 'bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-indigo-500/50 shadow-xl transition flex flex-col justify-between group';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="p-2.5 bg-gray-800 group-hover:bg-indigo-600 rounded-xl transition">
+                                <i data-lucide="git-branch" class="w-5 h-5 text-indigo-400 group-hover:text-white transition"></i>
+                            </div>
+                            <button onclick="deleteProject(event, '${proj.id}')" class="text-gray-500 hover:text-red-400 p-1.5 transition" title="Delete Project">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <h3 class="font-bold text-base text-gray-100 group-hover:text-indigo-300 transition mb-1">${proj.name}</h3>
+                        <p class="text-xs text-gray-500">ID: ${proj.id}</p>
+                    </div>
+                    <div class="mt-6 flex items-center justify-between pt-3 border-t border-gray-800/60">
+                        <span class="text-xs text-gray-400 font-medium">Pages: ${countNodes(proj.treeData)}</span>
+                        <button onclick="openProject('${proj.id}')" class="px-4 py-1.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition">
+                            Open <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function countNodes(node) {
+            if (!node) return 0;
+            let count = 1;
+            if (node.children) {
+                node.children.forEach(child => count += countNodes(child));
+            }
+            return count;
+        }
+
+        function openCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('hidden');
+            document.getElementById('createProjectModal').classList.add('flex');
+            document.getElementById('newProjectNameInput').focus();
+        }
+
+        function closeCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.add('hidden');
+            document.getElementById('createProjectModal').classList.remove('flex');
+            document.getElementById('newProjectNameInput').value = '';
+        }
+
+        function createNewProject() {
+            const nameInput = document.getElementById('newProjectNameInput');
+            const projName = nameInput.value.trim() || 'Untitled Project';
+            const projId = 'proj_' + Date.now();
+
+            projects[projId] = {
+                id: projId,
+                name: projName,
+                pageCount: 0,
+                treeData: {
+                    id: "home",
+                    title: "Home",
+                    pageNum: 0,
+                    bgMedia: null,
+                    bgType: null,
+                    tivElements: [],
+                    aftElements: [],
+                    navBar: {
+                        enabled: true,
+                        title: "App Header",
+                        x: 0, y: 0, w: 896, h: 56,
+                        mediaSrc: null,
+                        mediaType: null,
+                        buttons: [{ id: 'navbtn_home', label: 'Home', targetId: 'home' }]
+                    },
+                    children: []
+                }
+            };
+            saveProjectsToStorage();
+            closeCreateProjectModal();
+            openProject(projId);
+        }
+
+        function deleteProject(e, projId) {
+            e.stopPropagation();
+            if (confirm("Are you sure you want to delete this project?")) {
+                delete projects[projId];
+                saveProjectsToStorage();
+                renderProjectsDashboard();
+            }
+        }
+
+        function openProject(projId) {
+            activeProjectId = projId;
+            const proj = projects[projId];
+            treeData = proj.treeData;
+            pageCount = proj.pageCount || 0;
+            selectedNodeId = "home";
+
+            document.getElementById('currentProjectTitle').innerText = proj.name;
+            document.getElementById('projectsDashboard').classList.add('hidden');
+            renderTree();
+            switchBuildTab('tree');
+        }
+
+        function returnToProjects() {
+            saveCurrentProject();
+            document.getElementById('projectsDashboard').classList.remove('hidden');
+            renderProjectsDashboard();
+        }
+
+        function saveCurrentProject() {
+            if (activeProjectId && projects[activeProjectId]) {
+                projects[activeProjectId].treeData = treeData;
+                projects[activeProjectId].pageCount = pageCount;
+                saveProjectsToStorage();
+            }
+        }
+
+        function findNode(node, id) {
+            if (node.id === id) return node;
+            for (let child of node.children) {
+                const found = findNode(child, id);
+                if (found) return found;
+            }
+            return null;
+        }
+
+        function deleteNode(targetId) {
+            if (targetId === "home") {
+                alert("The Home page cannot be deleted!");
+                return;
+            }
+            function removeChildRecursively(parentNode) {
+                const index = parentNode.children.findIndex(c => c.id === targetId);
+                if (index !== -1) {
+                    parentNode.children.splice(index, 1);
+                    if (parentNode.buttonConfigs && parentNode.buttonConfigs[targetId]) {
+                        delete parentNode.buttonConfigs[targetId];
+                    }
+                    return true;
+                }
+                for (let child of parentNode.children) {
+                    if (removeChildRecursively(child)) return true;
+                }
+                return false;
+            }
+            if (removeChildRecursively(treeData)) {
+                if (selectedNodeId === targetId) {
+                    selectedNodeId = "home";
+                }
+                saveCurrentProject();
+                renderTree();
+                if (activeTab === "canvas") {
+                    renderCanvasEditor();
+                }
+            }
+        }
+
+        function addChildNode(parentId) {
+            const parentNode = findNode(treeData, parentId);
+            if (!parentNode) return;
+            pageCount++;
+            const newPageId = `page_${pageCount}`;
+            const newNode = {
+                id: newPageId,
+                title: `Page ${pageCount}`,
+                pageNum: pageCount,
+                bgMedia: null,
+                bgType: null,
+                tivElements: [],
+                aftElements: [],
+                isSecret: false,
+                isFunk: false,
+                children: []
+            };
+            parentNode.children.push(newNode);
+            if (!parentNode.buttonConfigs) parentNode.buttonConfigs = {};
+            parentNode.buttonConfigs[newPageId] = {
+                x: 40 + (parentNode.children.length * 15),
+                y: 100 + (parentNode.children.length * 15),
+                w: 160,
+                h: 48,
+                mediaSrc: null,
+                mediaType: null,
+                unlockMediaSrc: null,
+                unlockMediaType: null
+            };
+            saveCurrentProject();
+            renderTree();
+        }
+
+        function addSecretChildNode(parentId) {
+            const parentNode = findNode(treeData, parentId);
+            if (!parentNode) return;
+            const passcode = prompt("Enter secret trigger key:", "1234");
+            if (!passcode) return;
+            pageCount++;
+            const newPageId = `page_${pageCount}`;
+            const newNode = {
+                id: newPageId,
+                title: `Secret Page ${pageCount}`,
+                pageNum: pageCount,
+                bgMedia: null,
+                bgType: null,
+                tivElements: [],
+                aftElements: [],
+                isSecret: true,
+                isFunk: false,
+                secretPasscode: passcode.trim(),
+                children: []
+            };
+            parentNode.children.push(newNode);
+            if (!parentNode.buttonConfigs) parentNode.buttonConfigs = {};
+            parentNode.buttonConfigs[newPageId] = {
+                x: 60 + (parentNode.children.length * 15),
+                y: 120 + (parentNode.children.length * 15),
+                w: 220,
+                h: 90,
+                mediaSrc: null,
+                mediaType: null,
+                unlockMediaSrc: null,
+                unlockMediaType: null
+            };
+            saveCurrentProject();
+            renderTree();
+        }
+
+        function addFunkChildNode(parentId) {
+            const parentNode = findNode(treeData, parentId);
+            if (!parentNode) return;
+            pageCount++;
+            const newPageId = `page_${pageCount}`;
+            const newNode = {
+                id: newPageId,
+                title: `Funk ${pageCount}`,
+                pageNum: pageCount,
+                bgMedia: null,
+                bgType: null,
+                tivElements: [],
+                aftElements: [],
+                isSecret: false,
+                isFunk: true,
+                funkHtml: "<div style='color: white; text-align: center; padding: 20px;'><h1>⚡ Funk Page Active!</h1><p>Paste HTML code in editor.</p></div>",
+                children: []
+            };
+            parentNode.children.push(newNode);
+            if (!parentNode.buttonConfigs) parentNode.buttonConfigs = {};
+            parentNode.buttonConfigs[newPageId] = {
+                x: 60 + (parentNode.children.length * 15),
+                y: 120 + (parentNode.children.length * 15),
+                w: 160,
+                h: 48,
+                mediaSrc: null,
+                mediaType: null,
+                unlockMediaSrc: null,
+                unlockMediaType: null
+            };
+            saveCurrentProject();
+            renderTree();
+        }
+
+        function switchBuildTab(tab) {
+            activeTab = tab;
+            const treeTab = document.getElementById('treeViewTab');
+            const canvasTab = document.getElementById('canvasViewTab');
+            const treeBtn = document.getElementById('tabTreeBtn');
+            const canvasBtn = document.getElementById('tabCanvasBtn');
+            if (tab === 'tree') {
+                treeTab.classList.remove('hidden');
+                canvasTab.classList.add('hidden');
+                treeBtn.className = "px-3.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition";
+                canvasBtn.className = "px-3.5 py-1 text-gray-400 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition";
+            } else {
+                treeTab.classList.add('hidden');
+                canvasTab.classList.remove('hidden');
+                canvasBtn.className = "px-3.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition";
+                treeBtn.className = "px-3.5 py-1 text-gray-400 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition";
+                renderCanvasEditor();
+            }
+        }
+
+        function openPageInCanvas(nodeId) {
+            selectedNodeId = nodeId;
+            switchBuildTab('canvas');
+        }
+
+        function renderTree() {
+            const container = document.getElementById('treeContainer');
+            container.innerHTML = '';
+            container.appendChild(createNodeDOM(treeData));
+            updateTreeZoomTransform();
+            lucide.createIcons();
+        }
+
+        function createNodeDOM(node) {
+            const wrap = document.createElement('div');
+            wrap.className = 'flex flex-col items-center';
+            const card = document.createElement('div');
+            card.className = `node-card bg-gray-900 border ${node.id === selectedNodeId ? 'selected border-indigo-500' : 'border-gray-800'} rounded-xl p-3.5 w-80 shadow-xl cursor-pointer relative`;
+            card.onclick = (e) => {
+                e.stopPropagation();
+                openPageInCanvas(node.id);
+            };
+            let badge = '';
+            if (node.isSecret) badge = '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.5 rounded">SECRET</span>';
+            if (node.isFunk) badge = '<span class="text-[9px] bg-purple-950 text-purple-300 border border-purple-700 px-1.5 py-0.5 rounded">FUNK HTML</span>';
+            if (node.navBar && node.navBar.enabled) badge += '<span class="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-700 px-1.5 py-0.5 rounded ml-1">NAV BAR</span>';
+
+            const deleteBtnHtml = node.id !== 'home'
+                ? `<button onclick="event.stopPropagation(); deleteNode('${node.id}')" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 rounded text-[11px] font-semibold flex items-center justify-center gap-0.5 transition" title="Delete Page">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i> Del
+                   </button>`
+                : '';
+            card.innerHTML = `
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="${node.isFunk ? 'code' : (node.isSecret ? 'lock' : (node.id === 'home' ? 'home' : 'file-text'))}" class="w-4 h-4 ${node.isFunk ? 'text-purple-400' : (node.isSecret ? 'text-amber-400' : 'text-indigo-400')}"></i>
+                        <span class="font-bold text-sm text-gray-100">${node.title}</span>
+                    </div>
+                    <div>${badge}</div>
+                </div>
+                <p class="text-[10px] text-gray-500 mb-2.5">${node.isFunk ? 'Runs Custom HTML Code' : (node.isSecret ? 'Locked Page' : 'Standard Sub-Page')}</p>
+                <div class="flex gap-1.5">
+                    <button onclick="event.stopPropagation(); addChildNode('${node.id}')" class="flex-1 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Page</button>
+                    <button onclick="event.stopPropagation(); addSecretChildNode('${node.id}')" class="flex-1 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Sec</button>
+                    <button onclick="event.stopPropagation(); addFunkChildNode('${node.id}')" class="flex-1 py-1 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 rounded text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Funk</button>
+                    ${deleteBtnHtml}
+                </div>
+            `;
+            wrap.appendChild(card);
+            if (node.children.length > 0) {
+                const line = document.createElement('div');
+                line.className = 'w-0.5 h-8 bg-indigo-500/40';
+                wrap.appendChild(line);
+                const childrenWrap = document.createElement('div');
+                childrenWrap.className = 'flex gap-6 relative pt-4 border-t-2 border-indigo-500/40';
+                node.children.forEach(child => {
+                    childrenWrap.appendChild(createNodeDOM(child));
+                });
+                wrap.appendChild(childrenWrap);
+            }
+            return wrap;
+        }
+
+        function attachResizeHandles(element, onResize) {
+            const handles = [
+                { cls: 'rh-nw', dir: 'nw' },
+                { cls: 'rh-ne', dir: 'ne' },
+                { cls: 'rh-sw', dir: 'sw' },
+                { cls: 'rh-se', dir: 'se' },
+                { cls: 'rh-n',  dir: 'n'  },
+                { cls: 'rh-s',  dir: 's'  },
+                { cls: 'rh-w',  dir: 'w'  },
+                { cls: 'rh-e',  dir: 'e'  }
+            ];
+
+            handles.forEach(h => {
+                const handle = document.createElement('div');
+                handle.className = `resize-handle ${h.cls}`;
+                handle.dataset.dir = h.dir;
+                handle.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    resizingBtn = { dir: h.dir, onResize: onResize, el: element };
+                    resizeDir = h.dir;
+                    initialWidth = element.offsetWidth;
+                    initialHeight = element.offsetHeight;
+                    initialX = element.offsetLeft;
+                    initialY = element.offsetTop;
+                    initialMouseX = e.clientX;
+                    initialMouseY = e.clientY;
+                });
+                element.appendChild(handle);
+            });
+        }
+
+        function renderCanvasEditor() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            document.getElementById('canvasPageTitle').innerText = currentNode.title;
+            const canvas = document.getElementById('pageCanvas');
+            const emptyState = document.getElementById('canvasEmptyState');
+            const btnLayer = document.getElementById('canvasButtonLayer');
+            const funkContainer = document.getElementById('funkEditorContainer');
+            const funkArea = document.getElementById('funkCodeArea');
+            const bgVideoContainer = document.getElementById('bgVideoContainer');
+            const bgVideo = document.getElementById('bgVideo');
+
+            if (currentNode.isFunk) {
+                funkContainer.classList.remove('hidden');
+                funkContainer.classList.add('flex');
+                funkArea.value = currentNode.funkHtml || '';
+            } else {
+                funkContainer.classList.add('hidden');
+                funkContainer.classList.remove('flex');
+            }
+
+            if (currentNode.bgMedia) {
+                emptyState.classList.add('hidden');
+                if (currentNode.bgType === 'video') {
+                    canvas.style.backgroundImage = 'none';
+                    canvas.style.backgroundColor = '#030712';
+                    bgVideo.src = currentNode.bgMedia;
+                    bgVideoContainer.classList.remove('hidden');
+                    bgVideo.play().catch(()=>{});
+                } else {
+                    bgVideoContainer.classList.add('hidden');
+                    canvas.style.backgroundImage = `url("${currentNode.bgMedia}")`;
+                    canvas.style.backgroundSize = 'cover';
+                    canvas.style.backgroundPosition = 'center';
+                    canvas.style.backgroundRepeat = 'no-repeat';
+                }
+            } else {
+                canvas.style.backgroundImage = 'none';
+                canvas.style.backgroundColor = '#111827';
+                bgVideoContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            }
+
+            btnLayer.innerHTML = '';
+
+            if (!currentNode.navBar) {
+                currentNode.navBar = {
+                    enabled: true,
+                    title: currentNode.title,
+                    x: 0, y: 0, w: 896, h: 56,
+                    mediaSrc: null,
+                    mediaType: null,
+                    buttons: [{ id: 'navbtn_home', label: 'Home', targetId: 'home' }]
+                };
+            }
+
+            const activeNav = currentNode.navBar;
+            if (activeNav && activeNav.enabled) {
+                const navEl = document.createElement('div');
+                navEl.className = 'absolute rounded-xl shadow-2xl bg-gray-900/90 border-2 border-indigo-500 flex items-center justify-between px-4 z-30 cursor-move overflow-hidden select-none';
+                
+                const nx = activeNav.x !== undefined ? activeNav.x : 0;
+                const ny = activeNav.y !== undefined ? activeNav.y : 0;
+                const nw = activeNav.w !== undefined ? activeNav.w : 896;
+                const nh = activeNav.h !== undefined ? activeNav.h : 56;
+
+                navEl.style.left = `${nx}px`;
+                navEl.style.top = `${ny}px`;
+                navEl.style.width = `${nw}px`;
+                navEl.style.height = `${nh}px`;
+
+                let navBgHtml = '';
+                if (activeNav.mediaSrc) {
+                    if (activeNav.mediaType === 'video') {
+                        navBgHtml = `<video src="${activeNav.mediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none z-0" autoplay loop muted playsinline></video>`;
+                    } else {
+                        navBgHtml = `<img src="${activeNav.mediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none z-0">`;
+                    }
+                }
+
+                let buttonsHtml = '';
+                if (activeNav.buttons && activeNav.buttons.length > 0) {
+                    buttonsHtml = activeNav.buttons.map(b => 
+                        `<span class="px-2.5 py-1 bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 rounded-lg text-xs font-semibold backdrop-blur-sm">${b.label}</span>`
+                    ).join('');
+                }
+
+                navEl.innerHTML = navBgHtml + `
+                    <div class="flex items-center gap-2 pointer-events-none relative z-10">
+                        <i data-lucide="panel-top" class="w-4 h-4 text-indigo-400"></i>
+                        <span class="text-xs font-bold text-gray-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">${activeNav.title || 'Nav Bar'}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 pointer-events-none relative z-10">
+                        ${buttonsHtml}
+                    </div>
+                `;
+
+                navEl.ondragover = (e) => e.preventDefault();
+                navEl.ondrop = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        const isVid = file.type.startsWith('video/');
+                        const isImg = file.type.startsWith('image/');
+                        if (isVid || isImg) {
+                            const reader = new FileReader();
+                            reader.onload = (evt) => {
+                                activeNav.mediaSrc = evt.target.result;
+                                activeNav.mediaType = isVid ? 'video' : 'image';
+                                saveCurrentProject();
+                                renderCanvasEditor();
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    }
+                };
+
+                attachResizeHandles(navEl, (newX, newY, newW, newH) => {
+                    if (currentNode.navBar) {
+                        currentNode.navBar.x = newX;
+                        currentNode.navBar.y = newY;
+                        currentNode.navBar.w = newW;
+                        currentNode.navBar.h = newH;
+                    }
+                });
+
+                navEl.addEventListener('mousedown', (e) => {
+                    if (e.target.classList.contains('resize-handle')) return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    draggingBtn = { 
+                        el: navEl,
+                        onDrag: (newX, newY) => {
+                            if (currentNode.navBar) {
+                                currentNode.navBar.x = newX;
+                                currentNode.navBar.y = newY;
+                            }
+                        }
+                    };
+                    dragOffsetX = e.clientX - navEl.offsetLeft;
+                    dragOffsetY = e.clientY - navEl.offsetTop;
+                });
+
+                btnLayer.appendChild(navEl);
+            }
+
+            if (currentNode.tivElements) {
+                currentNode.tivElements.forEach(tiv => {
+                    const tivEl = document.createElement('div');
+                    tivEl.className = 'absolute rounded-xl shadow-2xl bg-gray-900/90 border-2 border-cyan-400 flex flex-col items-center justify-center p-3 cursor-move z-20 select-none overflow-hidden';
+                    tivEl.style.left = `${tiv.x}px`;
+                    tivEl.style.top = `${tiv.y}px`;
+                    tivEl.style.width = `${tiv.w}px`;
+                    tivEl.style.height = `${tiv.h}px`;
+
+                    let iconName = 'video';
+                    let label = 'Play Mode Video Box';
+                    if (tiv.type === 'image') { iconName = 'image'; label = 'Play Mode Image Box'; }
+                    if (tiv.type === 'text') { iconName = 'type'; label = 'Play Mode Gemini Typing Area'; }
+
+                    tivEl.innerHTML = `
+                        <div class="absolute top-1.5 right-1.5 z-30">
+                            <button onclick="removeTivElement(event, '${tiv.id}')" class="p-1 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white rounded border border-red-500/30 transition">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                        <div class="flex flex-col items-center justify-center text-center p-2 pointer-events-none">
+                            <i data-lucide="${iconName}" class="w-6 h-6 text-cyan-400 mb-1"></i>
+                            <span class="text-xs font-bold text-white mb-0.5">TIV: ${tiv.name || 'Untitled'}</span>
+                            <span class="text-[9px] text-cyan-200 font-mono">File: ${tiv.name || 'Untitled'} (${label})</span>
+                        </div>
+                    `;
+
+                    attachResizeHandles(tivEl, (newX, newY, newW, newH) => {
+                        tiv.x = newX; tiv.y = newY; tiv.w = newW; tiv.h = newH;
+                    });
+
+                    tivEl.addEventListener('mousedown', (e) => {
+                        if (e.target.classList.contains('resize-handle') || e.target.closest('button')) return;
+                        e.stopPropagation();
+                        e.preventDefault();
+                        draggingBtn = { el: tivEl, onDrag: (nx, ny) => { tiv.x = nx; tiv.y = ny; } };
+                        dragOffsetX = e.clientX - tivEl.offsetLeft;
+                        dragOffsetY = e.clientY - tivEl.offsetTop;
+                    });
+
+                    btnLayer.appendChild(tivEl);
+                });
+            }
+
+            if (currentNode.aftElements) {
+                currentNode.aftElements.forEach(aft => {
+                    const aftEl = document.createElement('div');
+                    aftEl.className = 'absolute rounded-xl shadow-2xl bg-gray-900/90 border-2 border-amber-400 flex flex-col items-center justify-center p-3 cursor-move z-20 select-none overflow-hidden';
+                    aftEl.style.left = `${aft.x}px`;
+                    aftEl.style.top = `${aft.y}px`;
+                    aftEl.style.width = `${aft.w}px`;
+                    aftEl.style.height = `${aft.h}px`;
+
+                    aftEl.innerHTML = `
+                        <div class="absolute top-1.5 right-1.5 z-30">
+                            <button onclick="removeAftElement(event, '${aft.id}')" class="p-1 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white rounded border border-red-500/30 transition">
+                                <i data-lucide="x" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                        <div class="flex flex-col items-center justify-center text-center p-2 pointer-events-none">
+                            <i data-lucide="clock" class="w-6 h-6 text-amber-400 mb-1"></i>
+                            <span class="text-xs font-bold text-white mb-0.5">AFT Box</span>
+                            <span class="text-[9px] text-amber-300/90 font-mono">Refers to File: ${aft.targetFileName || 'None'}</span>
+                        </div>
+                    `;
+
+                    attachResizeHandles(aftEl, (newX, newY, newW, newH) => {
+                        aft.x = newX; aft.y = newY; aft.w = newW; aft.h = newH;
+                    });
+
+                    aftEl.addEventListener('mousedown', (e) => {
+                        if (e.target.classList.contains('resize-handle') || e.target.closest('button')) return;
+                        e.stopPropagation();
+                        e.preventDefault();
+                        draggingBtn = { el: aftEl, onDrag: (nx, ny) => { aft.x = nx; aft.y = ny; } };
+                        dragOffsetX = e.clientX - aftEl.offsetLeft;
+                        dragOffsetY = e.clientY - aftEl.offsetTop;
+                    });
+
+                    btnLayer.appendChild(aftEl);
+                });
+            }
+
+            if (currentNode.children) {
+                currentNode.children.forEach(child => {
+                    if (!currentNode.buttonConfigs) currentNode.buttonConfigs = {};
+                    if (!currentNode.buttonConfigs[child.id]) {
+                        currentNode.buttonConfigs[child.id] = {
+                            x: 50, y: 100,
+                            w: child.isSecret ? 220 : 160,
+                            h: child.isSecret ? 90 : 48,
+                            mediaSrc: null,
+                            mediaType: null,
+                            unlockMediaSrc: null,
+                            unlockMediaType: null
+                        };
+                    }
+                    const cfg = currentNode.buttonConfigs[child.id];
+                    const btnEl = document.createElement('div');
+                    
+                    const borderClass = cfg.mediaSrc ? 'border-0' : 'border-2 border-dashed border-indigo-400/80';
+                    btnEl.className = `absolute rounded-xl shadow-xl flex flex-col items-center justify-center cursor-move ${borderClass} bg-gray-900/90 select-none overflow-hidden p-1.5 z-20`;
+                    btnEl.style.left = `${cfg.x}px`;
+                    btnEl.style.top = `${cfg.y}px`;
+                    btnEl.style.width = `${cfg.w}px`;
+                    btnEl.style.height = `${cfg.h}px`;
+
+                    btnEl.ondragover = (e) => e.preventDefault();
+                    btnEl.ondrop = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files[0];
+                        if (file) {
+                            const isVid = file.type.startsWith('video/');
+                            const isImg = file.type.startsWith('image/');
+                            if (isVid || isImg) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                    cfg.mediaSrc = evt.target.result;
+                                    cfg.mediaType = isVid ? 'video' : 'image';
+                                    saveCurrentProject();
+                                    renderCanvasEditor();
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        }
+                    };
+
+                    let containerMediaHtml = '';
+                    if (cfg.mediaSrc) {
+                        if (cfg.mediaType === 'video') {
+                            containerMediaHtml = `<video src="${cfg.mediaSrc}" class="w-full h-full object-cover pointer-events-none absolute inset-0" autoplay loop playsinline></video>`;
+                        } else {
+                            containerMediaHtml = `<img src="${cfg.mediaSrc}" class="w-full h-full object-cover pointer-events-none absolute inset-0">`;
+                        }
+                    }
+
+                    if (child.isSecret) {
+                        btnEl.innerHTML = containerMediaHtml + `
+                            <div class="w-full h-full flex flex-col gap-1 items-center justify-center relative z-10 p-1">
+                                <input type="text" placeholder="..." disabled class="w-full h-1/2 bg-gray-950/80 border border-gray-700 rounded text-center text-gray-400 text-xs pointer-events-none">
+                                <div id="unlockDropTarget_${child.id}" class="w-full h-1/2 bg-amber-600/70 text-white rounded text-xs font-bold flex items-center justify-center relative overflow-hidden border border-amber-400/40">
+                                    <span class="pointer-events-none relative z-10">Unlock</span>
+                                </div>
+                            </div>`;
+                        setTimeout(() => {
+                            const unlockTarget = document.getElementById(`unlockDropTarget_${child.id}`);
+                            if (unlockTarget) {
+                                if (cfg.unlockMediaSrc) {
+                                    if (cfg.unlockMediaType === 'video') {
+                                        unlockTarget.innerHTML = `<video src="${cfg.unlockMediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none" autoplay loop playsinline></video><span class="pointer-events-none relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Unlock</span>`;
+                                    } else {
+                                        unlockTarget.innerHTML = `<img src="${cfg.unlockMediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none"><span class="pointer-events-none relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Unlock</span>`;
+                                    }
+                                }
+                                unlockTarget.ondragover = (e) => e.preventDefault();
+                                unlockTarget.ondrop = (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const file = e.dataTransfer.files[0];
+                                    if (file) {
+                                        const isVid = file.type.startsWith('video/');
+                                        const isImg = file.type.startsWith('image/');
+                                        if (isVid || isImg) {
+                                            const reader = new FileReader();
+                                            reader.onload = (evt) => {
+                                                cfg.unlockMediaSrc = evt.target.result;
+                                                cfg.unlockMediaType = isVid ? 'video' : 'image';
+                                                saveCurrentProject();
+                                                renderCanvasEditor();
+                                            };
+                                            reader.readAsDataURL(file);
+                                        }
+                                    }
+                                };
+                            }
+                        }, 0);
+                    } else if (cfg.mediaSrc) {
+                        btnEl.innerHTML = containerMediaHtml;
+                    } else if (child.isFunk) {
+                        btnEl.innerHTML = `<div class="p-1 text-center pointer-events-none relative z-10"><span class="block text-xs font-bold text-purple-400">⚡ To ${child.title}</span><span class="block text-[8px] text-gray-400">Drag image/video here</span></div>`;
+                    } else {
+                        btnEl.innerHTML = `<div class="p-1 text-center pointer-events-none relative z-10"><span class="block text-xs font-bold text-white">To ${child.title}</span><span class="block text-[8px] text-gray-400">Drag image/video here</span></div>`;
+                    }
+
+                    attachResizeHandles(btnEl, (newX, newY, newW, newH) => {
+                        cfg.x = newX;
+                        cfg.y = newY;
+                        cfg.w = newW;
+                        cfg.h = newH;
+                    });
+
+                    btnEl.addEventListener('mousedown', (e) => {
+                        if (e.target.classList.contains('resize-handle')) return;
+                        e.stopPropagation();
+                        e.preventDefault();
+                        draggingBtn = {
+                            el: btnEl,
+                            onDrag: (newX, newY) => {
+                                cfg.x = newX;
+                                cfg.y = newY;
+                            }
+                        };
+                        dragOffsetX = e.clientX - btnEl.offsetLeft;
+                        dragOffsetY = e.clientY - btnEl.offsetTop;
+                    });
+
+                    btnLayer.appendChild(btnEl);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function saveFunkCode() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (currentNode && currentNode.isFunk) {
+                currentNode.funkHtml = document.getElementById('funkCodeArea').value;
+                saveCurrentProject();
+            }
+        }
+
+        function setupGlobalMouseEvents() {
+            window.addEventListener('mousemove', (e) => {
+                if (draggingBtn) {
+                    const canvas = document.getElementById('pageCanvas');
+                    const rect = canvas.getBoundingClientRect();
+                    let x = e.clientX - dragOffsetX;
+                    let y = e.clientY - dragOffsetY;
+                    x = Math.max(0, Math.min(x, rect.width - draggingBtn.el.offsetWidth));
+                    y = Math.max(0, Math.min(y, rect.height - draggingBtn.el.offsetHeight));
+                    draggingBtn.el.style.left = `${x}px`;
+                    draggingBtn.el.style.top = `${y}px`;
+                    if (draggingBtn.onDrag) draggingBtn.onDrag(x, y);
+                }
+
+                if (resizingBtn && resizeDir) {
+                    const canvas = document.getElementById('pageCanvas');
+                    const rect = canvas.getBoundingClientRect();
+                    const deltaX = e.clientX - initialMouseX;
+                    const deltaY = e.clientY - initialMouseY;
+                    let newW = initialWidth;
+                    let newH = initialHeight;
+                    let newX = initialX;
+                    let newY = initialY;
+
+                    if (resizeDir.includes('e')) newW = Math.max(40, initialWidth + deltaX);
+                    if (resizeDir.includes('w')) {
+                        newW = Math.max(40, initialWidth - deltaX);
+                        newX = initialX + (initialWidth - newW);
+                    }
+                    if (resizeDir.includes('s')) newH = Math.max(30, initialHeight + deltaY);
+                    if (resizeDir.includes('n')) {
+                        newH = Math.max(30, initialHeight - deltaY);
+                        newY = initialY + (initialHeight - newH);
+                    }
+
+                    newX = Math.max(0, Math.min(newX, rect.width - newW));
+                    newY = Math.max(0, Math.min(newY, rect.height - newH));
+                    newW = Math.min(newW, rect.width - newX);
+                    newH = Math.min(newH, rect.height - newY);
+
+                    resizingBtn.el.style.left = `${newX}px`;
+                    resizingBtn.el.style.top = `${newY}px`;
+                    resizingBtn.el.style.width = `${newW}px`;
+                    resizingBtn.el.style.height = `${newH}px`;
+
+                    if (resizingBtn.onResize) resizingBtn.onResize(newX, newY, newW, newH);
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (draggingBtn || resizingBtn) saveCurrentProject();
+                draggingBtn = null;
+                resizingBtn = null;
+                resizeDir = null;
+            });
+        }
+
+        function handleBgUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            const isVid = file.type.startsWith('video/');
+            const isImg = file.type.startsWith('image/');
+            if (!isVid && !isImg) return;
+
+            if (isVid) {
+                const videoBlobUrl = URL.createObjectURL(file);
+                currentNode.bgMedia = videoBlobUrl;
+                currentNode.bgType = 'video';
+                saveCurrentProject();
+                renderCanvasEditor();
+            } else {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    currentNode.bgMedia = event.target.result;
+                    currentNode.bgType = 'image';
+                    saveCurrentProject();
+                    renderCanvasEditor();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function pasteVideoUrl() {
+            const url = prompt("Paste video URL (direct .mp4 / .webm link works best for long videos):");
+            if (!url || !url.trim()) return;
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (!currentNode) return;
+            currentNode.bgMedia = url.trim();
+            currentNode.bgType = 'video';
+            saveCurrentProject();
+            renderCanvasEditor();
+        }
+
+        function removeBackground() {
+            const currentNode = findNode(treeData, selectedNodeId);
+            if (currentNode) {
+                currentNode.bgMedia = null;
+                currentNode.bgType = null;
+                saveCurrentProject();
+                renderCanvasEditor();
+            }
+        }
+
+        function enterPlayMode() {
+            playNodeId = "home";
+            sessionData = {};
+            document.getElementById('playModeOverlay').classList.remove('hidden');
+            document.getElementById('playModeOverlay').classList.add('flex');
+            renderPlayScreen();
+        }
+
+        function exitPlayMode() {
+            document.getElementById('playModeOverlay').classList.add('hidden');
+            document.getElementById('playModeOverlay').classList.remove('flex');
+        }
+
+        function renderPlayScreen() {
+            const currentNode = findNode(treeData, playNodeId);
+            if (!currentNode) return;
+            const canvas = document.getElementById('playCanvas');
+            canvas.innerHTML = '';
+
+            const BASE_W = 896;
+            const BASE_H = 560;
+
+            if (currentNode.bgMedia) {
+                if (currentNode.bgType === 'video') {
+                    canvas.style.backgroundImage = 'none';
+                    canvas.style.backgroundColor = '#030712';
+                    const vid = document.createElement('video');
+                    vid.src = currentNode.bgMedia;
+                    vid.className = 'w-full h-full object-cover absolute inset-0 pointer-events-none';
+                    vid.autoplay = true;
+                    vid.loop = true;
+                    vid.playsInline = true;
+                    canvas.appendChild(vid);
+                    vid.play().catch(()=>{});
+                } else {
+                    canvas.style.backgroundImage = `url("${currentNode.bgMedia}")`;
+                    canvas.style.backgroundSize = 'cover';
+                    canvas.style.backgroundPosition = 'center';
+                    canvas.style.backgroundRepeat = 'no-repeat';
+                }
+            } else {
+                canvas.style.backgroundImage = 'none';
+                canvas.style.backgroundColor = '#030712';
+            }
+
+            if (currentNode.navBar && currentNode.navBar.enabled) {
+                const navHeader = document.createElement('div');
+                const nx = currentNode.navBar.x !== undefined ? currentNode.navBar.x : 0;
+                const ny = currentNode.navBar.y !== undefined ? currentNode.navBar.y : 0;
+                const nw = currentNode.navBar.w !== undefined ? currentNode.navBar.w : 896;
+                const nh = currentNode.navBar.h !== undefined ? currentNode.navBar.h : 56;
+
+                navHeader.className = 'absolute bg-gray-950/85 backdrop-blur-md border border-gray-800/80 z-30 flex items-center justify-between px-6 shadow-2xl rounded-xl overflow-hidden';
+                navHeader.style.left = `${(nx / BASE_W) * 100}%`;
+                navHeader.style.top = `${(ny / BASE_H) * 100}%`;
+                navHeader.style.width = `${(nw / BASE_W) * 100}%`;
+                navHeader.style.height = `${(nh / BASE_H) * 100}%`;
+
+                let navBgHtml = '';
+                if (currentNode.navBar.mediaSrc) {
+                    if (currentNode.navBar.mediaType === 'video') {
+                        navBgHtml = `<video src="${currentNode.navBar.mediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none z-0" autoplay loop muted playsinline></video>`;
+                    } else {
+                        navBgHtml = `<img src="${currentNode.navBar.mediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none z-0">`;
+                    }
+                }
+
+                let navButtonsMarkup = '';
+                if (currentNode.navBar.buttons && currentNode.navBar.buttons.length > 0) {
+                    navButtonsMarkup = currentNode.navBar.buttons.map(b => 
+                        `<button data-target="${b.targetId}" class="nav-play-btn px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow-md relative z-10">${b.label}</button>`
+                    ).join('');
+                }
+
+                navHeader.innerHTML = navBgHtml + `
+                    <div class="flex items-center gap-3 relative z-10">
+                        <span class="font-black text-sm text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">${currentNode.navBar.title || 'App Header'}</span>
+                    </div>
+                    <div class="flex items-center gap-2 relative z-10">
+                        ${navButtonsMarkup}
+                    </div>
+                `;
+
+                canvas.appendChild(navHeader);
+
+                setTimeout(() => {
+                    const btns = navHeader.querySelectorAll('.nav-play-btn');
+                    btns.forEach(btn => {
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            const target = btn.getAttribute('data-target');
+                            if (target) {
+                                playNodeId = target;
+                                renderPlayScreen();
+                            }
+                        };
+                    });
+                }, 0);
+            }
+
+            if (currentNode.isFunk && currentNode.funkHtml) {
+                const iframe = document.createElement('iframe');
+                iframe.className = 'w-full h-full border-none relative z-10';
+                canvas.appendChild(iframe);
+                const doc = iframe.contentWindow.document;
+                doc.open();
+                doc.write(currentNode.funkHtml);
+                doc.close();
+                lucide.createIcons();
+                return;
+            }
+
+            if (currentNode.tivElements) {
+                currentNode.tivElements.forEach(tiv => {
+                    const fileKey = tiv.name || tiv.id;
+                    const box = document.createElement('div');
+                    box.className = 'absolute rounded-xl shadow-2xl bg-gray-900/90 border-2 border-cyan-400/80 p-2 z-20 flex flex-col items-center justify-center overflow-hidden backdrop-blur-md';
+                    box.style.left = `${(tiv.x / BASE_W) * 100}%`;
+                    box.style.top = `${(tiv.y / BASE_H) * 100}%`;
+                    box.style.width = `${(tiv.w / BASE_W) * 100}%`;
+                    box.style.height = `${(tiv.h / BASE_H) * 100}%`;
+
+                    if (tiv.type === 'video') {
+                        box.ondragover = (e) => e.preventDefault();
+                        box.ondrop = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const file = e.dataTransfer.files[0];
+                            if (file && file.type.startsWith('video/')) {
+                                const blobUrl = URL.createObjectURL(file);
+                                sessionData[fileKey] = { type: 'video', src: blobUrl };
+                                renderPlayScreen();
+                            }
+                        };
+
+                        if (sessionData[fileKey] && sessionData[fileKey].type === 'video') {
+                            box.innerHTML = `<video src="${sessionData[fileKey].src}" class="w-full h-full object-cover rounded-lg pointer-events-none" autoplay loop playsinline></video>`;
+                        } else {
+                            box.innerHTML = `
+                                <div class="w-full h-full border-2 border-dashed border-cyan-500/50 rounded-lg flex flex-col items-center justify-center text-cyan-300 p-2 text-center pointer-events-none">
+                                    <i data-lucide="video" class="w-8 h-8 mb-1"></i>
+                                    <span class="text-xs font-bold">Drag & Drop Video Here (${tiv.name || 'Play Box'})</span>
+                                </div>
+                            `;
+                        }
+                    } else if (tiv.type === 'image') {
+                        box.ondragover = (e) => e.preventDefault();
+                        box.ondrop = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const file = e.dataTransfer.files[0];
+                            if (file && file.type.startsWith('image/')) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                    sessionData[fileKey] = { type: 'image', src: evt.target.result };
+                                    renderPlayScreen();
+                                };
+                                reader.readAsDataURL(file);
+                            }
+                        };
+
+                        if (sessionData[fileKey] && sessionData[fileKey].type === 'image') {
+                            box.innerHTML = `<img src="${sessionData[fileKey].src}" class="w-full h-full object-cover rounded-lg pointer-events-none">`;
+                        } else {
+                            box.innerHTML = `
+                                <div class="w-full h-full border-2 border-dashed border-emerald-500/50 rounded-lg flex flex-col items-center justify-center text-emerald-300 p-2 text-center pointer-events-none">
+                                    <i data-lucide="image" class="w-8 h-8 mb-1"></i>
+                                    <span class="text-xs font-bold">Drag & Drop Image Here (${tiv.name || 'Play Box'})</span>
+                                </div>
+                            `;
+                        }
+                    } else if (tiv.type === 'text') {
+                        box.className = 'absolute rounded-2xl shadow-2xl bg-gray-900/95 border border-purple-500/40 p-3 z-20 flex flex-col gap-2 overflow-hidden backdrop-blur-xl';
+                        box.style.left = `${(tiv.x / BASE_W) * 100}%`;
+                        box.style.top = `${(tiv.y / BASE_H) * 100}%`;
+                        box.style.width = `${(tiv.w / BASE_W) * 100}%`;
+                        box.style.height = `${(tiv.h / BASE_H) * 100}%`;
+
+                        const initialVal = sessionData[fileKey] ? sessionData[fileKey].value : '';
+                        box.innerHTML = `
+                            <div class="flex items-center gap-1.5 text-purple-400 font-bold text-xs pb-1 border-b border-gray-800">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                                <span>Gemini Text Input (${tiv.name || 'Play Box'})</span>
+                            </div>
+                            <textarea id="playTextInput_${tiv.id}" placeholder="Type your response here..." class="w-full flex-1 bg-gray-950 border border-gray-800 rounded-xl p-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-purple-500 transition resize-none select-text">${initialVal}</textarea>
+                        `;
+                        setTimeout(() => {
+                            const ta = document.getElementById(`playTextInput_${tiv.id}`);
+                            if (ta) {
+                                ta.oninput = () => {
+                                    sessionData[fileKey] = { type: 'text', value: ta.value };
+                                };
+                            }
+                        }, 0);
+                    }
+
+                    canvas.appendChild(box);
+                });
+            }
+
+            if (currentNode.aftElements) {
+                currentNode.aftElements.forEach(aft => {
+                    const box = document.createElement('div');
+                    box.className = 'absolute rounded-xl shadow-2xl bg-gray-900/95 border-2 border-amber-400 p-2 z-20 flex flex-col items-center justify-center overflow-hidden backdrop-blur-md';
+                    box.style.left = `${(aft.x / BASE_W) * 100}%`;
+                    box.style.top = `${(aft.y / BASE_H) * 100}%`;
+                    box.style.width = `${(aft.w / BASE_W) * 100}%`;
+                    box.style.height = `${(aft.h / BASE_H) * 100}%`;
+
+                    const refData = aft.targetFileName ? sessionData[aft.targetFileName] : null;
+
+                    if (refData) {
+                        if (refData.type === 'video') {
+                            box.innerHTML = `<video src="${refData.src}" class="w-full h-full object-cover rounded-lg" autoplay loop playsinline></video>`;
+                        } else if (refData.type === 'image') {
+                            box.innerHTML = `<img src="${refData.src}" class="w-full h-full object-cover rounded-lg">`;
+                        } else if (refData.type === 'text') {
+                            box.innerHTML = `
+                                <div class="w-full h-full bg-gray-950 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 overflow-y-auto select-text font-sans">
+                                    <div class="text-[10px] text-amber-400 font-bold mb-1 uppercase tracking-wider">AFT Result (${aft.targetFileName}):</div>
+                                    ${refData.value || '<i>No text typed</i>'}
+                                </div>
+                            `;
+                        }
+                    } else {
+                        box.innerHTML = `
+                            <div class="p-2 text-center text-amber-300 pointer-events-none">
+                                <i data-lucide="clock" class="w-6 h-6 mx-auto mb-1 opacity-70"></i>
+                                <span class="text-xs font-bold block">AFT Display Box</span>
+                                <span class="text-[9px] text-gray-400">Referring to file: ${aft.targetFileName || 'None'}</span>
+                            </div>
+                        `;
+                    }
+
+                    canvas.appendChild(box);
+                });
+            }
+
+            if (currentNode.children) {
+                currentNode.children.forEach(child => {
+                    const cfg = (currentNode.buttonConfigs && currentNode.buttonConfigs[child.id])
+                        ? currentNode.buttonConfigs[child.id]
+                        : { x: 50, y: 100, w: 160, h: 48, mediaSrc: null, mediaType: null, unlockMediaSrc: null, unlockMediaType: null };
+                    
+                    const container = document.createElement('div');
+                    container.className = 'absolute rounded-xl shadow-2xl flex flex-col items-center justify-center overflow-hidden z-20';
+                   
+                    container.style.left = `${(cfg.x / BASE_W) * 100}%`;
+                    container.style.top = `${(cfg.y / BASE_H) * 100}%`;
+                    container.style.width = `${(cfg.w / BASE_W) * 100}%`;
+                    container.style.height = `${(cfg.h / BASE_H) * 100}%`;
+
+                    if (cfg.mediaSrc) {
+                        if (cfg.mediaType === 'video') {
+                            const vid = document.createElement('video');
+                            vid.src = cfg.mediaSrc;
+                            vid.className = 'w-full h-full object-cover absolute inset-0 pointer-events-none';
+                            vid.autoplay = true;
+                            vid.loop = true;
+                            vid.playsInline = true;
+                            container.appendChild(vid);
+                            vid.play().catch(()=>{});
+                        } else {
+                            container.style.backgroundImage = `url("${cfg.mediaSrc}")`;
+                            container.style.backgroundSize = 'cover';
+                            container.style.backgroundPosition = 'center';
+                        }
+                    } else if (!child.isSecret) {
+                        container.className += child.isFunk
+                            ? ' bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm border border-white/20'
+                            : ' bg-gradient-to-r from-indigo-600 to-pink-600 text-white font-bold text-sm border border-white/20';
+                    } else {
+                        container.className += ' bg-gray-900/90 backdrop-blur-md p-1 border border-white/20';
+                    }
+
+                    if (child.isSecret) {
+                        const formBox = document.createElement('div');
+                        formBox.className = 'w-full h-full flex flex-col items-center justify-center gap-1 p-1 rounded-lg bg-gray-950/80 border border-amber-500/30 relative z-10';
+                       
+                        let unlockBtnInnerHtml = 'Unlock';
+                        if (cfg.unlockMediaSrc) {
+                            if (cfg.unlockMediaType === 'video') {
+                                unlockBtnInnerHtml = `<video src="${cfg.unlockMediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none" autoplay loop playsinline></video><span class="relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Unlock</span>`;
+                            } else {
+                                unlockBtnInnerHtml = `<img src="${cfg.unlockMediaSrc}" class="w-full h-full object-cover absolute inset-0 pointer-events-none"><span class="relative z-10 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Unlock</span>`;
+                            }
+                        }
+                        formBox.innerHTML = `
+                            <input type="text" id="passInput_${child.id}" placeholder="..." class="w-full h-1/2 bg-gray-900/90 border border-gray-700 focus:border-amber-500 rounded px-1.5 text-xs text-white text-center outline-none transition select-text">
+                            <button id="unlockBtn_${child.id}" class="w-full h-1/2 bg-gradient-to-r from-amber-600 to-red-600 hover:opacity-90 text-white rounded text-xs font-bold transition shadow-lg flex items-center justify-center relative overflow-hidden">
+                                ${unlockBtnInnerHtml}
+                            </button>
+                        `;
+                        container.appendChild(formBox);
+                        setTimeout(() => {
+                            const btn = document.getElementById(`unlockBtn_${child.id}`);
+                            const input = document.getElementById(`passInput_${child.id}`);
+                           
+                            const attemptUnlock = () => {
+                                if (input && input.value.trim() === child.secretPasscode) {
+                                    playNodeId = child.id;
+                                    renderPlayScreen();
+                                } else {
+                                    alert("Wrong key!");
+                                    if (input) {
+                                        input.value = "";
+                                        input.focus();
+                                    }
+                                }
+                            };
+                            if (btn) btn.onclick = attemptUnlock;
+                            if (input) {
+                                input.onkeydown = (e) => {
+                                    if (e.key === 'Enter') attemptUnlock();
+                                };
+                            }
+                        }, 0);
+                    } else {
+                        container.className += ' cursor-pointer transition transform hover:scale-[1.02]';
+                        if (!cfg.mediaSrc) {
+                            container.innerText = child.isFunk ? `⚡ To ${child.title}` : `To ${child.title}`;
+                        }
+                        container.onclick = () => {
+                            playNodeId = child.id;
+                            renderPlayScreen();
+                        };
+                    }
+                    canvas.appendChild(container);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function resetTree() {
+            pageCount = 0;
+            selectedNodeId = "home";
+            treeData.bgMedia = null;
+            treeData.bgType = null;
+            treeData.children = [];
+            treeData.tivElements = [];
+            treeData.aftElements = [];
+            treeData.buttonConfigs = {};
+            treeData.navBar = {
+                enabled: true,
+                title: "App Header",
+                x: 0, y: 0, w: 896, h: 56,
+                mediaSrc: null,
+                mediaType: null,
+                buttons: [{ id: 'navbtn_home', label: 'Home', targetId: 'home' }]
+            };
+            saveCurrentProject();
+            renderTree();
+            renderCanvasEditor();
+        }
+    </script>
+</body>
+</html>

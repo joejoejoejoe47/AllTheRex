@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Protect the Unicorn - Spider Swarm Defense</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #111;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #ffeb3b;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #level-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #3498db;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .touch-btn {
+            position: absolute;
+            bottom: 25px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid white;
+            border-radius: 12px;
+            padding: 12px 24px;
+            cursor: pointer;
+            z-index: 20;
+            touch-action: manipulation;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.1s, background 0.1s;
+        }
+        .touch-btn:active {
+            transform: scale(0.92);
+        }
+        #btn-action {
+            left: 50%;
+            transform: translateX(-50%);
+            background: #27ae60;
+            border-color: #2ecc71;
+        }
+        #btn-action:active {
+            transform: translateX(-50%) scale(0.92);
+        }
+        #btn-retry {
+            right: 20px;
+            background: #e74c3c;
+            border-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    
+    <div id="level-display">Level: 1</div>
+    <div id="hud">Time: 10s</div>
+
+    <button id="btn-action" class="touch-btn">DROP SHAPES</button>
+    <button id="btn-retry" class="touch-btn">↻ RETRY</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script>
+        // --- Web Audio Synth with Changing Melody per Level ---
+        let audioCtx = null;
+        let isMusicPlaying = false;
+        let currentLevelForMusic = 1;
+
+        const notePool = [
+            440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50, 1174.66, 1318.51
+        ];
+
+        function playDynamicMelody() {
+            if (!audioCtx) return;
+            
+            let levelSeed = currentLevelForMusic * 3;
+            let noteIdx = (Math.floor(Math.sin(levelSeed + Date.now() * 0.003) * 6) + 6) % notePool.length;
+            let freq = notePool[noteIdx];
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            const waveTypes = ['sine', 'triangle'];
+            osc.type = waveTypes[currentLevelForMusic % waveTypes.length];
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.06, audioCtx.currentTime + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.31);
+
+            let tempo = Math.max(180, 280 - (currentLevelForMusic % 5) * 20);
+            setTimeout(playDynamicMelody, tempo);
+        }
+
+        function initPrincessMusic() {
+            if (isMusicPlaying) return;
+            isMusicPlaying = true;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            playDynamicMelody();
+        }
+
+        window.addEventListener('pointerdown', initPrincessMusic, { once: true });
+        window.addEventListener('keydown', initPrincessMusic, { once: true });
+
+        // --- Game Logic ---
+        const { Engine, Bodies, Composite, Body, Vector, Events } = Matter;
+
+        const engine = Engine.create();
+        const world = engine.world;
+        world.gravity.y = 1;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const btnAction = document.getElementById('btn-action');
+        const btnRetry = document.getElementById('btn-retry');
+
+        let W = window.innerWidth;
+        let H = window.innerHeight;
+        canvas.width = W;
+        canvas.height = H;
+
+        let gameState = 'DRAWING';
+        let level = 1;
+        let timeLeft = 10;
+        let timerAccumulator = 0;
+        let wavePhase = 0;
+        let chainsawAngle = 0;
+        
+        let allDrawnPaths = []; 
+        let currentPath = [];
+        let isDrawing = false;
+        
+        let drawnBodies = [];
+        let bees = []; 
+        let spiders = [];
+        let dino = null;
+        let dinoDir = 1;
+        let groundBodies = [];
+        let floaters = [];
+        let spikeVisuals = [];
+        let waterZones = [];
+        let woodDebris = [];
+        let chainsaws = [];
+        let bgHills = [];
+        let unicorn;
+        let hiveCenters = [];
+
+        // Unicorn size tripled (Radius from 22 to 66)
+        const UNICORN_RADIUS = 66;
+
+        const yardThemes = [
+            { skyTop: '#b1f3ff', skyBottom: '#e2fcd6', hillBack: '#a3e4d7', hillFront: '#82e0aa', treeTrunk: '#8d6e63', treeFoliage: '#66bb6a', cloudColor: 'rgba(255, 255, 255, 0.85)' },
+            { skyTop: '#ffd194', skyBottom: '#d1fdff', hillBack: '#fbc531', hillFront: '#4cd137', treeTrunk: '#795548', treeFoliage: '#44bd32', cloudColor: 'rgba(255, 245, 230, 0.85)' },
+            { skyTop: '#fd79a8', skyBottom: '#ffeaa7', hillBack: '#e17055', hillFront: '#00b894', treeTrunk: '#5d4037', treeFoliage: '#55efc4', cloudColor: 'rgba(255, 235, 245, 0.85)' },
+            { skyTop: '#a1c4fd', skyBottom: '#c2e9fb', hillBack: '#74b9ff', hillFront: '#a8e6cf', treeTrunk: '#6d4c41', treeFoliage: '#58b19f', cloudColor: 'rgba(255, 255, 255, 0.9)' },
+            { skyTop: '#a18cd1', skyBottom: '#fbc2eb', hillBack: '#6c5ce7', hillFront: '#55efc4', treeTrunk: '#4e342e', treeFoliage: '#a29bfe', cloudColor: 'rgba(240, 230, 255, 0.8)' }
+        ];
+
+        const levelPresets = [
+            { type: 'plain', hazard: 'none', hives: [{x: 0.8, y: 0.15}], floaters: [{x: 0.35, y: 0.3}, {x: 0.65, y: 0.3}] },
+            { type: 'pillar', hazard: 'spikes', hives: [{x: 0.15, y: 0.2}], floaters: [{x: 0.3, y: 0.4}, {x: 0.7, y: 0.4}] },
+            { type: 'island', hazard: 'water', hives: [{x: 0.8, y: 0.2}], floaters: [{x: 0.5, y: 0.35}] },
+            { type: 'valley', hazard: 'spikes', hives: [{x: 0.1, y: 0.15}, {x: 0.9, y: 0.15}], floaters: [{x: 0.5, y: 0.4}] },
+            { type: 'high-pillar', hazard: 'water', hives: [{x: 0.5, y: 0.1}], floaters: [{x: 0.25, y: 0.3}, {x: 0.75, y: 0.3}] },
+            { type: 'cliff', hazard: 'spikes', hives: [{x: 0.85, y: 0.2}], floaters: [{x: 0.5, y: 0.25}] }
+        ];
+
+        const leftWall = Bodies.rectangle(-25, H / 2, 50, H * 2, { isStatic: true });
+        const rightWall = Bodies.rectangle(W + 25, H / 2, 50, H * 2, { isStatic: true });
+        const ceiling = Bodies.rectangle(W / 2, -50, W * 2, 100, { isStatic: true });
+        Composite.add(world, [leftWall, rightWall, ceiling]);
+
+        function generateBackgroundHills() {
+            bgHills = [];
+            let numBack = 2 + Math.floor(Math.random() * 3);
+            for(let i=0; i<numBack; i++) {
+                bgHills.push({ x: Math.random() * W, y: H - (Math.random() * 40), r: W * 0.2 + Math.random() * W * 0.2, type: 'back' });
+            }
+            let numFront = 3 + Math.floor(Math.random() * 3);
+            for(let i=0; i<numFront; i++) {
+                bgHills.push({ x: Math.random() * W, y: H + 10, r: W * 0.15 + Math.random() * W * 0.2, type: 'front' });
+            }
+        }
+
+        function loadLevel(lvl) {
+            currentLevelForMusic = lvl;
+
+            if (groundBodies.length > 0) Composite.remove(world, groundBodies);
+            if (floaters.length > 0) Composite.remove(world, floaters);
+            if (chainsaws.length > 0) Composite.remove(world, chainsaws);
+            if (drawnBodies.length > 0) drawnBodies.forEach(b => Composite.remove(world, b));
+            if (bees.length > 0) bees.forEach(b => Composite.remove(world, b));
+            if (spiders.length > 0) spiders.forEach(s => Composite.remove(world, s));
+            if (dino) Composite.remove(world, dino);
+            if (unicorn) Composite.remove(world, unicorn);
+
+            groundBodies = []; floaters = []; chainsaws = []; drawnBodies = []; bees = []; spiders = []; dino = null;
+            allDrawnPaths = []; hiveCenters = []; spikeVisuals = []; waterZones = []; woodDebris = [];
+            
+            gameState = 'DRAWING';
+            timeLeft = 10;
+            timerAccumulator = 0;
+            document.getElementById('level-display').innerText = `Level: ${lvl}`;
+            document.getElementById('hud').innerText = `Time: 10s`;
+
+            btnAction.style.display = 'block';
+            btnAction.innerText = 'DROP SHAPES';
+            btnAction.style.background = '#27ae60';
+
+            generateBackgroundHills();
+
+            let config;
+            if (lvl <= levelPresets.length) {
+                config = levelPresets[lvl - 1];
+            } else {
+                const types = ['plain', 'pillar', 'island', 'valley', 'high-pillar', 'cliff'];
+                const hazards = ['spikes', 'water', 'mixed'];
+                config = {
+                    type: types[Math.floor(Math.random() * types.length)],
+                    hazard: hazards[Math.floor(Math.random() * hazards.length)],
+                    hives: Array.from({length: 1 + Math.floor(lvl/4)}).map(() => ({x: 0.1 + Math.random()*0.8, y: 0.1 + Math.random()*0.2})),
+                    floaters: Array.from({length: Math.random() > 0.5 ? 1 : 2}).map(() => ({x: 0.2 + Math.random()*0.6, y: 0.2 + Math.random()*0.3}))
+                };
+            }
+
+            let segments = Math.max(14, Math.floor(W / 60));
+            let segW = W / segments;
+
+            for (let i = 0; i <= segments; i++) {
+                let frac = i / segments;
+                let x = i * segW + segW / 2;
+                let isLand = false;
+                let landHeight = 80;
+
+                switch(config.type) {
+                    case 'plain':
+                        isLand = true; landHeight = 75 + Math.sin(i * 0.8) * 35; break;
+                    case 'pillar':
+                        isLand = Math.abs(frac - 0.5) < 0.15;
+                        landHeight = isLand ? 150 : 0; break;
+                    case 'island':
+                        isLand = Math.abs(frac - 0.2) < 0.12 || Math.abs(frac - 0.8) < 0.12;
+                        landHeight = isLand ? 100 : 0; break;
+                    case 'valley':
+                        isLand = true; 
+                        landHeight = 50 + (Math.abs(frac - 0.5) * 300); break;
+                    case 'high-pillar':
+                        isLand = Math.abs(frac - 0.5) < 0.08;
+                        landHeight = isLand ? 300 : 0; break;
+                    case 'cliff':
+                        isLand = frac < 0.3 || frac > 0.7;
+                        landHeight = isLand ? 200 : 0; break;
+                }
+
+                if (isLand) {
+                    let land = Bodies.rectangle(x, H - landHeight / 2, segW + 2, landHeight, { isStatic: true, label: 'land' });
+                    groundBodies.push(land);
+                } else {
+                    let hazardType = config.hazard === 'mixed' ? (i % 2 === 0 ? 'spikes' : 'water') : config.hazard;
+                    
+                    if (hazardType === 'water') {
+                        let water = Bodies.rectangle(x, H - 35, segW + 2, 70, { isStatic: true, isSensor: true, label: 'water' });
+                        groundBodies.push(water);
+                        waterZones.push({ x: x - segW / 2, y: H - 70, w: segW + 2, h: 70 });
+                    } else if (hazardType === 'spikes') {
+                        let spikeWidth = 25;
+                        let spikeHeight = 35;
+                        let numTeeth = Math.floor(segW / spikeWidth);
+                        let startX = x - segW / 2;
+
+                        let spikeBase = Bodies.rectangle(x, H - spikeHeight / 2, segW + 2, spikeHeight, { isStatic: true, label: 'spike' });
+                        groundBodies.push(spikeBase);
+                        for (let s = 0; s < numTeeth; s++) {
+                            spikeVisuals.push({ x: startX + s * spikeWidth, w: spikeWidth, h: spikeHeight, baseY: H });
+                        }
+                    }
+                }
+            }
+            Composite.add(world, groundBodies);
+
+            config.floaters.forEach(f => {
+                let floater = Bodies.circle(f.x * W, f.y * H, 24, { isStatic: true, label: 'floater' });
+                floaters.push(floater);
+            });
+            Composite.add(world, floaters);
+
+            // Chainsaws (Level 5+)
+            let chainsawCount = Math.floor(lvl / 5);
+            for (let c = 0; c < chainsawCount; c++) {
+                let cx = (W * 0.25) + (c * (W * 0.5 / Math.max(1, chainsawCount)));
+                let cy = H * 0.25 + (c % 2 * 60);
+                let sawBody = Bodies.circle(cx, cy, 35, { isStatic: true, isSensor: true, label: 'chainsaw' });
+                chainsaws.push(sawBody);
+            }
+            if (chainsaws.length > 0) Composite.add(world, chainsaws);
+
+            // Dino: Level 5, disappears, returns at level 20+
+            if (lvl === 5 || lvl >= 20) {
+                dino = Bodies.rectangle(W * 0.2, H - 110, 44, 44, { isStatic: true, isSensor: true, label: 'dino' });
+                Composite.add(world, dino);
+            }
+
+            config.hives.forEach(h => { hiveCenters.push({ x: h.x * W, y: h.y * H }); });
+
+            // 3x Larger Unicorn Body
+            unicorn = Bodies.circle(W / 2, H * 0.45, UNICORN_RADIUS, { restitution: 0.3, friction: 0.3, label: 'unicorn', isStatic: true, density: 0.02 });
+            Composite.add(world, unicorn);
+        }
+
+        function shatterWoodBody(body) {
+            body.parts.forEach(part => {
+                if (part === body) return;
+                for (let v of part.vertices) {
+                    woodDebris.push({
+                        x: v.x, y: v.y, vx: (Math.random() - 0.5) * 10, vy: -Math.random() * 8 - 2,
+                        size: Math.random() * 7 + 4, angle: Math.random() * Math.PI * 2, vRot: (Math.random() - 0.5) * 0.3, life: 1.0
+                    });
+                }
+            });
+            Composite.remove(world, body);
+            drawnBodies = drawnBodies.filter(b => b !== body);
+        }
+
+        Events.on(engine, 'collisionStart', function(event) {
+            let toDestroy = new Set();
+            event.pairs.forEach((pair) => {
+                let labels = [pair.bodyA.label, pair.bodyB.label];
+                
+                // Unicorn touches any hazard
+                if (labels.includes('unicorn') && (labels.includes('spike') || labels.includes('bee') || labels.includes('spider') || labels.includes('dino') || labels.includes('water') || labels.includes('chainsaw'))) {
+                    triggerGameOver();
+                }
+                
+                // Spikes break shapes
+                if (labels.includes('spike') && labels.includes('rigidOutline')) {
+                    let woodBody = pair.bodyA.label === 'rigidOutline' ? pair.bodyA.parent : pair.bodyB.parent;
+                    toDestroy.add(woodBody);
+                }
+
+                // Chainsaw breaks shapes
+                if (labels.includes('chainsaw') && labels.includes('rigidOutline')) {
+                    let woodBody = pair.bodyA.label === 'rigidOutline' ? pair.bodyA.parent : pair.bodyB.parent;
+                    toDestroy.add(woodBody);
+                }
+            });
+            toDestroy.forEach(body => shatterWoodBody(body));
+        });
+
+        function triggerGameOver() { 
+            if (gameState === 'PLAYING') {
+                gameState = 'GAMEOVER';
+                btnAction.style.display = 'none';
+            }
+        }
+
+        function getCoords(e) {
+            let rect = canvas.getBoundingClientRect();
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+            }
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function startDrawing(e) {
+            if (gameState !== 'DRAWING') return;
+            isDrawing = true;
+            let p = getCoords(e);
+            currentPath = [p];
+        }
+
+        function moveDrawing(e) {
+            if (!isDrawing || gameState !== 'DRAWING') return;
+            let p = getCoords(e);
+            let last = currentPath[currentPath.length - 1];
+            if (Math.hypot(p.x - last.x, p.y - last.y) > 5) currentPath.push(p);
+        }
+
+        function endDrawing() {
+            if (isDrawing && currentPath.length > 4) allDrawnPaths.push([...currentPath]);
+            isDrawing = false; 
+            currentPath = [];
+        }
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', moveDrawing);
+        window.addEventListener('mouseup', endDrawing);
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); moveDrawing(e); }, { passive: false });
+        window.addEventListener('touchend', endDrawing);
+
+        window.addEventListener('resize', () => { 
+            W = window.innerWidth; 
+            H = window.innerHeight; 
+            canvas.width = W; 
+            canvas.height = H; 
+        });
+
+        function handleEnterAction() {
+            if (gameState === 'DRAWING' && allDrawnPaths.length > 0) {
+                createRigidOutlines(); 
+                allDrawnPaths = []; 
+                startSimulation();
+                btnAction.style.display = 'none';
+            } else if (gameState === 'LEVEL_COMPLETE') { 
+                level++; 
+                loadLevel(level); 
+            }
+        }
+
+        btnAction.addEventListener('click', handleEnterAction);
+        btnRetry.addEventListener('click', () => loadLevel(level));
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleEnterAction();
+            if (e.key === 'r' || e.key === 'R') loadLevel(level);
+        });
+
+        function createRigidOutlines() {
+            allDrawnPaths.forEach(path => {
+                let step = Math.max(1, Math.floor(path.length / 16));
+                let sampled = [];
+                for (let i = 0; i < path.length; i += step) sampled.push(path[i]);
+                if (sampled.length < 2) return;
+
+                let segmentGroup = [];
+                for (let i = 0; i < sampled.length - 1; i++) {
+                    let p1 = sampled[i]; let p2 = sampled[i + 1];
+                    let length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    segmentGroup.push(Bodies.rectangle((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, length, 14, { angle: angle, restitution: 0.1, friction: 0.9, label: 'rigidOutline' }));
+                }
+                let rigidCompound = Body.create({ parts: segmentGroup, restitution: 0.1, friction: 0.9, label: 'rigidOutline', density: 0.05 });
+                drawnBodies.push(rigidCompound); Composite.add(world, rigidCompound);
+            });
+        }
+
+        function startSimulation() {
+            gameState = 'PLAYING'; 
+            Body.setStatic(unicorn, false);
+            bees = [];
+            spiders = [];
+
+            // Spawn Bees
+            let beesPerHive = Math.min(10, 5 + Math.floor((level - 1) * 0.5));
+            hiveCenters.forEach(hive => {
+                for (let i = 0; i < beesPerHive; i++) {
+                    let beeBody = Bodies.circle(hive.x + (Math.random() * 50 - 25), hive.y + (Math.random() * 15), 11, { label: 'bee', frictionAir: 0.04, restitution: 0.5, density: 0.005 });
+                    bees.push(beeBody); Composite.add(world, beeBody);
+                }
+            });
+
+            // Massive Spider Swarm (Spawns every 4 levels, scaling heavily into swarms)
+            let swarmMultiplier = Math.floor(level / 4);
+            let totalSpiders = swarmMultiplier * 8; // Massive swarms of spiders
+
+            for (let s = 0; s < totalSpiders; s++) {
+                let spawnSide = Math.random();
+                let spawnX, spawnY;
+                if (spawnSide < 0.4) {
+                    spawnX = Math.random() * 60; // Left wall
+                    spawnY = Math.random() * H * 0.8;
+                } else if (spawnSide < 0.8) {
+                    spawnX = W - Math.random() * 60; // Right wall
+                    spawnY = Math.random() * H * 0.8;
+                } else {
+                    spawnX = Math.random() * W; // Ground level
+                    spawnY = H - 60;
+                }
+                
+                let spiderBody = Bodies.circle(spawnX, spawnY, 12, { 
+                    label: 'spider', 
+                    friction: 0.9, 
+                    density: 0.008,
+                    frictionAir: 0.02
+                });
+                spiders.push(spiderBody);
+                Composite.add(world, spiderBody);
+            }
+        }
+
+        function renderMatterBody(body, color, strokeColor) {
+            ctx.beginPath(); let verts = body.vertices; ctx.moveTo(verts[0].x, verts[0].y);
+            for (let j = 1; j < verts.length; j++) ctx.lineTo(verts[j].x, verts[j].y);
+            ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+            if (strokeColor) { ctx.lineWidth = 2; ctx.strokeStyle = strokeColor; ctx.stroke(); }
+        }
+
+        function drawCartoonYardBackground(theme) {
+            let sky = ctx.createLinearGradient(0, 0, 0, H);
+            sky.addColorStop(0, theme.skyTop); sky.addColorStop(1, theme.skyBottom);
+            ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = theme.cloudColor;
+            drawFluffyCloud(W * 0.15, H * 0.18, 35);
+            drawFluffyCloud(W * 0.45, H * 0.12, 45);
+            drawFluffyCloud(W * 0.82, H * 0.2, 40);
+
+            bgHills.forEach(hill => {
+                ctx.fillStyle = hill.type === 'back' ? theme.hillBack : theme.hillFront;
+                ctx.beginPath(); ctx.arc(hill.x, hill.y, hill.r, Math.PI, 0, false); ctx.fill();
+            });
+
+            drawCartoonTree(W * 0.08, H - 130, theme); drawCartoonTree(W * 0.92, H - 140, theme);
+        }
+
+        function drawFluffyCloud(x, y, r) {
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.arc(x + r * 0.7, y - r * 0.2, r * 0.7, 0, Math.PI * 2);
+            ctx.arc(x - r * 0.7, y - r * 0.1, r * 0.6, 0, Math.PI * 2); ctx.arc(x + r * 1.3, y + r * 0.1, r * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawCartoonTree(x, y, theme) {
+            ctx.fillStyle = theme.treeTrunk; ctx.fillRect(x - 8, y + 20, 16, 50);
+            ctx.fillStyle = theme.treeFoliage; ctx.beginPath(); ctx.arc(x, y + 10, 32, 0, Math.PI * 2);
+            ctx.arc(x - 18, y + 15, 24, 0, Math.PI * 2); ctx.arc(x + 18, y + 15, 24, 0, Math.PI * 2); ctx.arc(x, y - 10, 26, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function drawOriginalSpikes() {
+            ctx.fillStyle = '#e74c3c'; ctx.strokeStyle = '#922b21'; ctx.lineWidth = 2;
+            spikeVisuals.forEach(sp => {
+                ctx.beginPath(); ctx.moveTo(sp.x, sp.baseY); ctx.lineTo(sp.x + sp.w / 2, sp.baseY - sp.h); ctx.lineTo(sp.x + sp.w, sp.baseY);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            });
+        }
+
+        function drawAnimatedWater() {
+            wavePhase += 0.05;
+            waterZones.forEach(w => {
+                let grad = ctx.createLinearGradient(0, w.y, 0, w.y + w.h);
+                grad.addColorStop(0, 'rgba(0, 168, 255, 0.75)'); grad.addColorStop(1, 'rgba(9, 71, 153, 0.95)');
+                ctx.save(); ctx.beginPath(); ctx.moveTo(w.x, w.y + w.h); ctx.lineTo(w.x, w.y + Math.sin(wavePhase) * 4);
+                for (let px = 0; px <= w.w; px += 8) ctx.lineTo(w.x + px, w.y + Math.sin(wavePhase + px * 0.08) * 5);
+                ctx.lineTo(w.x + w.w, w.y + w.h); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+            });
+        }
+
+        function drawChainsaws() {
+            chainsawAngle += 0.2;
+            chainsaws.forEach(saw => {
+                ctx.save();
+                ctx.translate(saw.position.x, saw.position.y);
+                ctx.rotate(chainsawAngle);
+                ctx.fillStyle = '#7f8c8d';
+                ctx.beginPath(); ctx.arc(0, 0, 32, 0, Math.PI * 2); ctx.fill();
+                ctx.lineWidth = 3; ctx.strokeStyle = '#2c3e50'; ctx.stroke();
+                ctx.fillStyle = '#bdc3c7';
+                let teeth = 12;
+                for (let t = 0; t < teeth; t++) {
+                    let angle = (t / teeth) * Math.PI * 2;
+                    ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(30, -5); ctx.lineTo(44, 0); ctx.lineTo(30, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+                }
+                ctx.fillStyle = '#e74c3c'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function gameLoop() {
+            Engine.update(engine, 1000 / 60); ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'PLAYING') {
+                timerAccumulator += 1;
+                if (timerAccumulator >= 85) { 
+                    timeLeft--; timerAccumulator = 0; document.getElementById('hud').innerText = `Time: ${timeLeft}s`;
+                    if (timeLeft <= 0) {
+                        gameState = 'LEVEL_COMPLETE';
+                        btnAction.style.display = 'block';
+                        btnAction.innerText = 'NEXT LEVEL ➔';
+                        btnAction.style.background = '#2980b9';
+                    }
+                }
+            }
+
+            drawCartoonYardBackground(yardThemes[(level - 1) % yardThemes.length]);
+
+            hiveCenters.forEach(hive => {
+                ctx.fillStyle = '#f39c12'; ctx.strokeStyle = '#b9770e'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.ellipse(hive.x, hive.y, 38, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.ellipse(hive.x, hive.y - 8, 26, 9, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.beginPath(); ctx.ellipse(hive.x, hive.y + 8, 30, 11, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = '#4a2306'; ctx.beginPath(); ctx.ellipse(hive.x, hive.y + 6, 9, 6, 0, 0, Math.PI * 2); ctx.fill();
+            });
+
+            Composite.allBodies(world).forEach(body => {
+                if (body.label === 'land') renderMatterBody(body, '#2ecc71', '#27ae60'); 
+                else if (body.label === 'floater') {
+                    ctx.beginPath(); ctx.arc(body.position.x, body.position.y, 24, 0, Math.PI * 2);
+                    ctx.fillStyle = '#9b59b6'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#8e44ad'; ctx.stroke();
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(body.position.x - 7, body.position.y - 7, 5, 0, Math.PI * 2); ctx.fill();
+                }
+            });
+
+            drawOriginalSpikes(); drawAnimatedWater(); drawChainsaws();
+
+            // Dino Patrol Logic & Rendering
+            if (dino) {
+                if (gameState === 'PLAYING') {
+                    let nextX = dino.position.x + dinoDir * 2.5;
+                    if (nextX > W * 0.85 || nextX < W * 0.15) dinoDir *= -1;
+                    Body.setPosition(dino, { x: nextX, y: dino.position.y });
+                }
+                ctx.save();
+                ctx.translate(dino.position.x, dino.position.y);
+                if (dinoDir < 0) ctx.scale(-1, 1);
+                ctx.font = '40px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('🦖', 0, 0);
+                ctx.restore();
+            }
+
+            if (isDrawing && currentPath.length > 1) drawStrokePath(currentPath, '#ffeb3b');
+            allDrawnPaths.forEach(path => drawStrokePath(path, '#ff9800'));
+
+            drawnBodies.forEach(body => { body.parts.forEach(part => { if (part !== body) renderMatterBody(part, '#a0522d', '#5c2c16'); }); });
+
+            for (let i = woodDebris.length - 1; i >= 0; i--) {
+                let d = woodDebris[i]; d.x += d.vx; d.y += d.vy; d.vy += 0.35; d.angle += d.vRot; d.life -= 0.02;
+                ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle); ctx.fillStyle = `rgba(160, 82, 45, ${d.life})`; ctx.fillRect(-d.size / 2, -d.size / 2, d.size, d.size); ctx.restore();
+                if (d.life <= 0) woodDebris.splice(i, 1);
+            }
+
+            // 3x Larger Unicorn Head Emoji Render
+            if (unicorn) {
+                ctx.save();
+                ctx.translate(unicorn.position.x, unicorn.position.y);
+                ctx.rotate(unicorn.angle);
+                ctx.font = '108px sans-serif'; // 3x larger font size (from 36px to 108px)
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🦄', 0, 0);
+                ctx.restore();
+            }
+
+            // Bee & Spider AI / Updates
+            if (gameState === 'PLAYING' || gameState === 'LEVEL_COMPLETE') {
+                let speedScale = Math.min(1.4, 1.0 + (level - 1) * 0.04);
+                
+                // Bees flying AI
+                bees.forEach(bee => {
+                    let antiGravity = -bee.mass * world.gravity.y * 0.001;
+                    let dir = Vector.sub(unicorn.position, bee.position);
+                    let norm = Vector.normalise(dir);
+                    if (gameState === 'PLAYING') Body.applyForce(bee, bee.position, { x: norm.x * (bee.mass * 0.002 * speedScale), y: (norm.y * (bee.mass * 0.002 * speedScale)) + antiGravity });
+                    if (Vector.magnitude(bee.velocity) > 4.0 * speedScale) Body.setVelocity(bee, Vector.mult(Vector.normalise(bee.velocity), 4.0 * speedScale));
+                    
+                    ctx.save(); ctx.translate(bee.position.x, bee.position.y); if (bee.velocity.x < 0) ctx.scale(-1, 1);
+                    ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🐝', 0, 0); ctx.restore();
+                });
+
+                // Aggressive Crawling Spider Swarm AI
+                spiders.forEach(spider => {
+                    if (gameState === 'PLAYING') {
+                        let dirX = unicorn.position.x - spider.position.x;
+                        let dirY = unicorn.position.y - spider.position.y;
+                        let dist = Math.hypot(dirX, dirY);
+                        
+                        // Crawling forces along shapes/walls
+                        let crawlForceX = (dirX / dist) * 0.0025;
+                        let crawlForceY = (dirY / dist) * 0.002 - (spider.mass * world.gravity.y * 0.001); // Wall crawling/climbing force
+                        
+                        Body.applyForce(spider, spider.position, { x: crawlForceX, y: crawlForceY });
+                        if (Vector.magnitude(spider.velocity) > 3.2) Body.setVelocity(spider, Vector.mult(Vector.normalise(spider.velocity), 3.2));
+                    }
+
+                    ctx.save(); 
+                    ctx.translate(spider.position.x, spider.position.y);
+                    ctx.font = '26px sans-serif'; 
+                    ctx.textAlign = 'center'; 
+                    ctx.textBaseline = 'middle'; 
+                    ctx.fillText('🕷️', 0, 0); 
+                    ctx.restore();
+                });
+
+                if (unicorn.position.y > H + 100 || unicorn.position.x < -50 || unicorn.position.x > W + 50) triggerGameOver();
+            }
+
+            if (gameState === 'GAMEOVER') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#ff6b6b'; ctx.font = 'bold 40px sans-serif';
+                ctx.textAlign = 'center'; ctx.fillText('GAME OVER', W / 2, H / 2 - 20); ctx.fillStyle = '#ffffff'; ctx.font = '18px sans-serif'; ctx.fillText('Tap "RETRY" or Press "R" to Try Again', W / 2, H / 2 + 25);
+            } else if (gameState === 'LEVEL_COMPLETE') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#2ecc71'; ctx.font = 'bold 40px sans-serif';
+                ctx.textAlign = 'center'; ctx.fillText('LEVEL COMPLETED!', W / 2, H / 2 - 20); ctx.fillStyle = '#ffffff'; ctx.font = '18px sans-serif'; ctx.fillText('Tap "NEXT LEVEL" or Press "Enter"', W / 2, H / 2 + 25);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawStrokePath(path, color) {
+            ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y); for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+            ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        loadLevel(1); 
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

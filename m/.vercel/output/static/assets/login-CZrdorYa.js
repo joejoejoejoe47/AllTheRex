@@ -1,0 +1,1 @@
+import{r as e}from"./preload-helper-DCC9U1cP.js";import{i as t,n,r}from"./use-current-user-B_ghCiDx.js";import{i}from"./index-no_oIOB7.js";var a=i();function o(){let{user:i,isPending:o}=n();return o?(0,a.jsx)(t,{}):i?(0,a.jsx)(e,{to:`/`}):(0,a.jsx)(r,{})}export{o as component};

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OmniAI - Ultimate Multimodal Chat</title>
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --bg-sidebar: #161922;
+      --bg-card: #1f2430;
+      --accent: #6366f1;
+      --accent-glow: #818cf8;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #2d3748;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      justify-content: space-between;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: linear-gradient(90deg, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .nav-item {
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background-color: var(--bg-card);
+      color: var(--text);
+    }
+
+    /* Download Box */
+    .download-card {
+      background: linear-gradient(135deg, #4f46e5, #9333ea);
+      padding: 1.2rem;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+
+    .download-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .download-card p {
+      font-size: 0.8rem;
+      opacity: 0.9;
+      margin-bottom: 1rem;
+    }
+
+    .btn-download {
+      background-color: #ffffff;
+      color: #0f1117;
+      border: none;
+      padding: 10px 18px;
+      font-weight: bold;
+      border-radius: 20px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 0.9rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-download:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    }
+
+    /* Main Chat Area */
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-header {
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(22, 25, 34, 0.8);
+      backdrop-filter: blur(10px);
+    }
+
+    .chat-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Capabilities Showcase Grid */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      margin-top: 10px;
+    }
+
+    .media-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    .media-card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .media-card .title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-top: 8px;
+      color: var(--accent-glow);
+    }
+
+    /* Code Block */
+    pre {
+      background-color: #090a0f;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      color: #a7f3d0;
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+
+    /* Chat Input */
+    .input-bar {
+      padding: 1.5rem 2rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 1rem;
+      background-color: var(--bg-sidebar);
+    }
+
+    .input-bar input {
+      flex: 1;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 25px;
+      padding: 12px 20px;
+      color: var(--text);
+      outline: none;
+    }
+
+    .btn-send {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      padding: 0 25px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    /* Modal / Boom Launcher Simulation */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-box {
+      background: var(--bg-card);
+      padding: 2.5rem;
+      border-radius: 16px;
+      text-align: center;
+      border: 2px solid var(--accent-glow);
+      box-shadow: 0 0 30px rgba(129, 140, 248, 0.5);
+      max-width: 450px;
+      animation: popIn 0.3s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.7); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .boom-title {
+      font-size: 2rem;
+      color: #38bdf8;
+      margin-bottom: 1rem;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <div>
+      <div class="logo">⚡ OmniAI Ultra</div>
+      <ul class="nav-list">
+        <li class="nav-item active">💬 Live Chat</li>
+        <li class="nav-item">📹 Video Chat Mode</li>
+        <li class="nav-item">🎨 AI Image Editor</li>
+        <li class="nav-item">💻 Code Studio</li>
+      </ul>
+    </div>
+
+    <div class="download-card">
+      <h3>Get Desktop App</h3>
+      <p>Run Real-Time AI, Video Chat & Image FX locally!</p>
+      <button class="btn-download" onclick="downloadAI()">🚀 DOWNLOAD NOW</button>
+    </div>
+  </div>
+
+  <div class="chat-container">
+    <div class="chat-header">
+      <h2>OmniAI Multimodal Studio</h2>
+      <span style="color: #4ade80;">● Online & Ready</span>
+    </div>
+
+    <div class="chat-feed">
+      <div style="background-color: var(--bg-card); padding: 1rem; border-radius: 12px; border: 1px solid var(--border);">
+        <strong>OmniAI:</strong> Hello! I can assist you with real-time video chat, high-resolution image generation, image editing, and code production. Here is a quick sample of my capabilities:
+        
+        <div class="showcase-grid">
+          <div class="media-card">
+            <img src="https://picsum.photos/400/250?random=1" alt="Video Chat Interface">
+            <div class="title">🎥 Real-Time Video Chat</div>
+          </div>
+
+          <div class="media-card">
+            <img src="https://picsum.photos/400/250?random=2" alt="Image Generator">
+            <div class="title">🖼️ Image Editing & Generation</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <strong>💻 Code Execution Output:</strong>
+          <pre><code>&lt;!-- Generated HTML Canvas Animation --&gt;
+&lt;div class="ai-rendering-box"&gt;
+  &lt;h1&gt;Interactive HTML Elements Ready&lt;/h1&gt;
+&lt;/div&gt;</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-bar">
+      <input type="text" placeholder="Ask anything, generate images, or request code...">
+      <button class="btn-send">Send</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="installerModal">
+    <div class="modal-box">
+      <div class="boom-title">💥 BOOOOOOOM! 💥</div>
+      <h2>Awesome AI Activated!</h2>
+      <p style="margin: 1rem 0; color: var(--text-muted);">
+        Your desktop AI launcher script has been saved to your downloads folder.
+      </p>
+      <p style="font-size: 0.9rem; color: #a7f3d0; margin-bottom: 1.5rem;">
+        Double-click the downloaded <code>Awesome_AI_Launcher.bat</code> file to start full-speed local processing!
+      </p>
+      <button class="btn-download" onclick="closeModal()">Open Dashboard</button>
+    </div>
+  </div>
+
+  <script>
+    function downloadAI() {
+      // Create a batch launcher script payload
+      const scriptContent = `@echo off\ncls\necho =====================================\necho       LAUNCHING OMNI AI ULTRA        \necho =====================================\necho Initializing Neural Core...\necho Loading Video Engine...\necho Loading Image Editing Suite...\necho BOOOOOOOM! AWESOME AI IS READY!\npause\n`;
+      
+      const blob = new Blob([scriptContent], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Awesome_AI_Launcher.bat';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Trigger the interactive "BOOM" overlay
+      document.getElementById('installerModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('installerModal').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

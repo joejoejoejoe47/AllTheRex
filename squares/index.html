@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Physics Sandbox</title>
+    <!-- Include Matter.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111418;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            color: #fff;
+        }
+        #controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #1e232a;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        button {
+            background: #cf4242;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #b33535;
+        }
+        canvas {
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            background: #141517;
+        }
+        label {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <label>
+            Gravity: <input type="range" id="gravitySlider" min="0" max="2" step="0.1" value="1">
+        </label>
+        <button id="clearBtn">Clear Blocks</button>
+        <span style="font-size: 12px; color: #888;">• Drag to move items | Click/Release to spawn</span>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        // Module aliases
+        const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint } = Matter;
+
+        // Create engine and world
+        const engine = Engine.create();
+        const world = engine.world;
+
+        // Create renderer
+        const width = 800;
+        const height = 500;
+        const render = Render.create({
+            element: document.getElementById('canvas-container'),
+            engine: engine,
+            options: {
+                width: width,
+                height: height,
+                wireframes: false,
+                background: '#141517'
+            }
+        });
+
+        Render.run(render);
+
+        // Create runner
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // Add static boundaries (ground and walls)
+        const ground = Bodies.rectangle(width / 2, height + 30, width, 60, { isStatic: true, render: { fillStyle: '#2e3846' } });
+        const leftWall = Bodies.rectangle(-30, height / 2, 60, height, { isStatic: true });
+        const rightWall = Bodies.rectangle(width + 30, height / 2, 60, height, { isStatic: true });
+        Composite.add(world, [ground, leftWall, rightWall]);
+
+        // Add built-in Matter.js mouse control for dragging physics bodies
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+                stiffness: 0.2,
+                render: { visible: false }
+            }
+        });
+        Composite.add(world, mouseConstraint);
+        render.mouse = mouse; // Keep scroll sync if needed
+
+        // --- CUSTOM INPUT LOGIC ---
+        // Distinguish between a drag/manipulation and a clean click-to-spawn
+        let startX = 0;
+        let startY = 0;
+        const DRAG_THRESHOLD = 5; // max pixels allowed to move to still count as a click
+
+        render.canvas.addEventListener('mousedown', (event) => {
+            // Record where the click started
+            startX = event.clientX;
+            startY = event.clientY;
+        });
+
+        render.canvas.addEventListener('mouseup', (event) => {
+            // Calculate total distance moved during mouse press
+            const deltaX = event.clientX - startX;
+            const deltaY = event.clientY - startY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // ONLY spawn if the mouse stayed within the threshold (it wasn't a drag)
+            if (distance <= DRAG_THRESHOLD) {
+                // Get click position relative to the canvas bounding box
+                const rect = render.canvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+
+                // Don't spawn if the user clicked exactly on an existing body 
+                // (Matter.js handles dragging, but we don't want to spawn a block right under it)
+                if (!mouseConstraint.body) {
+                    const size = Math.random() * 20 + 30; // Random size between 30 and 50
+                    const newBlock = Bodies.rectangle(x, y, size, size, {
+                        friction: 0.1,
+                        restitution: 0.6, // Bounciness
+                        render: {
+                            fillStyle: `hsl(${Math.random() * 360}, 70%, 60%)` // Random color
+                        }
+                    });
+                    Composite.add(world, newBlock);
+                }
+            }
+        });
+
+        // --- UI CONTROLS ---
+        // Gravity Slider
+        document.getElementById('gravitySlider').addEventListener('input', (e) => {
+            world.gravity.y = parseFloat(e.target.value);
+        });
+
+        // Clear Button
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            // Get all bodies, filter out static walls/ground, and remove the dynamic ones
+            const allBodies = Composite.allBodies(world);
+            const dynamicBodies = allBodies.filter(body => !body.isStatic);
+            Composite.remove(world, dynamicBodies);
+        });
+    </script>
+</body>
+</html>

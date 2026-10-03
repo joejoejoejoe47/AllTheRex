@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survival Wilderness - UE Style (Optimized)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050805; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.9); pointer-events: none; }
+        h1 { margin: 0 0 5px 0; font-size: 24px; text-transform: uppercase; color: #d4af37; }
+        #inventory { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: none; }
+        .inv-slot { width: 65px; height: 65px; background: rgba(10, 15, 10, 0.75); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: bold; }
+        .inv-slot.active { border-color: #d4af37; background: rgba(30, 40, 30, 0.85); }
+        #interaction-prompt { position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 4px; font-weight: bold; display: none; border: 1px solid #d4af37; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>Survival Horizon UE</h1>
+        <p><b>WASD</b> Move | <b>Space</b> Jump | <b>Click</b> Swing Axe | <b>E</b> Collect</p>
+    </div>
+    <div id="interaction-prompt">PRESS [E] TO COLLECT</div>
+    <div id="inventory">
+        <div class="inv-slot active"><div class="inv-icon">🪵</div><div id="cnt-wood">0</div></div>
+        <div class="inv-slot"><div class="inv-icon">🥩</div><div id="cnt-meat">0</div></div>
+        <div class="inv-slot"><div class="inv-icon">🧥</div><div id="cnt-hide">0</div></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0c130c);
+        scene.fog = new THREE.FogExp2(0x0c130c, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        document.body.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xdff0df, 0.7);
+        scene.add(ambientLight);
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.0);
+        sunLight.position.set(100, 150, 50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        scene.add(sunLight);
+
+        function getTerrainHeight(x, z) {
+            return Math.sin(x * 0.02) * Math.cos(z * 0.02) * 8 + Math.sin(x * 0.005) * Math.cos(z * 0.005) * 22;
+        }
+
+        // Terrain
+        const terrainGeo = new THREE.PlaneGeometry(400, 400, 64, 64);
+        terrainGeo.rotateX(-Math.PI / 2);
+        const pos = terrainGeo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+            pos.setY(i, getTerrainHeight(pos.getX(i), pos.getZ(i)));
+        }
+        terrainGeo.computeVertexNormals();
+        const terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({ color: 0x182815, roughness: 0.9 }));
+        terrain.receiveShadow = true;
+        scene.add(terrain);
+
+        // Grass (Optimized to 100k instances for high FPS stability)
+        const grassCount = 100000;
+        const grassGeo = new THREE.PlaneGeometry(0.4, 1.8);
+        grassGeo.translate(0, 0.9, 0);
+        const grassMesh = new THREE.InstancedMesh(grassGeo, new THREE.MeshStandardMaterial({ color: 0x224418, side: THREE.DoubleSide }), grassCount);
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+
+        for (let i = 0; i < grassCount; i++) {
+            const x = (Math.random() - 0.5) * 380;
+            const z = (Math.random() - 0.5) * 380;
+            dummy.position.set(x, getTerrainHeight(x, z), z);
+            dummy.scale.set(1, 0.8 + Math.random() * 0.5, 1);
+            dummy.rotation.y = Math.random() * Math.PI;
+            dummy.updateMatrix();
+            grassMesh.setMatrixAt(i, dummy.matrix);
+            grassMesh.setColorAt(i, color.setRGB(0.05 + Math.random() * 0.1, 0.3 + Math.random() * 0.3, 0.05));
+        }
+        scene.add(grassMesh);
+
+        // Player Setup
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+        const playerBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.2, 0.4), new THREE.MeshStandardMaterial({ color: 0x2c3b28 }));
+        playerBody.position.y = 0.9;
+        playerBody.castShadow = true;
+        playerGroup.add(playerBody);
+
+        // Game Loop State
+        const keys = {};
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Simple camera follow
+            camera.position.copy(playerGroup.position).add(new THREE.Vector3(0, 5, -8));
+            camera.lookAt(playerGroup.position.clone().add(new THREE.Vector3(0, 1, 0)));
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

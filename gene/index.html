@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Allele Drift — Selection Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0e13;
+    --panel: #10161f;
+    --panel-2: #141c27;
+    --border: #212c39;
+    --text: #e7ecf2;
+    --text-dim: #8a97a8;
+    --text-faint: #52606f;
+    --A: #4d8dfd;
+    --T: #f0c23c;
+    --G: #ef565f;
+    --C: #f5934a;
+    --gold: #e8c468;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 1200px 600px at 50% -10%, #131b26 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  .app{
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ---------- Header / control bar ---------- */
+  header{
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(10,14,19,0.92);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 22px 0 16px;
+  }
+
+  .eyebrow{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  h1{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+  }
+  h1 span{ color: var(--A); }
+
+  .controls{
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .field label{
+    display:block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .field-input{
+    display:flex;
+    align-items:center;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .field-input:focus-within{ border-color: var(--A); }
+
+  .field-input input{
+    width: 64px;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .field-input span{
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-faint);
+    font-size: 14px;
+  }
+
+  button#go{
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--A);
+    color: #06111f;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 22px;
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+    box-shadow: 0 0 0 rgba(77,141,253,0);
+  }
+  button#go:hover{ transform: translateY(-1px); box-shadow: 0 6px 18px rgba(77,141,253,0.25); }
+  button#go:active{ transform: translateY(0); }
+  button#go:disabled{ opacity: 0.45; cursor: not-allowed; transform:none; box-shadow:none; }
+
+  .status{
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    text-align: right;
+    line-height: 1.5;
+  }
+  .status b{ color: var(--text); font-size: 15px; }
+  .status.done b{ color: var(--gold); }
+  .status.extinct b{ color: var(--G); }
+
+  .legend{
+    display:flex;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .legend-item{
+    display:flex;
+    align-items:center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .legend-dot{
+    width: 10px; height:10px; border-radius:50%;
+  }
+
+  /* ---------- Rows ---------- */
+  .rows{
+    padding-top: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .row{
+    display:flex;
+    align-items:flex-start;
+    gap: 16px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    animation: rise .32s ease both;
+  }
+  .row.fixed{
+    background: linear-gradient(90deg, rgba(232,196,104,0.09), transparent 70%);
+    box-shadow: inset 0 0 0 1px rgba(232,196,104,0.25);
+  }
+  .row.extinct-row{
+    background: linear-gradient(90deg, rgba(239,86,95,0.08), transparent 70%);
+    box-shadow: inset 0 0 0 1px rgba(239,86,95,0.22);
+  }
+
+  @keyframes rise{
+    from{ opacity:0; transform: translateY(6px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+
+  .gen-label{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-faint);
+    width: 46px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-top: 4px;
+  }
+  .row.fixed .gen-label{ color: var(--gold); font-weight: 700; }
+  .row.extinct-row .gen-label{ color: var(--G); font-weight: 700; }
+
+  .circles{
+    display:flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .circle{
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    overflow: hidden;
+    display:flex;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .circle-half{
+    width: 50%;
+    height: 100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 9px;
+    color: #05080c;
+  }
+  .circle.glow{
+    box-shadow: 0 0 0 2px rgba(77,141,253,0.35), 0 0 10px rgba(77,141,253,0.35);
+  }
+
+  .empty-state{
+    margin-top: 60px;
+    text-align:center;
+    color: var(--text-faint);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  footer.note{
+    margin-top: 34px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-faint);
+    line-height: 1.7;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <p class="eyebrow">Population genetics · two independent loci</p>
+      <h1>Allele <span>Drift</span></h1>
+      <div class="controls">
+        <div class="field">
+          <label for="popSize">Initial population</label>
+          <div class="field-input">
+            <input id="popSize" type="number" value="20" min="2" max="100" step="2">
+          </div>
+        </div>
+        <div class="field">
+          <label for="fitness">Fitness of A (+ helps, − hurts)</label>
+          <div class="field-input">
+            <input id="fitness" type="number" value="1" min="-100" max="100" step="0.1">
+            <span>%</span>
+          </div>
+        </div>
+        <button id="go">Go</button>
+        <div class="status" id="status">Generation <b>0</b><br>t = 1 is the founding population</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--A)"></span>A — adenine (the founding mutation, selected)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--T)"></span>T — thymine</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--G)"></span>G — guanine</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--C)"></span>C — cytosine</div>
+      </div>
+    </header>
+
+    <div class="rows" id="rows"></div>
+    <p class="empty-state" id="emptyState">Press <b>Go</b> to found a population where each circle has two independent halves — left and right — each seeded with a single A mutation among a sea of T/G/C, and watch selection play out, one generation per row.</p>
+
+    <footer class="note">
+      Each circle has two independent halves — left and right — representing two separate base-pair
+      positions (loci). The founding generation (t=1) seeds exactly one A mutation into the left half's
+      population and, independently, one A mutation into the right half's population; every other half is
+      randomly T, G, or C. Each generation, individuals are randomly paired up (an odd one out sits out the
+      round) and every pair has a litter of 0–7 offspring, drawn from a binomial distribution whose average
+      is density-dependent (boosted well below carrying capacity, suppressed when crowded) and scaled by
+      each parent's fitness — a parent's multiplier is the average of its two halves, with an A half
+      contributing 1 + fitness% instead of 1. Within a litter, each half of each offspring independently
+      inherits that half's letter from one parent by a plain 50/50 coin flip — the two loci assort
+      independently, just like unlinked genes. The run ends when a variant takes over the population on
+      both halves at once — left uniform and right uniform, not necessarily the same letter on each — or
+      when the population collapses to zero.
+    </footer>
+  </div>
+
+<script>
+  const LETTERS = ['A','T','G','C'];
+  const NON_A_LETTERS = ['T','G','C'];
+  const COLOR = { A: 'var(--A)', T: 'var(--T)', G: 'var(--G)', C: 'var(--C)' };
+  const MAX_GENERATIONS = 400;
+  const MAX_OFFSPRING_PER_PAIR = 7;
+  const MAX_POPULATION = 300;
+  const BASE_REPLACEMENT_LITTER = 2;  // litter size at equilibrium (replaces the 2 parents)
+  const GROWTH_RATE = 0.8;            // strength of density-dependent regulation (Ricker-style)
+  const STEP_DELAY = 260;
+
+  const goBtn = document.getElementById('go');
+  const fitnessInput = document.getElementById('fitness');
+  const popSizeInput = document.getElementById('popSize');
+  const rowsEl = document.getElementById('rows');
+  const statusEl = document.getElementById('status');
+  const emptyState = document.getElementById('emptyState');
+
+  let running = false;
+
+  function randomLetter(){
+    return LETTERS[Math.floor(Math.random()*4)];
+  }
+
+  function randomNonALetter(){
+    return NON_A_LETTERS[Math.floor(Math.random()*3)];
+  }
+
+  function foundPopulation(size){
+    const population = Array.from({length:size}, () => ({ l: randomNonALetter(), r: randomNonALetter() }));
+    population[Math.floor(Math.random()*size)].l = 'A'; // left-half mutation, seeded independently
+    population[Math.floor(Math.random()*size)].r = 'A'; // right-half mutation, seeded independently
+    return population;
+  }
+
+  function shuffledIndices(n){
+    const idx = Array.from({length:n}, (_,i)=>i);
+    for(let i=idx.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx;
+  }
+
+  function sampleDown(arr, n){
+    const idx = shuffledIndices(arr.length).slice(0, n);
+    return idx.map(i => arr[i]);
+  }
+
+  // Binomial(n, p): naturally bounded [0, n], no need to clip a runaway tail like Poisson has.
+  function binomialSample(n, p){
+    p = Math.min(1, Math.max(0, p));
+    let count = 0;
+    for(let i=0; i<n; i++){
+      if(Math.random() < p) count++;
+    }
+    return count;
+  }
+
+  function makeChild(pA, pB){
+    return {
+      l: Math.random() < 0.5 ? pA.l : pB.l,
+      r: Math.random() < 0.5 ? pA.r : pB.r,
+    };
+  }
+
+  function locusMultiplier(letter, advantagePct){
+    return letter === 'A' ? Math.max(0, 1 + advantagePct/100) : 1;
+  }
+
+  function individualMultiplier(ind, advantagePct){
+    return (locusMultiplier(ind.l, advantagePct) + locusMultiplier(ind.r, advantagePct)) / 2;
+  }
+
+  function nextGeneration(population, advantagePct, carryingCapacity){
+    const N = population.length;
+    const order = shuffledIndices(N);
+    const pairCount = Math.floor(N / 2); // an odd individual sits out this round
+    const children = [];
+
+    // Density-dependent baseline litter (Ricker-style): a rescue boost when the population
+    // is well below carrying capacity, suppression when it's crowded near/above it. This is
+    // what keeps a neutral population hovering near equilibrium instead of drifting to zero.
+    const densityFactor = Math.exp(GROWTH_RATE * (1 - N / carryingCapacity));
+
+    for(let p=0; p<pairCount; p++){
+      const parentA = population[order[p*2]];
+      const parentB = population[order[p*2+1]];
+
+      // Each parent's reproductive multiplier averages both halves; an A half contributes 1 + fitness%.
+      const multA = individualMultiplier(parentA, advantagePct);
+      const multB = individualMultiplier(parentB, advantagePct);
+      const lambda = BASE_REPLACEMENT_LITTER * densityFactor * ((multA + multB) / 2);
+
+      const litterSize = binomialSample(MAX_OFFSPRING_PER_PAIR, lambda / MAX_OFFSPRING_PER_PAIR);
+
+      for(let c=0; c<litterSize; c++){
+        children.push(makeChild(parentA, parentB));
+      }
+    }
+
+    // Carrying capacity: if the population would explode, randomly cull back down.
+    if(children.length > MAX_POPULATION){
+      return sampleDown(children, MAX_POPULATION);
+    }
+    return children;
+  }
+
+  function isLocusFixed(population, key){
+    return population.every(ind => ind[key] === population[0][key]);
+  }
+
+  function renderRow(t, population, fixedState){
+    const row = document.createElement('div');
+    row.className = 'row' + (fixedState === 'A' ? ' fixed' : fixedState === 'other' ? ' extinct-row' : '');
+
+    const label = document.createElement('div');
+    label.className = 'gen-label';
+    label.innerHTML = 't=' + t + '<br><span style="opacity:0.6">n=' + population.length + '</span>';
+    row.appendChild(label);
+
+    const circles = document.createElement('div');
+    circles.className = 'circles';
+    population.forEach(ind => {
+      const c = document.createElement('div');
+      c.className = 'circle' + ((ind.l === 'A' || ind.r === 'A') ? ' glow' : '');
+
+      const left = document.createElement('div');
+      left.className = 'circle-half';
+      left.style.background = COLOR[ind.l];
+      left.textContent = ind.l;
+
+      const right = document.createElement('div');
+      right.className = 'circle-half';
+      right.style.background = COLOR[ind.r];
+      right.textContent = ind.r;
+
+      c.appendChild(left);
+      c.appendChild(right);
+      circles.appendChild(c);
+    });
+    row.appendChild(circles);
+
+    rowsEl.appendChild(row);
+    row.scrollIntoView({behavior:'smooth', block:'end'});
+    return row;
+  }
+
+  function setStatus(html, cls){
+    statusEl.innerHTML = html;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  async function run(){
+    const advantagePct = parseFloat(fitnessInput.value);
+    if(isNaN(advantagePct) || advantagePct < -100 || advantagePct > 100){
+      fitnessInput.focus();
+      return;
+    }
+
+    let popSize = parseInt(popSizeInput.value, 10);
+    if(isNaN(popSize) || popSize < 2){
+      popSizeInput.focus();
+      return;
+    }
+    if(popSize % 2 !== 0) popSize -= 1; // pairing requires an even population
+    popSizeInput.value = popSize;
+
+    running = true;
+    goBtn.disabled = true;
+    fitnessInput.disabled = true;
+    popSizeInput.disabled = true;
+    emptyState.style.display = 'none';
+    rowsEl.innerHTML = '';
+
+    let population = foundPopulation(popSize);
+    const carryingCapacity = Math.min(MAX_POPULATION, popSize * 5);
+    let t = 1;
+    renderRow(t, population, null);
+    setStatus('Generation <b>1</b><br>simulating…');
+
+    while(true){
+      if(population.length === 0){
+        const lastRow = rowsEl.lastElementChild;
+        if(lastRow) lastRow.classList.add('extinct-row');
+        setStatus('Population collapsed at <b>t = ' + t + '</b><br>no offspring survived to the next generation', 'extinct');
+        break;
+      }
+
+      if(isLocusFixed(population, 'l') && isLocusFixed(population, 'r')){
+        const leftWinner = population[0].l;
+        const rightWinner = population[0].r;
+        const lastRow = rowsEl.lastElementChild;
+        const leftIsA = leftWinner === 'A';
+        const rightIsA = rightWinner === 'A';
+
+        if(leftIsA && rightIsA){
+          lastRow.classList.add('fixed');
+          setStatus('Fixed at generation <b>t = ' + t + '</b><br>A took over both halves', 'done');
+        } else if(leftIsA || rightIsA){
+          lastRow.classList.add('fixed');
+          setStatus('Fixed at generation <b>t = ' + t + '</b><br>left → ' + leftWinner + ', right → ' + rightWinner + ' — only one half went to A', 'done');
+        } else {
+          lastRow.classList.add('extinct-row');
+          setStatus('A went extinct on both halves — fixed on ' + leftWinner + ' / ' + rightWinner + ' at <b>t = ' + t + '</b><br>drift beat the ' + advantagePct + '% fitness edge', 'extinct');
+        }
+        break;
+      }
+
+      if(t >= MAX_GENERATIONS){
+        setStatus('Stopped after <b>t = ' + t + '</b> generations<br>no fixation reached — try again', 'extinct');
+        break;
+      }
+
+      await new Promise(res => setTimeout(res, STEP_DELAY));
+      population = nextGeneration(population, advantagePct, carryingCapacity);
+      t += 1;
+      renderRow(t, population, null);
+      setStatus('Generation <b>' + t + '</b><br>simulating…');
+    }
+
+    running = false;
+    goBtn.disabled = false;
+    fitnessInput.disabled = false;
+    popSizeInput.disabled = false;
+  }
+
+  goBtn.addEventListener('click', () => {
+    if(!running) run();
+  });
+
+  fitnessInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !running) run();
+  });
+
+  popSizeInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' && !running) run();
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Settler's Codex - Interactive Guide</title>
+    <style>
+        :root {
+            --bg-primary: #0a0d14;
+            --bg-card: rgba(18, 25, 38, 0.85);
+            --border-gold: #c5a880;
+            --border-dark: #3a2e20;
+            --gold: #f4d06f;
+            --text-main: #f0e6d2;
+            --text-dim: #9b9080;
+            --accent-blue: #38bdf8;
+            --accent-green: #34d399;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Georgia', serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 50% 10%, rgba(56, 189, 248, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 20% 80%, rgba(244, 208, 111, 0.04) 0%, transparent 40%);
+            padding: 3rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .codex-container {
+            width: 100%;
+            max-width: 850px;
+            background: var(--bg-card);
+            border: 3px solid var(--border-gold);
+            border-radius: 6px;
+            padding: 3rem;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.9), inset 0 0 50px rgba(0,0,0,0.6);
+            backdrop-filter: blur(10px);
+            position: relative;
+        }
+
+        /* Codex Header */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 2px solid var(--border-gold);
+            padding-bottom: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: var(--gold);
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-family: system-ui, sans-serif;
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        /* Chapter Tabs Navigation */
+        .chapter-nav {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: linear-gradient(to bottom, #291f17, #150f0b);
+            color: var(--text-dim);
+            border: 1px solid var(--border-dark);
+            padding: 0.6rem 1.2rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Georgia', serif;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active, .tab-btn:hover {
+            background: linear-gradient(to bottom, #4a3b2c, #291f17);
+            color: var(--gold);
+            border-color: var(--border-gold);
+            box-shadow: 0 0 10px rgba(244, 208, 111, 0.2);
+        }
+
+        /* Chapter Sections */
+        .chapter-section {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .chapter-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-bottom: 1.2rem;
+            border-left: 4px solid var(--gold);
+            padding-left: 0.75rem;
+        }
+
+        h3 {
+            font-size: 1.15rem;
+            color: var(--accent-blue);
+            margin: 1.5rem 0 0.5rem 0;
+        }
+
+        p, li {
+            font-family: system-ui, sans-serif;
+            color: var(--text-main);
+            font-size: 0.98rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            position: relative;
+            padding-left: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        li::before {
+            content: "▪";
+            position: absolute;
+            left: 0;
+            color: var(--gold);
+        }
+
+        /* Engine Cards Grid */
+        .engine-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 1rem;
+            margin: 1.2rem 0;
+        }
+
+        .engine-card {
+            background: rgba(11, 14, 20, 0.6);
+            border: 1px solid var(--border-dark);
+            border-radius: 4px;
+            padding: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .engine-card:hover {
+            border-color: var(--border-gold);
+        }
+
+        .engine-card strong {
+            color: var(--gold);
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+
+        /* Formula Box */
+        .formula-box {
+            background: rgba(244, 208, 111, 0.05);
+            border: 1px dashed var(--border-gold);
+            padding: 1rem;
+            text-align: center;
+            border-radius: 4px;
+            font-size: 1.15rem;
+            color: var(--gold);
+            margin: 1rem 0;
+            font-family: 'Georgia', serif;
+        }
+
+        /* Code Block Styling */
+        .code-container {
+            position: relative;
+            background: #040609;
+            border: 1px solid var(--border-dark);
+            border-radius: 4px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: #131b2e;
+            padding: 0.5rem 1rem;
+            font-family: system-ui, sans-serif;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border-dark);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        pre {
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: #38bdf8;
+        }
+
+        .keyword { color: #c084fc; }
+        .string { color: #34d399; }
+        .comment { color: #64748b; font-style: italic; }
+
+        /* Footer Controls */
+        .codex-footer {
+            margin-top: 2.5rem;
+            border-top: 2px solid var(--border-gold);
+            padding-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-btn {
+            background: linear-gradient(to bottom, #34271c, #1d1510);
+            color: var(--gold);
+            border: 1px solid var(--border-gold);
+            padding: 0.5rem 1rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Georgia', serif;
+        }
+
+        .nav-btn:hover {
+            background: linear-gradient(to bottom, #4f3d2c, #291f17);
+        }
+
+        .page-indicator {
+            font-family: system-ui, sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="codex-container">
+        <header>
+            <h1>THE SETTLER'S CODEX</h1>
+            <div class="subtitle">Interactive Architectural Blueprint for Grand Strategy Development</div>
+        </header>
+
+        <div class="chapter-nav">
+            <button class="tab-btn active" onclick="switchChapter(0)">I. Engines</button>
+            <button class="tab-btn" onclick="switchChapter(1)">II. Core Systems</button>
+            <button class="tab-btn" onclick="switchChapter(2)">III. Prototype (Phaser)</button>
+            <button class="tab-btn" onclick="switchChapter(3)">IV. Next Steps</button>
+        </div>
+
+        <div class="chapter-section active" id="chapter-0">
+            <h2>1. Choose the Right Game Engine</h2>
+            <p>Building a settlement game from scratch in raw HTML/JavaScript (like our previous tests) hits a massive performance wall quickly because of rendering 80+ simultaneous video/canvas elements. Real strategy games use established game engines designed for grid-based simulation and pathfinding.</p>
+            
+            <div class="engine-grid">
+                <div class="engine-card">
+                    <strong>Godot Engine</strong>
+                    <p><i>(Recommended for 2D/3D)</i><br>Lightweight, has native support for tile maps (TileMapLayer), built-in pathfinding (AStar2D), and uses GDScript (similar to Python), making it easy to code resource loops.</p>
+                </div>
+                <div class="engine-card">
+                    <strong>Unity (C#)</strong>
+                    <p>The industry standard for strategy games (e.g., Cities: Skylines). Excellent tooling for UI grids, management dashboards, and complex economic loops.</p>
+                </div>
+                <div class="engine-card">
+                    <strong>Phaser.js</strong>
+                    <p><i>(If you want JavaScript)</i><br>A fast 2D HTML5 game framework designed specifically for tilemaps, sprites, and arcade physics without browser lag.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="chapter-section" id="chapter-1">
+            <h2>2. Core Systems Required for a Settler Game</h2>
+            <p>To make it feel like a true settlement game, your code needs four core modular systems working together:</p>
+            
+            <h3>A. The Grid & Tilemap System</h3>
+            <p>Instead of chopping up videos, strategy games use a Grid Coordinate System (either square grid or isometric diamond grid). Each tile holds data:</p>
+            <ul>
+                <li><strong>Terrain Type:</strong> Grass, Water, Mountain, Forest.</li>
+                <li><strong>Resource Yield:</strong> Wood, Stone, Iron, Food.</li>
+                <li><strong>Occupancy:</strong> Is a building or unit currently on this tile?</li>
+            </ul>
+
+            <h3>B. The Simulation & Economic Loop</h3>
+            <p>A settler game is fundamentally an economic flowchart. You need a game tick loop (updates every 1 second or every frame) that handles production:</p>
+            <div class="formula-box">
+                $$\text{Workers} \times \text{Building Efficiency} = \text{Resource Generation}$$
+            </div>
+            <p><strong>Example Loop:</strong></p>
+            <ul>
+                <li>1. Woodcutter goes to Forest tile &rarr; chops wood.</li>
+                <li>2. Stockpile inventory increases by +1 Wood.</li>
+                <li>3. Sawmill consumes 1 Wood &rarr; produces 2 Planks.</li>
+            </ul>
+
+            <h3>C. Pathfinding (A* Algorithm)</h3>
+            <p>In The Settlers, you watch little villagers walk from point A to point B carrying sacks of grain or logs. This requires an A-Star (A*) pathfinding algorithm, which tells units how to navigate around mountains, rivers, and buildings to find the shortest route.</p>
+
+            <h3>D. State Management & UI HUD</h3>
+            <p>You need a classic management interface overlay:</p>
+            <ul>
+                <li>Top bar showing global resources (Wood, Stone, Food, Population, Gold).</li>
+                <li>Building placement menu (Click "Build Farm" &rarr; hover over valid grass tile &rarr; click to place).</li>
+            </ul>
+        </div>
+
+        <div class="chapter-section" id="chapter-2">
+            <h2>3. A Simple Working Prototype (Phaser.js)</h2>
+            <p>If you want to build a playable browser-based tile game easily, Phaser.js handles grid rendering and inputs cleanly. Here is a structural conceptual layout of how a tile-based settler game loop is written in JavaScript:</p>
+            
+            <div class="code-container">
+                <div class="code-header">
+                    <span>game_simulation.js</span>
+                    <span>JavaScript</span>
+                </div>
+                <pre><code><span class="keyword">class</span> <span class="string">GameScene</span> <span class="keyword">extends</span> Phaser.Scene {
+    <span class="keyword">constructor</span>() {
+        <span class="keyword">super</span>(<span class="string">'GameScene'</span>);
+        <span class="keyword">this</span>.resources = { wood: <span class="string">50</span>, food: <span class="string">20</span>, gold: <span class="string">100</span> };
+    }
+
+    preload() {
+        <span class="comment">// Load your tile graphics and UI assets</span>
+        <span class="keyword">this</span>.load.image(<span class="string">'grass'</span>, <span class="string">'assets/grass_tile.png'</span>);
+        <span class="keyword">this</span>.load.image(<span class="string">'mill'</span>, <span class="string">'assets/mill_building.png'</span>);
+    }
+
+    create() {
+        <span class="comment">// 1. Generate tactical grid map</span>
+        <span class="keyword">for</span> (<span class="keyword">let</span> x = <span class="string">0</span>; x &lt; <span class="string">10</span>; x++) {
+            <span class="keyword">for</span> (<span class="keyword">let</span> y = <span class="string">0</span>; y &lt; <span class="string">8</span>; y++) {
+                <span class="keyword">let</span> tile = <span class="keyword">this</span>.add.image(x * <span class="string">64</span>, y * <span class="string">64</span>, <span class="string">'grass'</span>).setInteractive();
+                
+                <span class="comment">// 2. Click to place a building</span>
+                tile.on(<span class="string">'pointerdown'</span>, () =&gt; {
+                    <span class="keyword">this</span>.buildStructure(x * <span class="string">64</span>, y * <span class="string">64</span>);
+                });
+            }
+        }
+
+        <span class="comment">// 3. Setup economic game tick (updates every 2s)</span>
+        <span class="keyword">this</span>.time.addEvent({
+            delay: <span class="string">2000</span>,
+            callback: <span class="keyword">this</span>.updateEconomy,
+            callbackScope: <span class="keyword">this</span>,
+            loop: <span class="keyword">true</span>
+        });
+    }
+
+    buildStructure(x, y) {
+        <span class="keyword">if</span> (<span class="keyword">this</span>.resources.wood &gt;= <span class="string">10</span>) {
+            <span class="keyword">this</span>.resources.wood -= <span class="string">10</span>;
+            <span class="keyword">this</span>.add.image(x, y, <span class="string">'mill'</span>);
+            console.log(<span class="string">"Settlement building constructed!"</span>);
+        } <span class="keyword">else</span> {
+            console.log(<span class="string">"Not enough wood!"</span>);
+        }
+    }
+
+    updateEconomy() {
+        <span class="keyword">this</span>.resources.food += <span class="string">5</span>;
+    }
+}</code></pre>
+            </div>
+        </div>
+
+        <div class="chapter-section" id="chapter-3">
+            <h2>Recommended Next Steps to Get Started</h2>
+            <p>Transform your concept into a real, functional simulation project by taking these immediate developmental steps:</p>
+            
+            <div class="engine-grid">
+                <div class="engine-card">
+                    <strong>Step 1</strong>
+                    <p>Download <strong>Godot Engine</strong> (it's free, open-source, and lightweight).</p>
+                </div>
+                <div class="engine-card">
+                    <strong>Step 2</strong>
+                    <p>Look up a tutorial on <strong>"Godot 2D Grid Tilemap Building System"</strong>.</p>
+                </div>
+                <div class="engine-card">
+                    <strong>Step 3</strong>
+                    <p>Implement a simple grid where clicking a tile spawns a building and modifies global resource variables.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="codex-footer">
+            <button class="nav-btn" onclick="changePage(-1)">&larr; Previous Chapter</button>
+            <div class="page-indicator" id="pageIndicator">Chapter 1 of 4</div>
+            <button class="nav-btn" onclick="changePage(1)">Next Chapter &rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        let currentChapter = 0;
+        const totalChapters = 4;
+
+        function switchChapter(index) {
+            currentChapter = index;
+            
+            // Update tabs
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach((tab, i) => {
+                if (i === currentChapter) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // Update sections
+            const sections = document.querySelectorAll('.chapter-section');
+            sections.forEach((sec, i) => {
+                if (i === currentChapter) {
+                    sec.classList.add('active');
+                } else {
+                    sec.classList.remove('active');
+                }
+            });
+
+            // Update indicator
+            document.getElementById('pageIndicator').innerText = `Chapter ${currentChapter + 1} of ${totalChapters}`;
+        }
+
+        function changePage(direction) {
+            currentChapter += direction;
+            if (currentChapter >= totalChapters) currentChapter = 0;
+            if (currentChapter < 0) currentChapter = totalChapters - 1;
+            switchChapter(currentChapter);
+        }
+    </script>
+</body>
+</html>

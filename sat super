@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Particle Sandbox</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0a0a16;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+        }
+
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(15, 15, 35, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            max-width: 320px;
+            transition: opacity 0.3s ease;
+        }
+
+        .ui-panel:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #ff3366, #33a6ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        p.subtitle {
+            font-size: 0.8rem;
+            color: #8a8a9e;
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.active {
+            background: #33a6ff;
+            color: #000;
+            border-color: #33a6ff;
+            box-shadow: 0 0 15px rgba(51, 166, 255, 0.4);
+        }
+
+        .clear-btn {
+            grid-column: span 2;
+            background: rgba(255, 51, 102, 0.15);
+            border-color: rgba(255, 51, 102, 0.3);
+            color: #ff3366;
+        }
+
+        .clear-btn:hover {
+            background: #ff3366;
+            color: white;
+        }
+
+        /* Sliders */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 70%;
+            background: rgba(255,255,255,0.1);
+            height: 4px;
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #33a6ff;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .value-display {
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: #33a6ff;
+            width: 25px;
+            text-align: right;
+        }
+
+        /* Instructions HUD */
+        .hud-instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #8a8a9e;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+            border: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+        }
+
+        /* Stats HUD */
+        .hud-stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #4af626;
+            text-shadow: 0 0 5px rgba(74, 246, 38, 0.5);
+            background: rgba(0,0,0,0.4);
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <div class="ui-panel">
+        <h1>Cosmic Sandbox</h1>
+        <p class="subtitle">Interact with physics and light</p>
+
+        <div class="control-group">
+            <label>Interaction Mode</label>
+            <div class="btn-grid">
+                <button id="mode-gravity" class="active">Gravity</button>
+                <button id="mode-repel">Repel</button>
+                <button id="mode-orbit">Orbit</button>
+                <button id="mode-blackhole">Black Hole</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Color Theme</label>
+            <div class="btn-grid">
+                <button id="theme-neon" class="active">Neon</button>
+                <button id="theme-fire">Inferno</button>
+                <button id="theme-matrix">Matrix</button>
+                <button id="theme-frost">Frost</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Gravity Strength</label>
+            <div class="slider-container">
+                <input type="range" id="slider-gravity" min="1" max="10" value="5">
+                <span id="val-gravity" class="value-display">5</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Particle Count</label>
+            <div class="slider-container">
+                <input type="range" id="slider-count" min="500" max="4000" step="100" value="2000">
+                <span id="val-count" class="value-display">2k</span>
+            </div>
+        </div>
+
+        <div class="btn-grid" style="margin-top: 20px; margin-bottom: 0;">
+            <button id="btn-clear" class="clear-btn">Reset Particles</button>
+        </div>
+    </div>
+
+    <div class="hud-instructions">
+        Click & Drag anywhere to manipulate the universe.
+    </div>
+
+    <div class="hud-stats">
+        <span id="fps">60</span> FPS | <span id="p-count">0</span> Particles
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // App State
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        
+        let particles = [];
+        let mouse = { x: null, y: null, active: false, lastX: null, lastY: null };
+        let settings = {
+            mode: 'gravity', // gravity, repel, orbit, blackhole
+            theme: 'neon',
+            gravityForce: 5,
+            targetCount: 2000
+        };
+
+        // Performance tracking
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fpsDisplay = document.getElementById('fps');
+        let particleCountDisplay = document.getElementById('p-count');
+
+        // Color Palettes
+        const themes = {
+            neon: ['#ff3366', '#33a6ff', '#9933ff', '#33ffff'],
+            fire: ['#ff3300', '#ff9900', '#ffff00', '#ff0055'],
+            matrix: ['#00ff66', '#00ffcc', '#33cc33', '#00ff33'],
+            frost: ['#00ffff', '#ffffff', '#80daff', '#3399ff']
+        };
+
+        // Particle Class
+        class Particle {
+            constructor(x, y, isSpawned = false) {
+                this.x = x || Math.random() * width;
+                this.y = y || Math.random() * height;
+                
+                // If spawned by user action, give them a little burst, otherwise slow drift
+                if (isSpawned) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 2 + 1;
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                } else {
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                }
+
+                this.baseRadius = Math.random() * 1.5 + 0.5;
+                this.radius = this.baseRadius;
+                
+                // Assign color from current theme
+                const palette = themes[settings.theme];
+                this.color = palette[Math.floor(Math.random() * palette.length)];
+                this.alpha = Math.random() * 0.5 + 0.5;
+                this.friction = 0.98;
+            }
+
+            update() {
+                // Apply mouse physics
+                if (mouse.active && mouse.x !== null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 400) {
+                        const force = (400 - distance) / 400; // Stronger closer to center
+                        const angle = Math.atan2(dy, dx);
+                        const strength = settings.gravityForce * 0.08;
+
+                        if (settings.mode === 'gravity') {
+                            this.vx += Math.cos(angle) * force * strength;
+                            this.vy += Math.sin(angle) * force * strength;
+                        } else if (settings.mode === 'repel') {
+                            this.vx -= Math.cos(angle) * force * strength * 1.2;
+                            this.vy -= Math.sin(angle) * force * strength * 1.2;
+                        } else if (settings.mode === 'orbit') {
+                            // Perpendicular vector for rotational force
+                            this.vx += Math.cos(angle + Math.PI / 2) * force * strength * 1.5;
+                            this.vy += Math.sin(angle + Math.PI / 2) * force * strength * 1.5;
+                            // Slight pull inward to keep orbit steady
+                            this.vx += Math.cos(angle) * force * strength * 0.2;
+                            this.vy += Math.sin(angle) * force * strength * 0.2;
+                        } else if (settings.mode === 'blackhole') {
+                            if (distance > 20) {
+                                this.vx += Math.cos(angle) * force * strength * 2;
+                                this.vy += Math.sin(angle) * force * strength * 2;
+                            } else {
+                                // Spat out if too close to black hole core
+                                this.x = Math.random() * width;
+                                this.y = Math.random() * height;
+                                this.vx = (Math.random() - 0.5) * 2;
+                                this.vy = (Math.random() - 0.5) * 2;
+                            }
+                        }
+                    }
+                }
+
+                // Apply velocity & friction
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen Wrap / Bounds Handling
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+
+                // Dynamic size based on velocity (creates motion blur illusion)
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                this.radius = this.baseRadius + Math.min(speed * 0.5, 4);
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                ctx.fill();
+            }
+        }
+
+        // Initialize / Manage population
+        function adjustParticleCount() {
+            if (particles.length < settings.targetCount) {
+                while (particles.length < settings.targetCount) {
+                    particles.push(new Particle());
+                }
+            } else if (particles.length > settings.targetCount) {
+                particles.splice(settings.targetCount);
+            }
+            particleCountDisplay.textContent = particles.length;
+        }
+
+        function init() {
+            particles = [];
+            adjustParticleCount();
+        }
+
+        // Animation Loop
+        function animate() {
+            // Motion blur trail effect instead of clearing canvas completely
+            ctx.fillStyle = 'rgba(10, 10, 22, 0.2)';
+            ctx.globalAlpha = 1.0;
+            ctx.fillRect(0, 0, width, height);
+
+            // Update & Draw particles
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+
+            // Draw interaction ring if mouse is active
+            if (mouse.active && mouse.x !== null) {
+                ctx.beginPath();
+                ctx.arc(mouse.x, mouse.y, 40, 0, Math.PI * 2);
+                ctx.strokeStyle = settings.mode === 'repel' ? 'rgba(255, 51, 102, 0.2)' : 'rgba(51, 166, 255, 0.2)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // FPS Counter
+            frameCount++;
+            let time = performance.now();
+            if (time >= lastTime + 1000) {
+                fpsDisplay.textContent = Math.round((frameCount * 1000) / (time - lastTime));
+                frameCount = 0;
+                lastTime = time;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // Mouse & Touch Inputs
+        function updateMousePos(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            mouse.x = clientX;
+            mouse.y = clientY;
+        }
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.ui-panel')) return; // Ignore UI clicks
+            mouse.active = true;
+            updateMousePos(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!mouse.active) return;
+            updateMousePos(e);
+        });
+
+        window.addEventListener('mouseup', () => mouse.active = false);
+        window.addEventListener('mouseleave', () => mouse.active = false);
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.ui-panel')) return;
+            mouse.active = true;
+            updateMousePos(e);
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (!mouse.active) return;
+            updateMousePos(e);
+        });
+        window.addEventListener('touchend', () => mouse.active = false);
+
+        // UI Interactions
+        const modeButtons = document.querySelectorAll('[id^="mode-"]');
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                modeButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                settings.mode = e.target.id.replace('mode-', '');
+            });
+        });
+
+        const themeButtons = document.querySelectorAll('[id^="theme-"]');
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                themeButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                settings.theme = e.target.id.replace('theme-', '');
+                // Live re-color of existing particles
+                particles.forEach(p => {
+                    const palette = themes[settings.theme];
+                    p.color = palette[Math.floor(Math.random() * palette.length)];
+                });
+            });
+        });
+
+        const gravitySlider = document.getElementById('slider-gravity');
+        const gravityVal = document.getElementById('val-gravity');
+        gravitySlider.addEventListener('input', (e) => {
+            settings.gravityForce = parseInt(e.target.value);
+            gravityVal.textContent = settings.gravityForce;
+        });
+
+        const countSlider = document.getElementById('slider-count');
+        const countVal = document.getElementById('val-count');
+        countSlider.addEventListener('input', (e) => {
+            settings.targetCount = parseInt(e.target.value);
+            countVal.textContent = settings.targetCount >= 1000 ? (settings.targetCount/1000) + 'k' : settings.targetCount;
+            adjustParticleCount();
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            init();
+        });
+
+        // Run
+        init();
+        animate();
+    </script>
+</body>
+</html>

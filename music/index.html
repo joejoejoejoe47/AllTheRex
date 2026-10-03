@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Victorian Mansion - 3D Walkthrough</title>
+    <style>
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #050204;
+            font-family: 'Georgia', serif; user-select: none;
+        }
+        #instructions {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ffffff; text-align: center;
+            background: rgba(22, 10, 18, 0.95);
+            padding: 40px 55px; border-radius: 18px;
+            cursor: pointer; border: 2px solid #d4af37;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.9);
+            z-index: 100; max-width: 600px; width: 90%;
+        }
+        h1 { margin-top: 0; color: #f3e5ab; font-size: 28px; letter-spacing: 1px; margin-bottom: 12px; }
+        p { color: #e8d8ce; font-size: 15px; line-height: 1.6; margin: 12px 0; }
+        .key {
+            display: inline-block; background: #5c1d39; color: #f3e5ab;
+            padding: 3px 9px; border-radius: 5px; border: 1px solid #d4af37;
+            font-weight: bold; font-family: monospace;
+        }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); width: 8px; height: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%;
+            pointer-events: none; z-index: 10;
+        }
+        #hud {
+            position: absolute; top: 20px; left: 50%;
+            transform: translateX(-50%); background: rgba(18, 8, 14, 0.85);
+            padding: 10px 28px; border-radius: 25px; border: 1px solid #d4af37;
+            color: #f3e5ab; font-size: 15px; letter-spacing: 1px;
+            pointer-events: none; z-index: 10; font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instructions">
+        <h1>Grand Victorian Estate</h1>
+        <p>Click anywhere on the screen to initialize interactive 3D navigation.</p>
+        <p>
+            Move Forward: <span class="key">W</span> | Backward: <span class="key">S</span><br>
+            Strafe Left: <span class="key">A</span> | Strafe Right: <span class="key">D</span><br>
+            Run: Hold <span class="key">SHIFT</span> &nbsp;|&nbsp; Look Around: <span class="key">Mouse</span>
+        </p>
+        <p style="font-size: 13px; color: #ffb6c1; margin-top: 15px;">
+            ✨ Spawning in the open foyer facing the twin staircases. Press W to walk forward right up the stairs into the upper rooms!
+        </p>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="hud">LOCATION: GROUND FLOOR FOYER (FACE THE STAIRS & WALK FORWARD)</div>
+
+    <!-- Import Three.js via ESM CDN -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+        let camera, scene, renderer, controls;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isRunning = false;
+        let prevTime = performance.now();
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+
+        const playerHeight = 3.5;
+        let currentFloorHeight = 0;
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0e060a);
+            scene.fog = new THREE.FogExp2(0x0e060a, 0.004);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            // Spawn safely away from walls in open foyer space facing the stairs
+            camera.position.set(0, playerHeight, -15);
+
+            controls = new PointerLockControls(camera, document.body);
+
+            const instructions = document.getElementById('instructions');
+            instructions.addEventListener('click', () => { controls.lock(); });
+            controls.addEventListener('lock', () => { instructions.style.display = 'none'; });
+            controls.addEventListener('unlock', () => { instructions.style.display = 'block'; });
+
+            scene.add(controls.object);
+
+            const onKeyDown = (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'ShiftLeft': case 'ShiftRight': isRunning = true; break;
+                }
+            };
+
+            const onKeyUp = (e) => {
+                switch (e.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyD': moveRight = false; break;
+                    case 'ShiftLeft': case 'ShiftRight': isRunning = false; break;
+                }
+            };
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            // Beautiful glowing warm lighting
+            const ambient = new THREE.AmbientLight(0xfff0f5, 1.4);
+            scene.add(ambient);
+
+            const hemi = new THREE.HemisphereLight(0xfffaed, 0x442233, 1.0);
+            scene.add(hemi);
+
+            buildMansionEnvironment();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            document.body.appendChild(renderer.domElement);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildMansionEnvironment() {
+            const marbleMat = new THREE.MeshStandardMaterial({ color: 0xf5f0ea, roughness: 0.2 });
+            const woodFloorMat = new THREE.MeshStandardMaterial({ color: 0x4a2c1d, roughness: 0.4 });
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xfaf4ed, roughness: 0.5 });
+            const darkWood = new THREE.MeshStandardMaterial({ color: 0x2b150c, roughness: 0.4 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 });
+            const whiteTrim = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+
+            // Foyer Floor & Ceiling
+            const foyerFloor = new THREE.Mesh(new THREE.PlaneGeometry(120, 100), marbleMat);
+            foyerFloor.rotation.x = -Math.PI / 2;
+            foyerFloor.position.set(0, 0, 10);
+            scene.add(foyerFloor);
+
+            const foyerCeiling = new THREE.Mesh(new THREE.PlaneGeometry(120, 100), darkWood);
+            foyerCeiling.rotation.x = Math.PI / 2;
+            foyerCeiling.position.set(0, 24, 10);
+            scene.add(foyerCeiling);
+
+            // Wide Boundary Walls
+            createWall(0, 12, -40, 120, 24, 1, wallMat);
+            createWall(-60, 12, 10, 1, 24, 100, wallMat);
+            createWall(60, 12, 10, 1, 24, 100, wallMat);
+
+            // Glowing Chandeliers
+            addChandelier(0, 20, -10, 0xffe0b2, 2.2);
+            addChandelier(-30, 20, 20, 0xffe0b2, 1.6);
+            addChandelier(30, 20, 20, 0xffe0b2, 1.6);
+
+            // --- TWIN VICTORIAN STAIRS ---
+            const stairCount = 18;
+            // Left Staircase
+            for (let i = 0; i < stairCount; i++) {
+                const step = new THREE.Mesh(new THREE.BoxGeometry(10, 0.7, 1.6), darkWood);
+                step.position.set(-18 + (i * 0.25), i * 0.7 + 0.35, -5 + (i * 1.3));
+                scene.add(step);
+            }
+            // Right Staircase
+            for (let i = 0; i < stairCount; i++) {
+                const step = new THREE.Mesh(new THREE.BoxGeometry(10, 0.7, 1.6), darkWood);
+                step.position.set(18 - (i * 0.25), i * 0.7 + 0.35, -5 + (i * 1.3));
+                scene.add(step);
+            }
+
+            // Upper Second Floor Landing & Rooms (Y = 12.6)
+            const upperFloor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), woodFloorMat);
+            upperFloor.rotation.x = -Math.PI / 2;
+            upperFloor.position.set(0, 12.6, 70);
+            scene.add(upperFloor);
+
+            const upperCeiling = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), darkWood);
+            upperCeiling.rotation.x = Math.PI / 2;
+            upperCeiling.position.set(0, 28, 70);
+            scene.add(upperCeiling);
+
+            // Upper Hallway Railing
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(60, 2.2, 1), goldMat);
+            rail.position.set(0, 13.7, 18);
+            scene.add(rail);
+
+            // Upper Corridors & Rooms Lighting
+            addChandelier(0, 24, 50, 0xffecb3, 1.8);
+            addChandelier(0, 24, 90, 0xffecb3, 1.8);
+
+            // Upper walls
+            createWall(-60, 20, 70, 1, 16, 120, wallMat);
+            createWall(60, 20, 70, 1, 16, 120, wallMat);
+            createWall(0, 20, 130, 120, 16, 1, wallMat);
+
+            // Partitions for the 7 rooms upstairs
+            createWall(-25, 20, 70, 1, 16, 90, wallMat);
+            createWall(25, 20, 70, 1, 16, 90, wallMat);
+
+            // --- 7 ROOMS UPSTAIRS ---
+
+            // ROOM 1: PINK GIRL'S ROOM (Left Front)
+            const pinkCarpet = new THREE.Mesh(new THREE.PlaneGeometry(33, 26), new THREE.MeshStandardMaterial({ color: 0xffb6c1, roughness: 0.8 }));
+            pinkCarpet.rotation.x = -Math.PI / 2;
+            pinkCarpet.position.set(-42, 12.7, 32);
+            scene.add(pinkCarpet);
+
+            // Canopy Bed
+            const bed = new THREE.Group();
+            bed.position.set(-45, 12.6, 26);
+            const mattress = new THREE.Mesh(new THREE.BoxGeometry(7, 2, 9), whiteTrim);
+            mattress.position.y = 1.5;
+            bed.add(mattress);
+            const canopy = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.6, 9.5), new THREE.MeshStandardMaterial({ color: 0xff69b4 }));
+            canopy.position.y = 8.5;
+            bed.add(canopy);
+            scene.add(bed);
+
+            // Rose Chandelier in Pink Room
+            addChandelier(-42, 24, 32, 0xff69b4, 2.0);
+
+            // Shelf with cute doll near bed
+            const shelf = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 1.2), whiteTrim);
+            shelf.position.set(-54, 16.5, 26);
+            scene.add(shelf);
+            const dollHead = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffdfc4 }));
+            dollHead.position.set(-54, 17.3, 26);
+            scene.add(dollHead);
+            const dollBody = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0xff69b4 }));
+            dollBody.position.set(-54, 16.8, 26);
+            scene.add(dollBody);
+
+            // ROOM 2: DAD'S STUDY (Left Mid)
+            addChandelier(-42, 24, 65, 0xffcc80, 1.6);
+
+            // ROOM 3: MOM'S MASTER SUITE (Left Back)
+            addChandelier(-42, 24, 100, 0xfff0f5, 1.6);
+
+            // ROOM 4: GRANDMA'S PARLOR (Right Front)
+            addChandelier(42, 24, 32, 0xffecb3, 1.6);
+
+            // ROOM 5: KID 1 BEDROOM (Right Mid-Front)
+            addChandelier(42, 24, 65, 0xe0f7fa, 1.6);
+
+            // ROOM 6: KID 2 BEDROOM (Right Mid-Back)
+            addChandelier(42, 24, 100, 0xf1f8e9, 1.6);
+
+            // ROOM 7: KID 3 NURSERY (End of Hallway)
+            addChandelier(0, 24, 115, 0xfffde7, 1.8);
+        }
+
+        function createWall(x, y, z, w, h, d, material) {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+            wall.position.set(x, y, z);
+            scene.add(wall);
+        }
+
+        function addChandelier(x, y, z, colorHex, intensity) {
+            const group = new THREE.Group();
+            group.position.set(x, y, z);
+            const light = new THREE.PointLight(colorHex, intensity, 45);
+            group.add(light);
+            const core = new THREE.Mesh(new THREE.OctahedronGeometry(1.5, 2), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: colorHex, emissiveIntensity: 0.8 }));
+            group.add(core);
+            scene.add(group);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+
+            if (controls.isLocked === true) {
+                const delta = (time - prevTime) / 1000;
+
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                const speed = isRunning ? 700.0 : 400.0;
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+
+                const pos = controls.object.position;
+
+                // Smooth stair climbing elevation physics
+                if (pos.z < -5) {
+                    currentFloorHeight = 0;
+                } else if (pos.z >= -5 && pos.z <= 18) {
+                    const progress = (pos.z - (-5)) / 23;
+                    currentFloorHeight = progress * 12.6;
+                } else {
+                    currentFloorHeight = 12.6;
+                }
+
+                pos.y = currentFloorHeight + playerHeight;
+
+                // Generous mansion boundaries so you never get stuck
+                pos.x = Math.max(-56, Math.min(56, pos.x));
+                pos.z = Math.max(-38, Math.min(125, pos.z));
+
+                // Dynamic HUD status
+                const hud = document.getElementById('hud');
+                if (pos.y < 6) {
+                    hud.innerText = "LOCATION: GROUND FLOOR FOYER (WALK FORWARD UP THE STAIRS)";
+                } else if (pos.x < -25 && pos.z < 45) {
+                    hud.innerText = "LOCATION: PINK GIRL'S ROOM";
+                } else if (pos.x < -25 && pos.z < 82) {
+                    hud.innerText = "LOCATION: DAD'S STUDY";
+                } else if (pos.x < -25) {
+                    hud.innerText = "LOCATION: MOM'S MASTER SUITE";
+                } else if (pos.x > 25 && pos.z < 45) {
+                    hud.innerText = "LOCATION: GRANDMA'S PARLOR";
+                } else if (pos.x > 25 && pos.z < 82) {
+                    hud.innerText = "LOCATION: KID 1 BEDROOM";
+                } else if (pos.x > 25) {
+                    hud.innerText = "LOCATION: KID 2 BEDROOM";
+                } else if (pos.z > 105) {
+                    hud.innerText = "LOCATION: KID 3 NURSERY";
+                } else {
+                    hud.innerText = "LOCATION: UPPER FLOOR HALLWAY & CORRIDOR";
+                }
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

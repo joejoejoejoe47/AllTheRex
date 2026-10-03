@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Altamint Property Tycoon</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #1e1e2f;
+      color: #333;
+    }
+    .game-container {
+      display: flex;
+      gap: 30px;
+    }
+    
+    /* 11x11 CSS Grid for the Board */
+    .board {
+      display: grid;
+      grid-template-columns: repeat(11, 70px);
+      grid-template-rows: repeat(11, 70px);
+      gap: 2px;
+      background: #2a2a40;
+      border: 4px solid #111;
+      padding: 2px;
+      border-radius: 12px;
+    }
+    
+    .space {
+      background: #cbf0cc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px;
+      font-size: 10px;
+      font-weight: bold;
+      text-align: center;
+      position: relative;
+    }
+    
+    /* Map spaces to the perimeter of the grid */
+    .space[data-id="0"] { grid-column: 11; grid-row: 11; } /* GO */
+    .space[data-id="1"] { grid-column: 10; grid-row: 11; }
+    .space[data-id="2"] { grid-column: 9; grid-row: 11; }
+    /* Skipping some spaces for brevity, but they map counter-clockwise */
+    .space[data-id="10"] { grid-column: 1; grid-row: 11; } /* Jail */
+    .space[data-id="11"] { grid-column: 1; grid-row: 10; }
+    .space[data-id="20"] { grid-column: 1; grid-row: 1; }  /* Free Parking */
+    .space[data-id="30"] { grid-column: 11; grid-row: 1; } /* Go to Jail */
+    
+    .center-branding {
+      grid-column: 2 / 11;
+      grid-row: 2 / 11;
+      background: #cbf0cc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      font-weight: 900;
+      color: #ff4757;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      border-radius: 8px;
+      transform: rotate(-45deg) scale(0.7);
+    }
+
+    .color-bar { height: 15px; width: 100%; border-bottom: 1px solid #111; }
+    .brown { background: #8b4513; }
+    .lightblue { background: #87ceeb; }
+    
+    .player {
+      width: 20px;
+      height: 20px;
+      background: #ff4757;
+      border: 2px solid white;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.3s ease;
+    }
+
+    /* Dashboard */
+    .dashboard {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      width: 300px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    button {
+      background: #2ed573;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 20px;
+    }
+    button:hover { background: #27ae60; }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <div class="board" id="board">
+    <div class="center-branding">ALTAMINT</div>
+    <!-- Bottom Row (0-10) -->
+    <div class="space" data-id="0">GO</div>
+    <div class="space" data-id="1"><div class="color-bar brown"></div>Mediter. Ave<br>$60</div>
+    <div class="space" data-id="2">Comm. Chest</div>
+    <div class="space" data-id="10">JAIL</div>
+    <!-- Top Left Corner -->
+    <div class="space" data-id="20">FREE<br>PARKING</div>
+    <!-- Top Right Corner -->
+    <div class="space" data-id="30">GO TO<br>JAIL</div>
+  </div>
+
+  <div class="dashboard">
+    <h2>Player 1</h2>
+    <p>Balance: $<span id="balance">1500</span></p>
+    <p>Position: <span id="position">GO</span></p>
+    <button onclick="rollDice()">Roll Dice 🎲</button>
+  </div>
+</div>
+
+<script>
+  // Game State
+  let currentPosition = 0;
+  const totalSpaces = 40; // A standard board has 40 spaces
+  
+  // Create player token
+  const playerToken = document.createElement('div');
+  playerToken.className = 'player';
+  
+  function updatePlayerPosition() {
+    // Find the space DOM element matching the current position
+    // (In a full game, you'd define all 40 spaces in HTML)
+    const targetSpace = document.querySelector(`.space[data-id="${currentPosition}"]`);
+    if (targetSpace) {
+      targetSpace.appendChild(playerToken);
+      document.getElementById('position').innerText = `Space ${currentPosition}`;
+    }
+  }
+
+  function rollDice() {
+    // Roll two 6-sided dice
+    const die1 = Math.floor(Math.random() * 6) + 1;
+    const die2 = Math.floor(Math.random() * 6) + 1;
+    const totalRoll = die1 + die2;
+    
+    // Calculate new position
+    currentPosition = (currentPosition + totalRoll) % totalSpaces;
+    
+    // Pass GO logic (adds $200)
+    if (currentPosition < totalRoll) {
+      let balance = parseInt(document.getElementById('balance').innerText);
+      document.getElementById('balance').innerText = balance + 200;
+      alert("You passed GO! Collect $200.");
+    }
+    
+    updatePlayerPosition();
+    console.log(`Rolled a ${totalRoll}. Moved to space ${currentPosition}`);
+  }
+
+  // Initialize game
+  updatePlayerPosition();
+</script>
+
+</body>
+</html>

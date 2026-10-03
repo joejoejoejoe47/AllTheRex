@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Shattered Crown: Interactive Fantasy Experience</title>
+    <style>
+        :root {
+            --bg-color: #f7f4ee;
+            --container-bg: #ffffff;
+            --text-color: #2b2b2b;
+            --primary-border: #3d2b1f;
+            --accent-color: #5c3a21;
+            --secondary-text: #6b523e;
+            --muted-text: #8c735d;
+            --toc-bg: #fbf9f5;
+            --toc-border: #e2d9cd;
+            --box-shadow: rgba(0, 0, 0, 0.08);
+            --header-gradient: linear-gradient(135deg, #f7f4ee 0%, #eae3d2 100%);
+            --chat-bg: #f4efe6;
+            --chat-bubble-user: #e2d9cd;
+            --chat-bubble-ai: #5c3a21;
+            --chat-text-ai: #ffffff;
+            --top-nav-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #12161a;
+            --container-bg: #1a2026;
+            --text-color: #d1d5db;
+            --primary-border: #8c735d;
+            --accent-color: #f39c12;
+            --secondary-text: #b09e8f;
+            --muted-text: #9ca3af;
+            --toc-bg: #161b22;
+            --toc-border: #2d3748;
+            --box-shadow: rgba(0, 0, 0, 0.5);
+            --header-gradient: linear-gradient(135deg, #12161a 0%, #1c232b 100%);
+            --chat-bg: #161b22;
+            --chat-bubble-user: #2d3748;
+            --chat-bubble-ai: #f39c12;
+            --chat-text-ai: #12161a;
+            --top-nav-bg: #1a2026;
+        }
+
+        * {
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            line-height: 1.8;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding-top: 60px;
+        }
+
+        /* Top Navigation Header */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background-color: var(--top-nav-bg);
+            border-bottom: 2px solid var(--toc-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 1001;
+            box-shadow: 0 2px 10px var(--box-shadow);
+        }
+
+        .top-navbar .brand {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .top-nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-btn {
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        #progress-bar {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #e67e22, #f1c40f, #3fb950);
+            width: 0%;
+            z-index: 1000;
+            transition: width 0.1s ease-out;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 999;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: var(--container-bg);
+            border: 2px solid var(--toc-border);
+            color: var(--accent-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 12px var(--box-shadow);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-color);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 30px;
+            background-color: var(--container-bg);
+            box-shadow: 0 0 30px var(--box-shadow);
+        }
+
+        header {
+            text-align: center;
+            padding: 50px 20px 30px;
+            border-bottom: 2px solid var(--primary-border);
+            margin-bottom: 40px;
+            background: var(--header-gradient);
+            border-radius: 6px;
+        }
+
+        h1 {
+            font-size: 3.2em;
+            color: var(--text-color);
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 1.3em;
+            font-style: italic;
+            color: var(--secondary-text);
+            margin-bottom: 15px;
+        }
+
+        /* Interactive Hub Sections */
+        .interactive-section {
+            background-color: var(--toc-bg);
+            border: 2px solid var(--toc-border);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 40px 0;
+            scroll-margin-top: 80px;
+        }
+
+        .interactive-section h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--toc-border);
+            padding-bottom: 10px;
+        }
+
+        /* Improved Video Avatar Player */
+        .video-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .video-screen {
+            width: 100%;
+            max-width: 600px;
+            height: 380px;
+            background: radial-gradient(circle, #2c3e50 0%, #0f172a 100%);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--accent-color);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        .character-portrait-svg {
+            width: 180px;
+            height: 180px;
+            filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.5));
+        }
+
+        /* Animated Mouth and Eye effects */
+        .talking .mouth {
+            animation: talkMouth 0.3s infinite alternate ease-in-out;
+        }
+
+        .talking .eyes {
+            animation: blinkEyes 3s infinite;
+        }
+
+        @keyframes talkMouth {
+            0% { transform: scaleY(0.2); }
+            100% { transform: scaleY(1.3); }
+        }
+
+        @keyframes blinkEyes {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.1); }
+        }
+
+        .video-subtitles {
+            position: absolute;
+            bottom: 15px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.85);
+            color: #f1c40f;
+            padding: 12px 18px;
+            border-radius: 6px;
+            font-size: 1.05em;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .video-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* AI Chat Styles */
+        .chat-box {
+            height: 320px;
+            overflow-y: auto;
+            border: 1px solid var(--toc-border);
+            background-color: var(--chat-bg);
+            padding: 15px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .chat-message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.98em;
+            line-height: 1.5;
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            background-color: var(--chat-bubble-user);
+            color: var(--text-color);
+            border-bottom-right-radius: 2px;
+        }
+
+        .chat-message.ai {
+            align-self: flex-start;
+            background-color: var(--chat-bubble-ai);
+            color: var(--chat-text-ai);
+            border-bottom-left-radius: 2px;
+        }
+
+        .chat-inputs {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-inputs input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--toc-border);
+            border-radius: 6px;
+            background: var(--container-bg);
+            color: var(--text-color);
+            font-size: 1em;
+        }
+
+        .chat-inputs button, .video-controls button {
+            padding: 10px 22px;
+            background: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .chat-inputs button:hover, .video-controls button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        /* Table of Contents Interactive Grid */
+        .toc {
+            background-color: var(--toc-bg);
+            border: 1px solid var(--toc-border);
+            padding: 30px;
+            margin-bottom: 50px;
+            border-radius: 8px;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            text-align: center;
+        }
+
+        .toc ul {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 20px;
+        }
+
+        .toc li a {
+            display: block;
+            padding: 8px 12px;
+            background-color: var(--container-bg);
+            border: 1px solid var(--toc-border);
+            border-radius: 4px;
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .toc li a:hover {
+            background-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        h2.chapter-title {
+            color: var(--primary-border);
+            font-size: 2.2em;
+            border-bottom: 2px solid var(--muted-text);
+            padding-bottom: 12px;
+            margin-top: 70px;
+            margin-bottom: 25px;
+            scroll-margin-top: 80px;
+        }
+
+        p {
+            font-size: 1.18em;
+            margin-bottom: 24px;
+            text-align: justify;
+            text-indent: 1.8em;
+        }
+
+        p.no-indent {
+            text-indent: 0;
+        }
+
+        .dropcap::first-letter {
+            float: left;
+            font-size: 4em;
+            line-height: 0.75;
+            padding-right: 10px;
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        footer {
+            text-align: center;
+            padding: 50px 0;
+            border-top: 1px solid var(--toc-border);
+            margin-top: 80px;
+            color: var(--muted-text);
+        }
+
+        @media (max-width: 768px) {
+            .toc ul { grid-template-columns: 1fr; }
+            h1 { font-size: 2.2em; }
+            .container { padding: 20px 15px; }
+            .top-navbar { padding: 0 15px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Top Navigation Bar with Quick Chat Access -->
+<nav class="top-navbar">
+    <div class="brand">👑 The Shattered Crown</div>
+    <div class="top-nav-links">
+        <a href="#toc-section" class="nav-btn">📚 Chapters</a>
+        <a href="#ai-hub-section" class="nav-btn">💬 AI Chat & Video Hub</a>
+    </div>
+</nav>
+
+<div id="progress-bar"></div>
+
+<div class="controls">
+    <button class="control-btn" id="theme-btn" title="Toggle Theme">🌙</button>
+    <button class="control-btn" id="top-btn" title="Back to Top">↑</button>
+</div>
+
+<div class="container">
+    <header>
+        <h1>The Shattered Crown</h1>
+        <div class="subtitle">An Expanded Interactive Chronicles Saga</div>
+        <div class="author">Featuring Dynamic Character Conversations & Live Avatars</div>
+    </header>
+
+    <!-- Table of Contents -->
+    <div class="toc" id="toc-section">
+        <h2>Interactive Table of Contents</h2>
+        <ul>
+            <li><a href="#chapter-1">1. The Golden Citadel of Aurelia</a></li>
+            <li><a href="#chapter-2">2. The Discontented Prince</a></li>
+            <li><a href="#chapter-3">3. The Secret Workshop Beneath Vaults</a></li>
+            <li><a href="#chapter-4">4. Whispers of the Dark Arcana</a></li>
+            <li><a href="#chapter-5">5. The Crucible of Sorcery</a></li>
+            <li><a href="#chapter-6">6. The March of the Glass Legion</a></li>
+            <li><a href="#chapter-7">7. The Echoes of the Rebuilt Citadel</a></li>
+        </ul>
+    </div>
+
+    <!-- AI Video Logs Section -->
+    <div class="interactive-section" id="ai-hub-section">
+        <h2>🎬 AI Video Logs: Interactive Character Introductions</h2>
+        <div class="video-container">
+            <div class="video-screen" id="video-screen">
+                <!-- SVG Vector Portrait of King Aurelius -->
+                <svg id="portrait-aurelius" class="character-portrait-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Head Background -->
+                    <circle cx="100" cy="100" r="70" fill="#f3d0a7"/>
+                    <!-- Crown -->
+                    <polygon points="50,60 70,20 100,50 130,20 150,60" fill="#f1c40f" stroke="#d35400" stroke-width="3"/>
+                    <circle cx="100" cy="50" r="6" fill="#e74c3c"/>
+                    <!-- Eyes -->
+                    <g class="eyes">
+                        <circle cx="80" cy="95" r="7" fill="#2c3e50"/>
+                        <circle cx="120" cy="95" r="7" fill="#2c3e50"/>
+                    </g>
+                    <!-- Beard -->
+                    <path d="M55,110 Q100,180 145,110 Q100,140 55,110 Z" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+                    <!-- Animated Mouth -->
+                    <ellipse class="mouth" cx="100" cy="125" rx="10" ry="4" fill="#7f8c8d"/>
+                </svg>
+
+                <!-- SVG Vector Portrait of Glass Wizard / Valerius -->
+                <svg id="portrait-valerius" class="character-portrait-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+                    <!-- Mask Base -->
+                    <polygon points="100,20 160,80 140,160 100,180 60,160 40,80" fill="#1e293b" stroke="#38bdf8" stroke-width="3"/>
+                    <!-- Glowing Crystal Eyes -->
+                    <g class="eyes">
+                        <polygon points="70,85 85,80 80,95" fill="#0ea5e9"/>
+                        <polygon points="130,85 115,80 120,95" fill="#0ea5e9"/>
+                    </g>
+                    <!-- Animated Crystalline Mask Mouth Slot -->
+                    <line class="mouth" x1="80" y1="135" x2="120" y2="135" stroke="#38bdf8" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+
+                <div id="video-speaker-name" style="color: #fff; font-weight: bold; margin-top: 10px; font-size: 1.2em;">King Aurelius</div>
+                <div class="video-subtitles" id="video-subtitles">Select a character below to play their video message!</div>
+            </div>
+            <div class="video-controls">
+                <button onclick="playAiVideo('aurelius')">▶️ Video: King Aurelius</button>
+                <button onclick="playAiVideo('valerius')">▶️ Video: Prince Valerius</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Interactive Chat Hub -->
+    <div class="interactive-section">
+        <h2>💬 Talk Directly with the Characters</h2>
+        <div style="margin-bottom: 15px;">
+            <label for="character-select"><strong>Select Character:</strong> </label>
+            <select id="character-select" style="padding: 8px; border-radius: 6px; font-size: 1em;">
+                <option value="aurelius">King Aurelius (Ruler of Aurelia)</option>
+                <option value="valerius">Prince Valerius (The Glass Wizard)</option>
+            </select>
+        </div>
+        <div class="chat-box" id="chat-box">
+            <div class="chat-message ai">Welcome, traveler. I am King Aurelius. What brings you to our kingdom? Ask me anything about our people, my beloved city, or my son Valerius.</div>
+        </div>
+        <div class="chat-inputs">
+            <input type="text" id="chat-input" placeholder="Ask a question..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send Message</button>
+        </div>
+    </div>
+
+    <!-- Long Story Chapters -->
+    <h2 class="chapter-title" id="chapter-1">Chapter 1: The Golden Citadel of Aurelia</h2>
+    <p class="dropcap">In the golden heart of Aurelia, prosperity reigned supreme under the wise stewardship of King Aurelius. The citadel’s gleaming marble spires glowed against the morning sun like polished brass, catching the warm light of a realm that had known neither war nor famine for generations. Green terraced gardens cascading down the citadel walls filled the air with sweet Jasmine, while clear riverways bubbled gently through stone arches into public fountains where children played freely.</p>
+    <p>Citizens gathered daily in the central plazas, sharing generously from overflowing harvest granaries, playing wooden flutes, and singing songs of peace and grand heritage. Yet, high above these festive streets, behind the tinted glass windows of the royal observatory, Prince Valerius watched with a cold, brooding resentment. To his ambitious, restless mind, his father’s open generosity was not a virtue—it was dangerous weakness that left the kingdom soft, vulnerable, and unprepared for true greatness.</p>
+    <p>Every morning, scholars and diplomats arrived with reports from distant borderlands, recording agricultural yields and treaty negotiations on thick parchment. But while King Aurelius sought harmony across the continent, Valerius studied the strategic geography of mountain passes and iron mines, convinced that absolute power and unyielding discipline were the only true guarantees of survival.</p>
+
+    <h2 class="chapter-title" id="chapter-2">Chapter 2: The Discontented Prince</h2>
+    <p class="dropcap">Valerius stood on his private balcony, watching the annual Grand Feast of the Harvest unfold below. When King Aurelius personally stepped down from his royal dais to break bread with the humblest farmers and artisans, Valerius gripped the stone balustrade until his knuckles burned white. He viewed such humility as a tragic waste of royal authority—an emotional indulgence that diluted the divine right of kingship.</p>
+    <p>In the weeks that followed, the prince withdrew almost entirely from royal banquets and council meetings. Where others saw happiness and prosperity, Valerius searched for structural flaws and strategic vulnerabilities. He spent his nights deep within the palace archives, poring over ancient manuscripts detailing lost magic, forgotten elemental forces, and forbidden rituals that could bypass the inherent limits of human biology.</p>
+    <p>Rumors began to ripple quietly through the royal court. Servants whispered of strange green lights emanating from beneath the prince's quarters during the midnight hour, and guards noted that Valerius walked through the grand halls with an increasingly icy, distant stare—his eyes burning with an unsettling amber intensity that unnerved even the most veteran knights.</p>
+
+    <h2 class="chapter-title" id="chapter-3">Chapter 3: The Secret Workshop Beneath the Vaults</h2>
+    <p class="dropcap">Far beneath the royal palace's deepest wine vaults, beyond subterranean arches built during the kingdom's founding era, Prince Valerius constructed a hidden alchemy laboratory. Secured behind heavy double doors of reinforced iron and protected by complex mechanical locks, he spent long, sleepless nights experimenting with subterranean volcanic minerals, super-heated elemental fire, and residual magical energy.</p>
+    <p>Through trial and error, he made a groundbreaking discovery: by fusing rare quartz sand with elemental fire and dark incantations, he could create a dense, crystalline material stronger than forged steel, yet capable of storing kinetic energy and absorbing living soul-essence. His hands became scarred and hardened by heat and acid, but his dark conviction only grew stronger with every successful chemical reaction.</p>
+
+    <h2 class="chapter-title" id="chapter-4">Chapter 4: Whispers of the Dark Arcana</h2>
+    <p class="dropcap">During a midnight excavation into a collapsed subterranean catacomb, Valerius uncovered an ancient ritual scroll written on dragon-hide parchment. The text detailed the forbidden art of living glass—a lost magic that allowed a master spellcaster to construct animate creatures made entirely of razor-sharp crystal and command them with a unified hive-mind.</p>
+    <p>The prince's obsession transformed into an all-consuming fever. He abandoned his administrative duties entirely, ignoring his father's gentle requests for council. Instead, he memorized intricate incantations that permitted him to flow molten silica like liquid water, forging sharp blades and immovable armor plated with ethereal green light.</p>
+
+    <h2 class="chapter-title" id="chapter-5">Chapter 5: The Crucible of Sorcery</h2>
+    <p class="dropcap">Deep within his underground workshop, Valerius constructed a massive arcane engine powered by liquid crystal. In a perilous ritual that shook the very foundations of the palace, he channeled raw crystalline magic into his own bloodstream, shedding his mortal frailty to become the Glass Wizard. His veins glowed with emerald light, his skin turned as hard as diamond, and his heart beat with cold, clockwork perfection.</p>
+    <p>No longer bound by human fatigue or emotional weakness, he covered his transformed visage with a dark, polished metal mask and donned a cloak of obsidian glass. He had sacrificed his humanity to achieve absolute mastery over living crystal.</p>
+
+    <h2 class="chapter-title" id="chapter-6">Chapter 6: The March of the Glass Legion</h2>
+    <p class="dropcap">From his newly constructed dark fortress in the northern volcanic crags, the Glass Wizard unleashed his army. Thousands of sleek glass assassins wielding dual razor-sharp blades and gigantic thirty-foot glass behemoths marched silently across the frozen valleys. They required neither food, rest, nor morale; they moved as a single, silent force driven entirely by Valerius’s mental will.</p>
+    <p>When the legion struck the outer cities, standard iron swords shattered against their crystalline bodies. Every fallen soldier touched by the behemoths' glowing broadswords instantly turned into frozen glass statues, creating a terrifying landscape of crystalline monuments that echoed the utter destruction of the old world.</p>
+
+    <h2 class="chapter-title" id="chapter-7">Chapter 7: The Echoes of the Rebuilt Citadel</h2>
+    <p class="dropcap">After years of conflict, when King Aurelius finally stood before the Glass Wizard and disarmed him not with a hammer blow but with unconditional love, the dark magic shattered. The endless glass army dissolved into glittering golden sand, and the frozen citizens returned to life as the curse dissolved into the wind.</p>
+    <p>Together, father and son stood amidst the sparkling dunes of the restored capital. Valerius, humbled and free from dark corruption, dedicated his vast engineering brilliance to designing magnificent aqueducts, bridges, and libraries, ensuring that Aurelia's new era would be built on both unyielding strength and enduring compassion.</p>
+
+    <footer>
+        <p><strong>The End of The Shattered Crown: Interactive Fantasy Edition</strong></p>
+    </footer>
+</div>
+
+<script>
+    // Theme Switcher
+    const themeBtn = document.getElementById('theme-btn');
+    themeBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        themeBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    });
+
+    // Back to Top Button
+    document.getElementById('top-btn').addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Scroll Progress Bar
+    window.onscroll = () => {
+        let winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        document.getElementById("progress-bar").style.width = (winScroll / height) * 100 + "%";
+    };
+
+    // AI Character Chat Knowledge Base
+    const characterResponses = {
+        aurelius: [
+            "My reign has always been built on the belief that a king's true power lies in how well he serves his people.",
+            "Valerius was led astray by a desire for absolute control, but love proved stronger than dark magic.",
+            "Aurelia is more than marble and gold—it is the spirit and unity of our people.",
+            "Forgiveness is not weak; it takes far more strength to forgive than to strike down an opponent."
+        ],
+        valerius: [
+            "I once believed flesh was flawed. I sought perfection in solid, unyielding glass!",
+            "My father's love broke a spell that I thought was unbreakable. I am learning humility now.",
+            "The glass legion was flawless in design, yet it possessed no soul. That was my greatest mistake.",
+            "Now I use my knowledge of crystal and architecture to build, rather than destroy."
+        ]
+    };
+
+    function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+
+        const chatBox = document.getElementById('chat-box');
+        const char = document.getElementById('character-select').value;
+
+        // User message bubble
+        const userMsg = document.createElement('div');
+        userMsg.className = 'chat-message user';
+        userMsg.textContent = text;
+        chatBox.appendChild(userMsg);
+
+        input.value = '';
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        // Simulated AI response
+        setTimeout(() => {
+            const aiMsg = document.createElement('div');
+            aiMsg.className = 'chat-message ai';
+            const responses = characterResponses[char];
+            const randomReply = responses[Math.floor(Math.random() * responses.length)];
+            
+            const speakerName = char === 'aurelius' ? 'King Aurelius' : 'Prince Valerius';
+            aiMsg.textContent = `${speakerName}: "${randomReply}"`;
+            
+            chatBox.appendChild(aiMsg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }, 700);
+    }
+
+    function handleKeyPress(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
+
+    // Interactive AI Video Player with Visual Animated SVG Characters
+    const videoScripts = {
+        aurelius: {
+            name: "King Aurelius",
+            portraitId: "portrait-aurelius",
+            lines: [
+                "Welcome to Aurelia! I am King Aurelius.",
+                "I have ruled this golden land with peace, compassion, and unity.",
+                "Though dark forces tried to shatter our realm, love triumphed."
+            ]
+        },
+        valerius: {
+            name: "Prince Valerius (Glass Wizard)",
+            portraitId: "portrait-valerius",
+            lines: [
+                "I am Valerius, once master of the Living Glass Legion.",
+                "I thought emotion was a weakness, so I encased my heart in crystal.",
+                "Now, I stand alongside my father to rebuild our kingdom."
+            ]
+        }
+    };
+
+    let videoTimer;
+    function playAiVideo(charKey) {
+        clearInterval(videoTimer);
+        const data = videoScripts[charKey];
+
+        // Hide all portraits, then show active character portrait
+        document.getElementById('portrait-aurelius').style.display = 'none';
+        document.getElementById('portrait-valerius').style.display = 'none';
+
+        const activePortrait = document.getElementById(data.portraitId);
+        activePortrait.style.display = 'block';
+
+        document.getElementById('video-speaker-name').textContent = data.name;
+        const subtitles = document.getElementById('video-subtitles');
+
+        let lineIndex = 0;
+        subtitles.textContent = data.lines[lineIndex];
+        activePortrait.classList.add('talking');
+
+        videoTimer = setInterval(() => {
+            lineIndex++;
+            if (lineIndex < data.lines.length) {
+                subtitles.textContent = data.lines[lineIndex];
+            } else {
+                clearInterval(videoTimer);
+                activePortrait.classList.remove('talking');
+                subtitles.textContent = "[Video Broadcast Ended - Click a button to play again]";
+            }
+        }, 3500);
+    }
+</script>
+
+</body>
+</html>

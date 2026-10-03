@@ -1,0 +1,21 @@
+Morse Chess Club for Plesk
+==========================
+
+This is a separate app from the Node Morse Chess site. It plays the same
+game — accounts, coins, standings, a live board, MorseBot, and challenges —
+on the PHP and MySQL that Plesk already runs.
+
+1. In Plesk, add the domain (or a subdomain).
+2. Set the document root to this folder.
+3. Pick PHP 8.1 or newer.
+4. Create a database and a database user. Give the user every privilege on that database.
+5. Open the site. The first page asks for the database host (usually localhost),
+   database name, user, and password.
+6. Create a club account. Challenge someone by the username they registered,
+   or sit down against MorseBot.
+
+If the server has no MySQL, the setup page can use a private file database
+instead. MySQL is the one that keeps working when more than one person plays.
+
+The board runs in the browser, so moves feel the same as any other web chess
+board. PHP only keeps the accounts, the coins, and the moves.

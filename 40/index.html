@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BakeAI - Interactive Dessert Creator</title>
+    <style>
+        :root {
+            --primary-bg: #e6f4ea;
+            --card-bg: #ffffff;
+            --accent-green: #1b5e20;
+            --light-green: #c8e6c9;
+            --text-color: #2b2b2b;
+            --border-color: #a5d6a7;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            padding: 30px;
+            box-sizing: border-box;
+            border: 2px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--accent-green);
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            background: var(--light-green);
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--accent-green);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        button {
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2e7d32;
+        }
+
+        .mic-btn {
+            background-color: #d32f2f;
+        }
+        .mic-btn.listening {
+            background-color: #b71c1c;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Result Section Style Matching the Infographic Theme */
+        .result-section {
+            display: none;
+            margin-top: 20px;
+            border-top: 2px dashed var(--border-color);
+            padding-top: 25px;
+        }
+
+        .result-header {
+            text-align: center;
+            font-size: 1.5rem;
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .image-container {
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 3px solid var(--accent-green);
+        }
+
+        .image-container img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Interactive Clickable Hotspots over Ingredients in the Image */
+        .hotspot {
+            position: absolute;
+            background: rgba(255, 235, 59, 0.6);
+            border: 2px solid #f57f17;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            color: #fff;
+            box-shadow: 0 0 8px rgba(0,0,0,0.4);
+            transition: transform 0.2s;
+        }
+
+        .hotspot:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            background: rgba(255, 193, 7, 0.9);
+        }
+
+        /* Info Card Modal/Box for Ingredient Details */
+        .ingredient-info-box {
+            margin-top: 20px;
+            background: #f1f8e9;
+            border: 1px solid var(--accent-green);
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .ingredient-info-box h3 {
+            color: var(--accent-green);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .ingredient-info-box p {
+            margin: 6px 0;
+            line-height: 1.4;
+        }
+
+        .instruction-note {
+            margin-top: 15px;
+            font-style: italic;
+            color: #555;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>BakeAI Dessert Generator</h1>
+        <p class="subtitle">Type or use your voice to prompt a custom dessert infographic experience!</p>
+
+        <div class="input-section">
+            <input type="text" id="promptInput" placeholder="e.g., Coconut Lime Banana Berry Pie..." value="Coconut Lime Banana Berry Pie">
+            <button id="micBtn" class="mic-btn" title="Use Microphone">🎤 Speak</button>
+            <button id="generateBtn">Generate</button>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-header" id="resultTitle">Coconut Lime Banana Berry Pie: A Tropical Layered Delight</div>
+            <p class="instruction-note">👇 Click on any highlighted ingredient spot on the diagram below to see how to get it and how to make it!</p>
+            
+            <div class="image-container" id="imageContainer">
+                <!-- Infographic source image provided in context -->
+                <img src="image_3c410a.jpg" alt="Generated Dessert Infographic">
+                
+                <!-- Interactive Hotspots positioned over corresponding items in the diagram -->
+                <!-- 1. Coconut Cream Base -->
+                <div class="hotspot" style="top: 36%; left: 16%;" onclick="showIngredient('Coconut Cream Base', 'How to get it: Full-fat coconut milk cans (chilled), fresh limes, and vanilla bean paste from the local supermarket.', 'How to make it: Whisk chilled coconut cream with a splash of fresh lime juice, lime zest, and vanilla bean paste until light and fluffy.')">1</div>
+                
+                <!-- 2. Sliced Fresh Bananas & Berries -->
+                <div class="hotspot" style="top: 38%; left: 35%;" onclick="showIngredient('Fresh Bananas & Mixed Berries', 'How to get it: Ripe bananas, fresh blackberries, and raspberries from the produce aisle.', 'How to make it: Slice fresh bananas evenly and gently combine them with clean, fresh blackberries and raspberries in a bowl.')">2</div>
+
+                <!-- 3. Toasted Coconut Flakes -->
+                <div class="hotspot" style="top: 78%; left: 17%;" onclick="showIngredient('Toasted Coconut Flakes', 'How to get it: Unsweetened coconut flakes from the baking aisle.', 'How to make it: Toss coconut flakes into a dry skillet over medium heat and toast until golden brown and aromatic for deep crunch.')">3</div>
+
+                <!-- 4. Layered Assembly (Slice View) -->
+                <div class="hotspot" style="top: 72%; left: 81%;" onclick="showIngredient('Assembled Pie Layers', 'How to get it: Prepared pie crust shell, whipped coconut-lime cream, prepared fruits, and toasted coconut.', 'How to make it: Layer the bottom with toasted coconut, spread the coconut-lime cream layer, add mixed fruit slices, repeat layers, and top with coconut garnish and fruit.')">4</div>
+            </div>
+
+            <!-- Detail Box when an ingredient is clicked -->
+            <div class="ingredient-info-box" id="infoBox">
+                <h3 id="infoTitle">Select an ingredient hotspot above</h3>
+                <p id="infoGet"><strong>Source:</strong> --</p>
+                <p id="infoMake"><strong>Preparation:</strong> --</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const promptInput = document.getElementById('promptInput');
+        const resultSection = document.getElementById('resultSection');
+        const resultTitle = document.getElementById('resultTitle');
+        const micBtn = document.getElementById('micBtn');
+
+        // Handle Generation
+        generateBtn.addEventListener('click', () => {
+            const query = promptInput.value.trim();
+            if(query) {
+                resultTitle.textContent = query + ": A Custom Infographic Result";
+                resultSection.style.display = 'block';
+                resultSection.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+
+        // Speech Recognition Integration (Microphone)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            micBtn.addEventListener('click', () => {
+                micBtn.classList.add('listening');
+                micBtn.textContent = 'Listening...';
+                recognition.start();
+            });
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                promptInput.value = transcript;
+                micBtn.classList.remove('listening');
+                micBtn.textContent = '🎤 Speak';
+                generateBtn.click();
+            };
+
+            recognition.onerror = () => {
+                micBtn.classList.remove('listening');
+                micBtn.textContent = '🎤 Speak';
+                alert('Microphone error or permission denied.');
+            };
+
+            recognition.onend = () => {
+                micBtn.classList.remove('listening');
+                micBtn.textContent = '🎤 Speak';
+            };
+        } else {
+            micBtn.style.display = 'none'; // Hide if browser doesn't support speech API
+        }
+
+        // Show Ingredient Info Dynamically
+        function showIngredient(title, howToGet, howToMake) {
+            const infoBox = document.getElementById('infoBox');
+            const infoTitle = document.getElementById('infoTitle');
+            const infoGet = document.getElementById('infoGet');
+            const infoMake = document.getElementById('infoMake');
+
+            infoTitle.textContent = title;
+            infoGet.innerHTML = `<strong>How to get it:</strong> ${howToGet}`;
+            infoMake.innerHTML = `<strong>How to make it:</strong> ${howToMake}`;
+            infoBox.style.display = 'block';
+            infoBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    </script>
+</body>
+</html>

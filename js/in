@@ -1,0 +1,22 @@
+local DataStoreService = game:GetService("DataStoreService")
+local playerPointsStore = DataStoreService:GetDataStore("PlayerPointsStore")
+
+-- Function to "download" (load) saved data when a player joins
+local function loadPlayerData(player)
+	local playerKey = "Player_" .. player.UserId
+	local success, err = pcall(function()
+		local savedData = playerPointsStore:GetAsync(playerKey)
+		if savedData then
+			print("Loaded data for " .. player.Name .. ": " .. savedData)
+			-- Apply saved data to your game mechanics here
+		else
+			print("No prior data found. Setting up default data.")
+		end
+	end)
+	
+	if not success then
+		warn("Failed to load data for " .. player.Name .. ": " .. tostring(err))
+	end
+end
+
+game.Players.PlayerAdded:Connect(loadPlayerData)

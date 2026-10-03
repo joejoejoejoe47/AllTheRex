@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mars Horizon • Immersive Grid Engine</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght=500;600;700&family=Inter:wght=400;500;600&display=swap');
+  
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .title-font { font-family: 'Space Grotesk', sans-serif; }
+  
+  .drop-zone {
+    transition: all 0.2s ease;
+    border: 2px dashed #4b5563;
+  }
+  .drop-zone.drag-over {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.12);
+  }
+  
+  .grid-cell {
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  }
+  .grid-lines-hidden .grid-cell {
+    border-color: transparent !important;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: #0b0f19; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+
+  #map-viewport {
+    cursor: grab;
+    will-change: transform;
+    transform-style: preserve-3d;
+  }
+  #map-viewport:active {
+    cursor: grabbing;
+  }
+
+  .scanlines {
+    pointer-events: none;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+    background-size: 100% 4px;
+    z-index: 25;
+  }
+
+  .build-mode-active .asset-render-item {
+    animation: popIn 0.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.95); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes orbitJet {
+    from { transform: rotate(0deg) translate(30px) rotate(0deg); }
+    to { transform: rotate(360deg) translate(30px) rotate(-360deg); }
+  }
+  .jet-orbiting {
+    animation: orbitJet 6s linear infinite;
+  }
+
+  /* Swirl Evolution Animation for the City Dome Transition */
+  @keyframes swirlUpgrade {
+    0% { transform: scale(0.6) rotate(0deg); opacity: 0.3; filter: hue-rotate(90deg); }
+    50% { transform: scale(1.2) rotate(180deg); opacity: 0.8; filter: hue-rotate(180deg); }
+    100% { transform: scale(1) rotate(360deg); opacity: 1; filter: hue-rotate(0deg); }
+  }
+  .swirl-evolution {
+    animation: swirlUpgrade 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+</style>
+</head>
+<body class="bg-[#03060b] text-gray-200 h-screen overflow-hidden flex flex-col select-none">
+
+<div class="h-full flex flex-col relative">
+
+  <!-- ========== TOP THIRD TRANSMISSION SCREEN (COMMS LINK OVERLAY) ========== -->
+  <div id="comms-panel" class="hidden absolute top-4 left-4 right-4 h-[35%] bg-[#090f1d]/95 border-2 border-orange-500/40 rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.15)] z-50 flex overflow-hidden transition-all duration-300">
+    <div class="w-1/4 border-r border-gray-800 p-3 flex flex-col bg-[#060a14]">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[9px] font-bold tracking-widest text-orange-400 uppercase font-mono"><i class="fa-solid fa-satellite"></i> TERRAFORMER MOOD VIDEO PANEL</span>
+        <button onclick="closeComms()" class="text-gray-500 hover:text-white text-xs"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="flex-1 overflow-y-auto scrollbar-thin space-y-1 pr-1" id="comms-faction-list"></div>
+    </div>
+
+    <div class="flex-1 flex bg-black/60 relative p-4 items-center">
+      <div class="absolute inset-0 scanlines opacity-40"></div>
+      <div class="w-40 h-full rounded-xl border border-cyan-500/40 bg-cyan-950/20 flex items-center justify-center relative overflow-hidden shrink-0 shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+        <video id="mood-video-player" class="w-full h-full object-cover hidden" loop autoplay muted playsinline></video>
+        <div id="video-placeholder-msg" class="text-center p-2 text-cyan-400 font-mono text-[10px]">
+          <i class="fa-solid fa-video-slash text-2xl mb-1 block text-cyan-500"></i>
+          NO VIDEO LOADED FOR THIS MOOD
+        </div>
+        <div class="absolute bottom-1 right-1 text-[8px] font-mono text-cyan-400 bg-black/70 px-1 rounded">MOOD FEED</div>
+      </div>
+
+      <div class="ml-4 flex-1 flex flex-col justify-between h-full py-2">
+        <div>
+          <div class="flex items-center gap-2">
+            <h4 id="comms-faction-name" class="title-font text-sm font-bold text-cyan-400">Ares Heavy Industries</h4>
+            <span id="comms-mood-badge" class="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase font-mono bg-yellow-500/20 text-yellow-300">NORMAL</span>
+          </div>
+          <p id="comms-dialogue" class="text-xs text-gray-300 mt-2 font-medium italic leading-relaxed">
+            "Terraformer nodes configured. Assign mood video inputs to update neural feedback."
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-1/3 border-l border-gray-800 p-3 bg-[#060a14] flex flex-col justify-between overflow-y-auto scrollbar-thin">
+      <div>
+        <span class="text-[9px] font-bold tracking-widest text-gray-500 uppercase font-mono">Assign Mood Feeds (MP4/WebM)</span>
+        <div class="space-y-1.5 mt-2">
+          <div>
+            <label class="text-[9px] font-bold text-red-400 block">MAD VIDEO:</label>
+            <input type="file" accept="video/*" onchange="uploadMoodVideo('mad', event)" class="text-[9px] text-gray-400 block w-full bg-gray-950 border border-gray-800 rounded p-0.5">
+          </div>
+          <div>
+            <label class="text-[9px] font-bold text-emerald-400 block">HAPPY VIDEO:</label>
+            <input type="file" accept="video/*" onchange="uploadMoodVideo('happy', event)" class="text-[9px] text-gray-400 block w-full bg-gray-950 border border-gray-800 rounded p-0.5">
+          </div>
+          <div>
+            <label class="text-[9px] font-bold text-yellow-400 block">NORMAL VIDEO:</label>
+            <input type="file" accept="video/*" onchange="uploadMoodVideo('normal', event)" class="text-[9px] text-gray-400 block w-full bg-gray-950 border border-gray-800 rounded p-0.5">
+          </div>
+          <div>
+            <label class="text-[9px] font-bold text-cyan-400 block">OVERJOYED VIDEO:</label>
+            <input type="file" accept="video/*" onchange="uploadMoodVideo('overjoyed', event)" class="text-[9px] text-gray-400 block w-full bg-gray-950 border border-gray-800 rounded p-0.5">
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-4 gap-1 mt-3">
+        <button onclick="setFactionMood('mad')" class="py-1 rounded bg-red-950/60 hover:bg-red-900 border border-red-800 text-red-400 text-[9px] font-bold">Mad</button>
+        <button onclick="setFactionMood('happy')" class="py-1 rounded bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-800 text-emerald-400 text-[9px] font-bold">Happy</button>
+        <button onclick="setFactionMood('normal')" class="py-1 rounded bg-gray-900 hover:bg-gray-850 border border-gray-800 text-gray-400 text-[9px] font-bold">Normal</button>
+        <button onclick="setFactionMood('overjoyed')" class="py-1 rounded bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-800 text-cyan-400 text-[9px] font-bold">Overjoyed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOP BAR ========== -->
+  <header id="main-header" class="flex items-center justify-between px-5 py-3 border-b border-gray-800 bg-[#070a13]/95 shrink-0 z-40 transition-all duration-300">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center shadow-lg shadow-orange-950">
+        <i class="fa-solid fa-globe text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="title-font text-lg font-semibold tracking-tight">Mars Horizon: Anno-Edition</h1>
+        <p class="text-[9px] text-gray-500 -mt-0.5">80x80 SECTOR ENGINE • AUTOMATED CITY EVOLUTION MATRIX</p>
+      </div>
+    </div>
+
+    <div class="hidden md:flex items-center gap-4 text-[11px] bg-gray-900/80 px-3 py-1 rounded-lg border border-gray-800">
+      <div class="text-gray-400"><i class="fa-solid fa-arrows-up-down-left-right mr-1"></i> Drag to Pan</div>
+      <div class="h-3 w-px bg-gray-800"></div>
+      <div class="text-gray-400"><i class="fa-solid fa-keyboard mr-1"></i> W (Zoom In) / S (Zoom Out)</div>
+      <div class="h-3 w-px bg-gray-800"></div>
+      <div id="zoom-indicator" class="text-orange-400 font-mono font-semibold">100%</div>
+    </div>
+
+    <div class="flex items-center gap-4">
+      <div class="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider bg-orange-900/50 text-orange-300 border border-orange-700/50">
+        <i class="fa-solid fa-hammer mr-1.5"></i>BUILD MODE
+      </div>
+      <button id="mode-btn-header" onclick="toggleMode()" class="px-5 py-2 rounded-xl font-semibold text-xs transition-all bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40">
+        <i class="fa-solid fa-play mr-2"></i>Enter Play Mode
+      </button>
+    </div>
+  </header>
+
+  <!-- ========== MAIN CONTENT AREA ========== -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT SIDEBAR -->
+    <aside id="left-sidebar" class="w-80 border-r border-gray-800 bg-[#070b13] flex flex-col shrink-0 relative transition-all duration-300 z-30">
+      <div class="h-full flex flex-col">
+        <div class="p-4 border-b border-gray-800">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Grid Blueprint Assets</h2>
+          <p class="text-[10px] text-gray-500">Construct components to trigger the core urban evolution.</p>
+        </div>
+        <div id="asset-list" class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#020408] relative">
+      <!-- RESOURCE BAR -->
+      <div id="resource-bar" class="px-4 py-2 border-b border-gray-850 bg-[#070b13] flex items-center justify-between text-xs z-35 transition-all duration-300">
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-coins text-emerald-400"></i>
+            <span class="text-gray-400">Credits</span>
+            <span id="credits-display" class="font-mono font-semibold text-emerald-400">6,000</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-flask text-cyan-400"></i>
+            <span class="text-gray-400">Science</span>
+            <span id="science-display" class="font-mono font-semibold text-cyan-400">120</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 bg-gray-950 px-3 py-1 rounded border border-gray-800" id="happiness-matrix">
+          <span class="text-[10px] uppercase font-bold text-gray-400">City Mood Matrix:</span>
+          <span id="stat-farms" class="text-[9px] font-mono text-red-400">Farms: 0/2</span>
+          <span id="stat-protection" class="text-[9px] font-mono text-red-400">Bases: 0/2</span>
+          <span id="stat-campus" class="text-[9px] font-mono text-red-400">Campus: No</span>
+          <span id="stat-market" class="text-[9px] font-mono text-red-400">Market: No</span>
+          <div id="city-status-badge" class="ml-1 px-1.5 py-0.5 rounded text-[8px] font-black bg-red-900/50 text-red-400 uppercase">UNHAPPY</div>
+          <span id="corporate-bonus-text" class="text-[9px] font-mono text-gray-500 italic ml-2"></span>
+        </div>
+      </div>
+
+      <!-- Viewport window -->
+      <div id="map-window" class="flex-1 relative overflow-hidden select-none" onmousedown="onMapDragStart(event)" onmousemove="onMapDragMove(event)" onmouseup="onMapDragEnd(event)" onmouseleave="onMapDragEnd(event)">
+        <div class="absolute inset-0 scanlines"></div>
+        <div id="map-viewport" class="absolute w-[3000px] h-[3000px] origin-top-left">
+          <div id="map-container" class="w-full h-full bg-[#0a0f1a] relative shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] build-mode-active">
+            <div id="map-background-layer" class="absolute inset-0 pointer-events-none z-0"></div>
+            <div id="map-drop-overlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[#04070d]/95 border-2 border-dashed border-gray-700 cursor-pointer transition-all" ondragover="handleMapDragOver(event)" ondragleave="handleMapDragLeave(event)" ondrop="handleMapDrop(event)">
+              <i class="fa-solid fa-images text-5xl text-gray-500 mb-3 animate-pulse"></i>
+              <p class="text-gray-200 font-semibold text-sm">Drag Map Background Picture Here</p>
+            </div>
+            <div id="game-grid" class="absolute inset-0 grid bg-transparent z-10"></div>
+            <div id="tactical-units-layer" class="absolute inset-0 pointer-events-none z-30"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BASE OPERATIONS CONTROL CENTER -->
+      <div id="base-control-overlay" class="hidden absolute top-6 right-6 w-80 bg-[#0a0f1d]/95 border-2 border-cyan-500/50 rounded-2xl shadow-2xl z-50 p-4 font-mono">
+        <div class="flex justify-between items-center mb-3">
+          <span class="text-xs font-bold tracking-wider text-cyan-400"><i class="fa-solid fa-shield-halved"></i> COMMAND OPERATIONS</span>
+          <button onclick="closeBaseControls()" class="text-gray-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="space-y-3">
+          <div class="p-2 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-2"><i class="fa-solid fa-truck-monster text-amber-500"></i><span class="text-[11px] text-gray-200">Heavy Tank</span></div>
+            <button onclick="spawnUnit('tank')" class="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded font-sans text-[10px]">DEPLOY</button>
+          </div>
+          <div class="p-2 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-2"><i class="fa-solid fa-bolt text-purple-400"></i><span class="text-[11px] text-gray-200">Laser Army</span></div>
+            <button onclick="spawnUnit('laser')" class="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded font-sans text-[10px]">DEPLOY</button>
+          </div>
+          <div class="p-2 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-2"><i class="fa-solid fa-plane text-cyan-400"></i><span class="text-[11px] text-gray-200">Air Jet Striker</span></div>
+            <button onclick="spawnUnit('jet')" class="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-sans text-[10px]">DEPLOY</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- IMMERSIVE PLAY MODE HUD BAR (Shifted bottom right with STACKED building options grid) -->
+      <div id="play-immersive-hud" class="hidden absolute bottom-6 right-6 bg-[#070b13]/95 border border-gray-800 rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 z-50 transition-all duration-300">
+        <div class="flex flex-col">
+          <span class="text-[9px] font-bold text-gray-500 uppercase tracking-widest font-mono">Building Options</span>
+          <div id="play-palette" class="grid grid-rows-2 grid-flow-col gap-2 mt-1 max-w-md overflow-x-auto scrollbar-thin pb-1">
+            <!-- Play options filled dynamically -->
+          </div>
+        </div>
+        <div class="h-8 w-px bg-gray-800"></div>
+        <button onclick="toggleMode()" class="px-3 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-all shrink-0">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Exit Play
+        </button>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside id="right-sidebar" class="w-80 border-l border-gray-800 bg-[#070b13] flex flex-col shrink-0 z-30 overflow-hidden transition-all duration-300">
+      <div class="p-4 border-b border-gray-800 shrink-0">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-gray-500">Sector Operations</h2>
+      </div>
+      <div id="background-slicer-panel" class="p-3 border-b border-gray-850 bg-gray-950/40 flex flex-col shrink-0 min-h-0">
+        <div class="flex justify-between items-center mb-1.5">
+          <h3 class="text-[10px] font-bold tracking-widest uppercase text-orange-400 font-mono"><i class="fa-solid fa-cubes"></i> 20-Tile Assembly Deck</h3>
+          <button onclick="clearAllQuadrants()" class="text-[8px] text-red-400 hover:text-red-300 font-semibold uppercase">Reset Deck</button>
+        </div>
+        <div class="overflow-y-auto scrollbar-thin pr-1 max-h-[340px]">
+          <div class="grid grid-cols-1 gap-2" id="quadrant-deck-container"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const GRID_SIZE = 80;
+const SLICE_COLS = 5;
+const SLICE_ROWS = 4;
+
+let ASSET_DEFS = [
+  { id: 'map',          label: 'Map Background',     category: 'map',     required: true },
+  { id: 'smallCity',    label: 'Small City (10x10)',  category: 'city',    required: true,  w: 10, h: 10 },
+  { id: 'mediumCity',   label: 'Medium City (20x20)', category: 'city',    required: true,  w: 20, h: 20 },
+  { id: 'largeCity',    label: 'Megacity Dome (30x30)', category: 'city',  required: true,  w: 30, h: 30 },
+  { id: 'farm',         label: 'Hydroponic Farm (5x5)', category: 'food',  required: false, w: 5, h: 5 },
+  { id: 'terraformSmall', label: 'Terraformer Sm (5x5)', category: 'terraform', required: false, w: 5, h: 5 },
+  { id: 'terraformLarge', label: 'Terraformer Lg (10x10)', category: 'terraform', required: false, w: 10, h: 10 },
+  { id: 'market',       label: 'Market (8x8)',       category: 'economy', required: false, w: 8, h: 8 },
+  { id: 'campus',       label: 'Science Lab (12x12)', category: 'science', required: false, w: 12, h: 12 },
+  { id: 'militaryBase', label: 'Aegis Base (10x10)',  category: 'military', required: false, w: 10, h: 10 },
+];
+
+const COMPANIES = [
+  { id: 'ares', name: 'Ares Heavy Industries', mood: 'normal', videos: { mad: null, happy: null, normal: null, overjoyed: null } },
+  { id: 'uen', name: 'United Earth Nations', mood: 'normal', videos: { mad: null, happy: null, normal: null, overjoyed: null } },
+  { id: 'biogenesis', name: 'Biogenesis Labs', mood: 'normal', videos: { mad: null, happy: null, normal: null, overjoyed: null } },
+  { id: 'solaris', name: 'Solaris Energy Grid', mood: 'normal', videos: { mad: null, happy: null, normal: null, overjoyed: null } }
+];
+
+let activeFactionIndex = 0;
+const assets = {};
+let mode = 'build';
+let selectedBuilding = null;
+let credits = 6000;
+let science = 120;
+
+// Central coordinates where our single evolving city resides on the grid
+let cityInstance = { type: 'smallCity', startX: 35, startY: 35, w: 10, h: 10 };
+
+let grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+let quadrantPieces = [];
+let tacticalUnits = [];
+let activeSelectedUnit = null;
+let selectedBaseEntity = null;
+
+// Initialize central automated city parameters directly into grid space
+function plantInitialCity() {
+  for (let y = cityInstance.startY; y < cityInstance.startY + cityInstance.h; y++) {
+    for (let x = cityInstance.startX; x < cityInstance.startX + cityInstance.w; x++) {
+      grid[y][x] = { id: 'automated-city-core', type: cityInstance.type, startX: cityInstance.startX, startY: cityInstance.startY, w: cityInstance.w, h: cityInstance.h };
+    }
+  }
+}
+
+function initQuadrantDataStructure() {
+  quadrantPieces = [];
+  const moodImpacts = ['mad', 'happy', 'normal', 'overjoyed'];
+  for (let r = 0; r < SLICE_ROWS; r++) {
+    for (let c = 0; c < SLICE_COLS; c++) {
+      let idx = r * SLICE_COLS + c;
+      quadrantPieces.push({ 
+        id: idx, 
+        row: r, 
+        col: c, 
+        src: null, 
+        placed: false,
+        transformOutcome: moodImpacts[idx % moodImpacts.length]
+      });
+    }
+  }
+}
+initQuadrantDataStructure();
+
+let zoom = 0.15;
+let minZoomBuild = 0.07;
+let maxZoom = 6.0;
+let isPanning = false;
+let startX, startY;
+let scrollX = -600;
+let scrollY = -600;
+
+const mapViewport = document.getElementById('map-viewport');
+const mapWindow = document.getElementById('map-window');
+
+updateCameraTransform();
+
+mapWindow.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const zoomFactor = zoom * 0.15;
+  if (e.deltaY < 0) {
+    zoom = Math.min(maxZoom, zoom + zoomFactor);
+  } else {
+    zoom = Math.max(getMinZoom(), zoom - zoomFactor);
+  }
+  updateCameraTransform();
+}, { passive: false });
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const zoomFactor = zoom * 0.15;
+  if (e.key === 'w' || e.key === 'W') {
+    zoom = Math.min(maxZoom, zoom + zoomFactor);
+    updateCameraTransform();
+  } else if (e.key === 's' || e.key === 'S') {
+    zoom = Math.max(getMinZoom(), zoom - zoomFactor);
+    updateCameraTransform();
+  }
+});
+
+function getMinZoom() {
+  if (mode === 'build') return minZoomBuild;
+  const vw = mapWindow.clientWidth;
+  const vh = mapWindow.clientHeight;
+  return Math.max(vw / 3000, vh / 3000);
+}
+
+function onMapDragStart(e) {
+  if (mode === 'play' && activeSelectedUnit !== null) {
+    const rect = document.getElementById('game-grid').getBoundingClientRect();
+    const clickX = (e.clientX - rect.left) / zoom;
+    const clickY = (e.clientY - rect.top) / zoom;
+    const pctX = (clickX / 3000) * 100;
+    const pctY = (clickY / 3000) * 100;
+    commandUnitMove(activeSelectedUnit, pctX, pctY);
+    activeSelectedUnit = null;
+    return;
+  }
+  isPanning = true;
+  startX = e.clientX - scrollX;
+  startY = e.clientY - scrollY;
+}
+
+function onMapDragMove(e) {
+  if (!isPanning) return;
+  scrollX = e.clientX - startX;
+  scrollY = e.clientY - startY;
+  updateCameraTransform();
+}
+
+function onMapDragEnd() { isPanning = false; }
+
+function updateCameraTransform() {
+  const minZoom = getMinZoom();
+  if (zoom < minZoom) zoom = minZoom;
+  if (zoom > maxZoom) zoom = maxZoom;
+
+  const vw = mapWindow.clientWidth;
+  const vh = mapWindow.clientHeight;
+  const mapW = 3000 * zoom;
+  const mapH = 3000 * zoom;
+
+  if (mode === 'play') {
+    if (mapW <= vw) { scrollX = (vw - mapW) / 2; } 
+    else {
+      if (scrollX > 0) scrollX = 0;
+      if (scrollX < vw - mapW) scrollX = vw - mapW;
+    }
+    if (mapH <= vh) { scrollY = (vh - mapH) / 2; } 
+    else {
+      if (scrollY > 0) scrollY = 0;
+      if (scrollY < vh - mapH) scrollY = vh - mapH;
+    }
+  }
+
+  mapViewport.style.transform = `translate3d(${scrollX}px, ${scrollY}px, 0) scale(${zoom})`;
+  const uiDisplayZoom = Math.round((zoom / 0.15) * 100);
+  document.getElementById('zoom-indicator').innerText = `${uiDisplayZoom}% Zoom`;
+}
+
+window.addEventListener('resize', updateCameraTransform);
+
+function sliceImageIntoTwenty(dataUrl) {
+  const img = new Image();
+  img.onload = () => {
+    const origW = img.width;
+    const origH = img.height;
+    const tileW = Math.floor(origW / SLICE_COLS);
+    const tileH = Math.floor(origH / SLICE_ROWS);
+
+    quadrantPieces.forEach(p => {
+      const canvas = document.createElement('canvas');
+      canvas.width = tileW;
+      canvas.height = tileH;
+      const ctx = canvas.getContext('2d');
+      const srcX = p.col * tileW;
+      const srcY = p.row * tileH;
+      ctx.drawImage(img, srcX, srcY, tileW, tileH, 0, 0, tileW, tileH);
+      
+      const generatedSrc = canvas.toDataURL('image/png');
+      p.src = generatedSrc;
+
+      const newAssetId = `bg-slice-${p.id}`;
+      if (!ASSET_DEFS.some(def => def.id === newAssetId)) {
+        ASSET_DEFS.push({
+          id: newAssetId,
+          label: `Background Tile #${p.id + 1}`,
+          category: 'cloned-bg',
+          required: false,
+          w: 6, h: 6
+        });
+      }
+      assets[newAssetId] = { dataUrl: generatedSrc, name: `Main BG Quadrant Slice ${p.id + 1}` };
+    });
+
+    renderQuadrantDeck();
+    renderAssetList();
+  };
+  img.src = dataUrl;
+}
+
+function renderQuadrantDeck() {
+  const container = document.getElementById('quadrant-deck-container');
+  container.innerHTML = '';
+  quadrantPieces.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `border p-2 rounded bg-gray-900/90 flex flex-col gap-2 transition-all ${
+      p.placed ? 'border-emerald-600/70 bg-emerald-950/10' : 'border-gray-800 hover:border-orange-500/70'
+    }`;
+    if (p.src) {
+      card.innerHTML = `
+        <div class="flex items-center gap-2">
+          <img src="${p.src}" class="w-16 aspect-video object-cover rounded border border-gray-850 pointer-events-none">
+          <div class="flex-1 min-w-0">
+            <div class="text-[9px] font-bold uppercase tracking-wider text-gray-400">Tile #${p.id + 1} Trigger:</div>
+            <div class="text-[8px] font-mono text-cyan-400 uppercase font-bold">when terraformed video: ${p.transformOutcome}</div>
+          </div>
+        </div>
+        <button onclick="popQuadrantIn(${p.id});" class="w-full py-1 text-[8px] font-bold rounded uppercase ${
+          p.placed ? 'bg-emerald-900/60 text-emerald-300' : 'bg-orange-600 text-white'
+        }">${p.placed ? 'Re-Pop Piece' : 'Pop In Piece'}</button>
+      `;
+    } else {
+      card.innerHTML = `<div class="w-full py-4 rounded border border-dashed border-gray-800 flex items-center justify-center text-gray-700 text-[9px]">Empty Background Piece</div>`;
+    }
+    container.appendChild(card);
+  });
+}
+
+function popQuadrantIn(id) {
+  const p = quadrantPieces.find(x => x.id === id);
+  if (!p || !p.src) return;
+  const existing = document.getElementById(`bg-quad-${id}`);
+  if (existing) existing.remove();
+
+  const bgLayer = document.getElementById('map-background-layer');
+  const div = document.createElement('div');
+  div.id = `bg-quad-${id}`;
+  div.className = 'absolute pointer-events-none z-0 asset-render-item';
+
+  const widthPercent = 100 / SLICE_COLS;
+  const heightPercent = 100 / SLICE_ROWS;
+  div.style.left = `${p.col * widthPercent}%`;
+  div.style.top = `${p.row * heightPercent}%`;
+  div.style.width = `${widthPercent}%`;
+  div.style.height = `${heightPercent}%`;
+
+  const img = document.createElement('img');
+  img.src = p.src;
+  img.className = 'w-full h-full object-cover';
+  div.appendChild(img);
+  bgLayer.appendChild(div);
+
+  p.placed = true;
+  renderQuadrantDeck();
+}
+
+function clearAllQuadrants() {
+  document.getElementById('map-background-layer').innerHTML = '';
+  quadrantPieces.forEach(p => p.placed = false);
+  renderQuadrantDeck();
+}
+
+function init() {
+  plantInitialCity();
+  renderAssetList();
+  renderGridContainer();
+  updateResourceBar();
+  renderQuadrantDeck();
+  evaluateHappinessMatrix(false); 
+}
+
+function renderGridContainer() {
+  const gridEl = document.getElementById('game-grid');
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+  gridEl.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell relative bg-transparent';
+      cell.id = `cell-${y}-${x}`;
+      cell.onclick = (e) => onCellClicked(x, y, e);
+      gridEl.appendChild(cell);
+    }
+  }
+}
+
+function canPlaceMultiTile(startX, startY, w, h) {
+  if (startX + w > GRID_SIZE || startY + h > GRID_SIZE) return false;
+  for (let y = startY; y < startY + h; y++) {
+    for (let x = startX; x < startX + w; x++) {
+      if (grid[y][x] !== null) return false;
+    }
+  }
+  return true;
+}
+
+// Spawns/updates a contextual overlay video right directly above the specific clicked Terraformer asset instance
+function displayHolographicTerraformerVideo(item, elementContainer) {
+  // Clear any existing video feeds floating on this element
+  const oldFeed = elementContainer.querySelector('.hologram-feed');
+  if (oldFeed) { oldFeed.remove(); return; }
+
+  const currentFaction = COMPANIES[activeFactionIndex];
+  const currentMood = currentFaction.mood;
+  const targetVideoSrc = currentFaction.videos[currentMood];
+
+  const floatingContainer = document.createElement('div');
+  floatingContainer.className = 'hologram-feed absolute left-1/2 -top-24 -translate-x-1/2 w-32 h-20 bg-black border-2 border-cyan-400 rounded shadow-2xl overflow-hidden z-50 pointer-events-auto';
+  floatingContainer.onclick = (e) => { e.stopPropagation(); floatingContainer.remove(); };
+
+  if (targetVideoSrc) {
+    floatingContainer.innerHTML = `
+      <video class="w-full h-full object-cover" autoplay loop muted playsinline src="${targetVideoSrc}"></video>
+      <div class="absolute bottom-0 inset-x-0 bg-cyan-950/90 text-[7px] text-center font-mono py-0.5 text-cyan-300 uppercase">${currentFaction.name.split(' ')[0]} : ${currentMood}</div>
+    `;
+  } else {
+    floatingContainer.innerHTML = `
+      <div class="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-center p-1">
+        <i class="fa-solid fa-video-slash text-red-400 text-xs mb-1"></i>
+        <span class="text-[7px] text-gray-400 font-mono">NO ${currentMood.toUpperCase()} VIDEO DROPPED YET</span>
+      </div>
+    `;
+  }
+  elementContainer.appendChild(floatingContainer);
+}
+
+function onCellClicked(x, y, e) {
+  const existingItem = grid[y][x];
+  if (existingItem) {
+    if (existingItem.id === 'automated-city-core') {
+      return; 
+    }
+    if (existingItem.type === 'terraformSmall' || existingItem.type === 'terraformLarge') {
+      return;
+    }
+  }
+
+  if (!selectedBuilding) return;
+
+  const def = ASSET_DEFS.find(d => d.id === selectedBuilding);
+  if (!def) return;
+
+  if (!canPlaceMultiTile(x, y, def.w, def.h)) {
+    alert("Placement error: Boundary blocked by existing structures.");
+    return;
+  }
+
+  const cost = getBuildingCost(selectedBuilding);
+  if (credits < cost) {
+    alert("Halted: Insufficient credits!");
+    return;
+  }
+
+  const masterReference = { id: 'building-' + Date.now() + '-' + Math.floor(Math.random()*1000), type: selectedBuilding, startX: x, startY: y, w: def.w, h: def.h };
+  for (let dy = y; dy < y + def.h; dy++) {
+    for (let dx = x; dx < x + def.w; dx++) {
+      grid[dy][dx] = masterReference;
+    }
+  }
+
+  credits -= cost;
+  selectedBuilding = null;
+  toggleGridVisibility(false);
+  updateResourceBar();
+  renderAllEntitiesOnGrid();
+  renderPlayModePalette();
+  evaluateHappinessMatrix(false); 
+}
+
+function renderAllEntitiesOnGrid(shouldApplySwirl = false) {
+  document.querySelectorAll('.building-placed-element').forEach(el => el.remove());
+  const gridContainer = document.getElementById('game-grid');
+  const seen = new Set();
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const item = grid[y][x];
+      if (item && !seen.has(item.id)) {
+        seen.add(item.id);
+        
+        const container = document.createElement('div');
+        container.className = 'building-placed-element absolute cursor-pointer z-20';
+        container.style.left = `${(item.startX / GRID_SIZE) * 100}%`;
+        container.style.top = `${(item.startY / GRID_SIZE) * 100}%`;
+        container.style.width = `${(item.w / GRID_SIZE) * 100}%`;
+        container.style.height = `${(item.h / GRID_SIZE) * 100}%`;
+
+        // Apply visual swirl if upgrading into large city dome
+        if (item.id === 'automated-city-core' && shouldApplySwirl && item.type === 'largeCity') {
+          container.classList.add('swirl-evolution');
+        }
+
+        container.onclick = (e) => {
+          e.stopPropagation();
+          if (item.type === 'terraformSmall' || item.type === 'terraformLarge') {
+            displayHolographicTerraformerVideo(item, container);
+            triggerCommsTransmission();
+          } else if (mode === 'play' && item.type === 'militaryBase') {
+            openBaseControls(item);
+          }
+        };
+
+        const img = document.createElement('img');
+        img.className = 'w-full h-full object-cover rounded shadow-lg border border-orange-500/30';
+        
+        // Safety check if user didn't drop image asset yet, fallback gracefully
+        if (assets[item.type] && assets[item.type].dataUrl) {
+          img.src = assets[item.type].dataUrl;
+        } else {
+          img.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' style='background:%231e293b;'><text x='50%25' y='50%25' font-size='8' fill='%2394a3b8' dominant-baseline='middle' text-anchor='middle'>${item.type}</text></svg>";
+        }
+        
+        const symbolOverlay = document.createElement('div');
+        symbolOverlay.className = 'absolute top-1 left-1 bg-black/80 text-[8px] border border-orange-500 text-orange-400 px-1 rounded uppercase pointer-events-none font-mono';
+        symbolOverlay.innerText = '⎔ ' + item.type.substring(0,6);
+
+        container.appendChild(img);
+        container.appendChild(symbolOverlay);
+        gridContainer.appendChild(container);
+      }
+    }
+  }
+}
+
+function evaluateHappinessMatrix(allowSwirlEffects = true) {
+  const seen = new Set();
+  let farmCount = 0;
+  let militaryCount = 0;
+  let hasCampus = false;
+  let hasMarket = false;
+
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const item = grid[y][x];
+      if (item && item.id !== 'automated-city-core' && !seen.has(item.id)) {
+        seen.add(item.id);
+        if (item.type === 'farm') farmCount++;
+        if (item.type === 'militaryBase') militaryCount++;
+        if (item.type === 'campus') hasCampus = true;
+        if (item.type === 'market') hasMarket = true;
+      }
+    }
+  }
+
+  document.getElementById('stat-farms').textContent = `Farms: ${farmCount}/2`;
+  document.getElementById('stat-farms').className = farmCount >= 2 ? "text-[9px] font-mono text-emerald-400 font-bold" : "text-[9px] font-mono text-red-400";
+  document.getElementById('stat-protection').textContent = `Bases: ${militaryCount}/2`;
+  document.getElementById('stat-protection').className = militaryCount >= 2 ? "text-[9px] font-mono text-emerald-400 font-bold" : "text-[9px] font-mono text-red-400";
+  document.getElementById('stat-campus').textContent = `Campus: ${hasCampus ? 'Yes' : 'No'}`;
+  document.getElementById('stat-campus').className = hasCampus ? "text-[9px] font-mono text-emerald-400 font-bold" : "text-[9px] font-mono text-red-400";
+  document.getElementById('stat-market').textContent = `Market: ${hasMarket ? 'Yes' : 'No'}`;
+  document.getElementById('stat-market').className = hasMarket ? "text-[9px] font-mono text-emerald-400 font-bold" : "text-[9px] font-mono text-red-400";
+
+  const badge = document.getElementById('city-status-badge');
+  const bonusText = document.getElementById('corporate-bonus-text');
+  
+  let oldCityType = cityInstance.type;
+  let targetCityType = 'smallCity';
+  let badgeLabel = "UNHAPPY";
+  let badgeColorClass = "bg-red-900/50 text-red-400";
+
+  // Core Play Mode Condition: 1 Automated City progressing through 3 tiers based on stats
+  if (farmCount >= 2 && militaryCount >= 2 && hasCampus && hasMarket) {
+    // Happy State -> Evolves into Megacity Dome
+    targetCityType = 'largeCity';
+    badgeLabel = "HAPPY & STABLE";
+    badgeColorClass = "bg-emerald-900 text-emerald-400";
+    bonusText.textContent = "✦ Megacity Form unlocked via Matrix Synchronization!";
+  } else if (farmCount >= 1 || hasCampus || hasMarket) {
+    // Normal State -> Evolves into Medium City
+    targetCityType = 'mediumCity';
+    badgeLabel = "NORMAL OPERATIONAL";
+    badgeColorClass = "bg-yellow-600/40 text-yellow-300";
+    bonusText.textContent = "✦ Medium City configured. Maximize stats to trigger structural swirl.";
+  } else {
+    targetCityType = 'smallCity';
+    bonusText.textContent = "⚠ Build structural dependencies to advance your core colony tier.";
+  }
+
+  badge.textContent = badgeLabel;
+  badge.className = `ml-1 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${badgeColorClass}`;
+
+  // Update Core City representation inside the array if changed
+  if (oldCityType !== targetCityType) {
+    cityInstance.type = targetCityType;
+    
+    // Clear out past city records from map
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        if (grid[y][x] && grid[y][x].id === 'automated-city-core') {
+          grid[y][x] = null;
+        }
+      }
+    }
+    
+    // Relocate/re-stamp new footprint sizes
+    let dimensions = { smallCity: 10, mediumCity: 20, largeCity: 30 };
+    cityInstance.w = dimensions[targetCityType];
+    cityInstance.h = dimensions[targetCityType];
+
+    for (let y = cityInstance.startY; y < cityInstance.startY + cityInstance.h; y++) {
+      for (let x = cityInstance.startX; x < cityInstance.startX + cityInstance.w; x++) {
+        grid[y][x] = { id: 'automated-city-core', type: cityInstance.type, startX: cityInstance.startX, startY: cityInstance.startY, w: cityInstance.w, h: cityInstance.h };
+      }
+    }
+
+    // Trigger Swirl animation overlay if shifting up directly to large city
+    let triggerSwirlAnimation = (targetCityType === 'largeCity' && allowSwirlEffects);
+    renderAllEntitiesOnGrid(triggerSwirlAnimation);
+  } else {
+    renderAllEntitiesOnGrid(false);
+  }
+}
+
+function toggleGridVisibility(visible) {
+  const gridEl = document.getElementById('game-grid');
+  if (visible) { gridEl.classList.remove('grid-lines-hidden'); } 
+  else { gridEl.classList.add('grid-lines-hidden'); }
+}
+
+function triggerCommsTransmission() {
+  document.getElementById('comms-panel').classList.remove('hidden');
+  renderCommsFactions();
+  selectFaction(activeFactionIndex);
+}
+
+function closeComms() {
+  document.getElementById('comms-panel').classList.add('hidden');
+}
+
+function renderCommsFactions() {
+  const container = document.getElementById('comms-faction-list');
+  container.innerHTML = '';
+  COMPANIES.forEach((comp, idx) => {
+    const activeClass = idx === activeFactionIndex ? 'bg-orange-650/30 border-orange-500/80' : 'bg-gray-900/50 border-gray-850 hover:bg-gray-850';
+    container.innerHTML += `
+      <div onclick="selectFaction(${idx})" class="flex items-center gap-2 p-1.5 rounded-lg border text-xs cursor-pointer transition-all ${activeClass}">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-[10px] text-gray-200 truncate">${comp.name}</div>
+          <div class="text-[8px] text-gray-500 font-mono uppercase">MOOD: ${comp.mood}</div>
+        </div>
+      </div>
+    `;
+  });
+}
+
+function selectFaction(idx) {
+  activeFactionIndex = idx;
+  const comp = COMPANIES[idx];
+  document.getElementById('comms-faction-name').innerText = comp.name;
+  document.getElementById('comms-mood-badge').innerText = comp.mood;
+  renderCommsFactions();
+  playCurrentMoodVideo();
+}
+
+function setFactionMood(mood) {
+  COMPANIES[activeFactionIndex].mood = mood;
+  selectFaction(activeFactionIndex);
+  evaluateHappinessMatrix(true);
+}
+
+function uploadMoodVideo(mood, event) {
+  const file = event.target.files[0];
+  if (file) {
+    COMPANIES[activeFactionIndex].videos[mood] = URL.createObjectURL(file);
+    if (COMPANIES[activeFactionIndex].mood === mood) playCurrentMoodVideo();
+  }
+}
+
+function playCurrentMoodVideo() {
+  const comp = COMPANIES[activeFactionIndex];
+  const videoUrl = comp.videos[comp.mood];
+  const player = document.getElementById('mood-video-player');
+  const placeholder = document.getElementById('video-placeholder-msg');
+
+  if (videoUrl) {
+    player.src = videoUrl;
+    player.classList.remove('hidden');
+    placeholder.classList.add('hidden');
+    player.play().catch(() => {});
+  } else {
+    player.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+    player.pause();
+  }
+}
+
+function openBaseControls(baseEntity) {
+  selectedBaseEntity = baseEntity;
+  document.getElementById('base-control-overlay').classList.remove('hidden');
+}
+
+function closeBaseControls() {
+  document.getElementById('base-control-overlay').classList.add('hidden');
+  selectedBaseEntity = null;
+}
+
+function spawnUnit(type) {
+  if (!selectedBaseEntity) return;
+  const initialPosX = ((selectedBaseEntity.startX + (selectedBaseEntity.w / 2)) / GRID_SIZE) * 100;
+  const initialPosY = ((selectedBaseEntity.startY + (selectedBaseEntity.h / 2)) / GRID_SIZE) * 100;
+  
+  tacticalUnits.push({
+    id: 'unit-' + Date.now(),
+    type: type,
+    x: initialPosX,
+    y: initialPosY,
+    angle: 0
+  });
+  renderTacticalUnits();
+}
+
+function renderTacticalUnits() {
+  const layer = document.getElementById('tactical-units-layer');
+  layer.innerHTML = '';
+  tacticalUnits.forEach(unit => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'absolute pointer-events-auto cursor-pointer flex flex-col items-center justify-center';
+    wrapper.style.left = `${unit.x}%`;
+    wrapper.style.top = `${unit.y}%`;
+    wrapper.style.width = '40px';
+    wrapper.style.height = '40px';
+    wrapper.style.transform = 'translate(-50%, -50%)';
+    
+    wrapper.onclick = (e) => {
+      e.stopPropagation();
+      activeSelectedUnit = unit.id;
+      renderTacticalUnits();
+    };
+    
+    const iconDiv = document.createElement('div');
+    iconDiv.className = `tactical-unit-icon w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs shadow-2xl transition-all bg-slate-950 text-white ${
+      activeSelectedUnit === unit.id ? 'border-cyan-400' : 'border-gray-500'
+    }`;
+    
+    let headingStyle = `transform: rotate(${unit.angle}deg);`;
+    if (unit.type === 'tank') iconDiv.innerHTML = `<i class="fa-solid fa-truck-monster text-amber-500" style="${headingStyle}"></i>`;
+    else if (unit.type === 'laser') iconDiv.innerHTML = `<i class="fa-solid fa-bolt text-purple-400" style="${headingStyle}"></i>`;
+    else if (unit.type === 'jet') {
+      iconDiv.classList.add('jet-orbiting');
+      iconDiv.innerHTML = `<i class="fa-solid fa-plane text-cyan-400" style="${headingStyle}"></i>`;
+    }
+    
+    const tag = document.createElement('div');
+    tag.className = 'text-[7px] font-mono bg-black/90 px-1 border border-gray-700 rounded text-gray-400 -mt-1 uppercase pointer-events-none scale-90';
+    tag.innerText = unit.type.toUpperCase();
+    
+    wrapper.appendChild(iconDiv);
+    wrapper.appendChild(tag);
+    layer.appendChild(wrapper);
+  });
+}
+
+function commandUnitMove(unitId, targetPctX, targetPctY) {
+  const unit = tacticalUnits.find(u => u.id === unitId);
+  if (!unit) return;
+  unit.angle = (Math.atan2(targetPctY - unit.y, targetPctX - unit.x) * 180 / Math.PI) + 90;
+  unit.x = targetPctX;
+  unit.y = targetPctY;
+  renderTacticalUnits();
+}
+
+function renderAssetList() {
+  const container = document.getElementById('asset-list');
+  container.innerHTML = '';
+  ASSET_DEFS.forEach(def => {
+    // Hide city options from menu deck list during build mode so users don't drop images there manually
+    if (def.category === 'city') return;
+    
+    const hasImage = !!assets[def.id];
+    const card = document.createElement('div');
+    card.className = `drop-zone rounded-lg p-2 ${hasImage ? 'bg-gray-900/60' : 'bg-gray-950/40'}`;
+    card.ondragover = (e) => { e.preventDefault(); card.classList.add('drag-over'); };
+    card.ondragleave = () => card.classList.remove('drag-over');
+    card.ondrop = (e) => handleAssetDrop(e, def.id);
+
+    if (hasImage) {
+      card.innerHTML = `<div class="flex items-center gap-2"><img src="${assets[def.id].dataUrl}" class="w-10 h-10 object-cover rounded border border-gray-700"><span class="text-xs text-gray-200">${def.label}</span></div>`;
+    } else {
+      card.innerHTML = `<div class="text-xs text-gray-500">${def.label} (Drop Artwork Here)</div>`;
+    }
+    container.appendChild(card);
+  });
+}
+
+function handleAssetDrop(e, id) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    assets[id] = { dataUrl: ev.target.result, name: file.name };
+    renderAssetList();
+    if (id === 'map') sliceImageIntoTwenty(ev.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleMapDragOver(e) { e.preventDefault(); }
+function handleMapDrop(e) { e.preventDefault(); handleAssetDrop(e, 'map'); }
+
+function toggleMode() {
+  if (mode === 'build') {
+    if (!assets.map) { alert('Assign and slice a Map Background picture first.'); return; }
+    enterPlayMode();
+  } else {
+    enterBuildMode();
+  }
+}
+
+function enterPlayMode() {
+  mode = 'play';
+  selectedBuilding = null;
+  toggleGridVisibility(false);
+  document.getElementById('main-header').classList.add('hidden');
+  document.getElementById('left-sidebar').classList.add('hidden');
+  document.getElementById('right-sidebar').classList.add('hidden');
+  document.getElementById('play-immersive-hud').classList.remove('hidden');
+
+  zoom = 2.70; 
+  scrollX = -((3000 * zoom) - mapWindow.clientWidth) / 2;
+  scrollY = -((3000 * zoom) - mapWindow.clientHeight) / 2;
+  updateCameraTransform();
+  renderPlayModePalette();
+  evaluateHappinessMatrix(false);
+}
+
+function enterBuildMode() {
+  mode = 'build';
+  selectedBuilding = null;
+  toggleGridVisibility(true);
+  closeComms();
+  closeBaseControls();
+  document.getElementById('main-header').classList.remove('hidden');
+  document.getElementById('left-sidebar').classList.remove('hidden');
+  document.getElementById('right-sidebar').classList.remove('hidden');
+  document.getElementById('play-immersive-hud').classList.add('hidden');
+
+  zoom = 0.15;
+  scrollX = -600;
+  scrollY = -600;
+  updateCameraTransform();
+  evaluateHappinessMatrix(false);
+}
+
+function renderPlayModePalette() {
+  const container = document.getElementById('play-palette');
+  container.innerHTML = '';
+
+  // Filter components out of choices (Cities can't be picked here, they update naturally)
+  const playable = ASSET_DEFS.filter(d => d.id !== 'map' && d.category !== 'cloned-bg' && d.category !== 'city' && assets[d.id]);
+  playable.forEach(def => {
+    const cost = getBuildingCost(def.id);
+    const btn = document.createElement('button');
+    btn.className = `flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-left shrink-0 ${
+      selectedBuilding === def.id ? 'bg-orange-650 border-orange-400 text-white' : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-700'
+    }`;
+    btn.onclick = () => {
+      selectedBuilding = selectedBuilding === def.id ? null : def.id;
+      toggleGridVisibility(!!selectedBuilding);
+      renderPlayModePalette();
+    };
+
+    btn.innerHTML = `
+      <img src="${assets[def.id].dataUrl}" class="w-6 h-6 object-cover rounded border border-gray-750">
+      <div class="flex flex-col leading-none">
+        <span class="text-[9px] font-bold truncate max-w-[90px]">${def.label}</span>
+        <span class="text-[8px] text-emerald-400">${cost} Cr</span>
+      </div>
+    `;
+    container.appendChild(btn);
+  });
+}
+
+function getBuildingCost(type) {
+  const costs = { farm: 300, terraformSmall: 1200, terraformLarge: 3500, market: 450, campus: 600, militaryBase: 2800 };
+  return costs[type] || 250;
+}
+
+function updateResourceBar() {
+  document.getElementById('credits-display').textContent = credits.toLocaleString();
+  document.getElementById('science-display').textContent = science.toLocaleString();
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

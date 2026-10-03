@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Suburban Life Simulator with Node Controls</title>
+  <style>
+    :root {
+      --bg: #120e24;
+      --card: #1d1736;
+      --accent: #8a2be2;
+      --food-color: #ff4757;
+      --water-color: #1e90ff;
+      --text: #ffffff;
+      --yellow: #ffa500;
+      --green: #2ed573;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 15px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    body.apply-target-mode {
+      cursor: crosshair !important;
+    }
+    #game-container {
+      width: 1100px;
+      height: 700px;
+      box-sizing: border-box;
+      background: var(--card);
+      border-radius: 16px;
+      border: 2px solid #382d63;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      display: flex;
+      gap: 20px;
+    }
+    .left-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .right-panel {
+      width: 380px;
+      background: #0d0a1a;
+      border: 1px solid #382d63;
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #382d63;
+      padding-bottom: 12px;
+      height: 40px;
+    }
+    .time-info {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .warning-info {
+      color: var(--yellow);
+      font-weight: bold;
+    }
+    /* Meters */
+    .status-bars {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      height: 50px;
+    }
+    .meter-box {
+      background: #0d0a1a;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #382d63;
+    }
+    .meter-label {
+      font-size: 0.85rem;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .meter-track {
+      width: 100%;
+      height: 16px;
+      background: #251d45;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 100%;
+      transition: width 0.2s linear;
+    }
+    #food-bar { background: var(--food-color); }
+    #water-bar { background: var(--water-color); }
+    
+    /* Main Stage */
+    .stage {
+      background: #0d0a1a;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    .room-title {
+      font-size: 1.6rem;
+      color: var(--yellow);
+      margin-bottom: 8px;
+    }
+    .room-desc {
+      font-size: 0.95rem;
+      color: #bbb;
+      margin-bottom: 15px;
+    }
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      width: 100%;
+    }
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+      gap: 8px;
+      height: 80px;
+      padding-top: 10px;
+      border-top: 1px solid #382d63;
+    }
+    button {
+      background: #382d63;
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover:not(:disabled) {
+      background: var(--accent);
+      transform: translateY(-2px);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .nav-btn {
+      background: #251d45;
+      border: 1px solid #4a3c80;
+    }
+    
+    /* Grounded Lockout Screen */
+    .grounded-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(30, 0, 0, 0.95);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+    
+    /* Log Window */
+    #log-box {
+      background: #080612;
+      border-radius: 8px;
+      padding: 10px;
+      height: 110px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+    .log-line { margin-bottom: 4px; }
+    .log-warn { color: #ff4757; }
+    .log-event { color: #ffa500; }
+
+    /* Tree View & Node Control System */
+    .tree-title {
+      font-weight: bold;
+      font-size: 1rem;
+      color: var(--yellow);
+      border-bottom: 1px solid #382d63;
+      padding-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tree-actions {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .tree-actions button {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+    #apple-btn {
+      background: #ff4757;
+      color: #fff;
+    }
+    .tree-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tree-node {
+      background: #1d1736;
+      border: 1px solid #382d63;
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .tree-node.selected {
+      border-color: var(--accent);
+      background: #2b224d;
+    }
+    .node-btn-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .node-btn-group button {
+      padding: 3px 6px;
+      font-size: 0.7rem;
+      border-radius: 4px;
+    }
+    .btn-chat-con {
+      background: #2ed573;
+      color: #000;
+    }
+    .btn-del {
+      background: #ff4757;
+      color: #fff;
+    }
+    .badge-check { color: var(--green); font-weight: bold; margin-left: 2px; }
+    .badge-target { color: #ff4757; font-weight: bold; margin-left: 2px; }
+
+    .chat-view {
+      height: 180px;
+      background: #080612;
+      border: 1px solid #382d63;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .chat-msg {
+      background: #1d1736;
+      padding: 4px 8px;
+      border-radius: 4px;
+      word-break: break-word;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .chat-input-area input {
+      flex: 1;
+      background: #1d1736;
+      border: 1px solid #382d63;
+      color: #fff;
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    .chat-input-area button {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <div class="left-panel">
+    <header>
+      <div class="time-info">
+        <span id="day-txt">Day 1 (Mon)</span> | <span id="clock-txt">07:00 AM</span>
+      </div>
+      <div class="warning-info" id="warning-txt">
+        Dad's Warnings: 0/3
+      </div>
+    </header>
+    <div class="status-bars">
+      <div class="meter-box">
+        <div class="meter-label"><span>FOOD</span><span id="food-pct">100%</span></div>
+        <div class="meter-track"><div id="food-bar" class="meter-fill"></div></div>
+      </div>
+      <div class="meter-box">
+        <div class="meter-label"><span>WATER</span><span id="water-pct">100%</span></div>
+        <div class="meter-track"><div id="water-bar" class="meter-fill"></div></div>
+      </div>
+    </div>
+    <div class="stage" id="stage-box">
+      <div class="grounded-overlay" id="grounded-screen" style="display: none;">
+        <h2 style="color: #ff4757; margin: 0 0 10px 0;"> LOCKED IN YOUR ROOM!</h2>
+        <p style="margin: 0 0 10px 0;">Dad sent you to your room for ignoring dinner calls!</p>
+        <h3 style="color: #ffa500; margin: 0;" id="ground-timer">Remaining: 60s</h3>
+      </div>
+      <div class="room-title" id="room-title">Your Bedroom</div>
+      <div class="room-desc" id="room-desc">Your personal room. Your violin and bed are here.</div>
+      <div class="action-grid" id="action-grid"></div>
+    </div>
+    <div class="nav-grid" id="nav-grid"></div>
+    <div id="log-box"></div>
+  </div>
+
+  <div class="right-panel">
+    <div class="tree-title">Tree View Controls</div>
+    <div class="tree-actions">
+      <button id="apple-btn" onclick="activateAppleMode()">Apple</button>
+    </div>
+    <div class="tree-list" id="tree-list"></div>
+    
+    <div class="tree-title">Direct Messages</div>
+    <div class="chat-view">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="handleChatKey(event)"/>
+        <button onclick="sendChatMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let food = 100;
+  let water = 100;
+  let minute = 0;
+  let hour = 7;
+  let dayIndex = 0;
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  let currentLocation = "your_room";
+  let foodOnTable = false;
+  let dadCalling = false;
+  let dadWarnings = 0;
+  let dadTimer = null;
+  let isGrounded = false;
+  let lockTimer = 60;
+  let isSwinging = false;
+  const depletionPerSec = 100 / 150;
+
+  let treeNodes = [
+    { id: "your_room", name: "Your Bedroom", chatCon: false, isTarget: false },
+    { id: "parents_room", name: "Parents Room", chatCon: false, isTarget: false },
+    { id: "brother_room", name: "Brother Room", chatCon: false, isTarget: false },
+    { id: "sister_room", name: "Sister Room", chatCon: false, isTarget: false },
+    { id: "kitchen", name: "Kitchen", chatCon: false, isTarget: false },
+    { id: "dining", name: "Dining Room", chatCon: false, isTarget: false },
+    { id: "front_yard", name: "Front Yard", chatCon: false, isTarget: false },
+    { id: "backyard", name: "Backyard", chatCon: false, isTarget: false },
+    { id: "school", name: "School", chatCon: false, isTarget: false }
+  ];
+  let activeSelectedNode = "your_room";
+  let isAppleTargetMode = false;
+  let messageStore = {};
+
+  const rooms = {
+    your_room: { name: "Your Bedroom", desc: "Your personal room with a cozy bed and your violin.", actions: [{ label: " Play Violin", run: () => playViolin() }, { label: " Go to Sleep", run: () => goSleep() }] },
+    parents_room: { name: "Mom & Dad's Room", desc: "A large neatly organized bedroom with a king-sized bed.", actions: [{ label: " Clean Room", run: () => doChore("cleaned Mom and Dad's room") }] },
+    brother_room: { name: "Brother's Room", desc: "Messy room full of posters and a gaming console.", actions: [{ label: " Play Video Games", run: () => playGames() }] },
+    sister_room: { name: "Sister's Room", desc: "Neat bedroom filled with books, art supplies, and stuffed animals.", actions: [{ label: " Draw Picture", run: () => doArt() }] },
+    kitchen: { name: "Kitchen", desc: "Mom is busy cooking fresh meals at the stove.", actions: [{ label: " Drink Water", run: () => drinkWater() }, { label: " Ask Mom to Cook", run: () => momCooks() }] },
+    dining: { name: "Dining Room", desc: "A dining table where the family gathers for meals.", actions: [] },
+    front_yard: { name: "Front Yard", desc: "A grassy front yard. The school bus stops near the driveway.", actions: [{ label: " Take School Bus", run: () => goSchool() }] },
+    backyard: { name: "Backyard", desc: "A big backyard with a lawn and a wooden swing set.", actions: [{ label: " Ride Swings", run: () => rideSwings() }] },
+    school: { name: "Elementary School", desc: "Classrooms, desks, and learning materials.", actions: [{ label: " Attend Class", run: () => attendClass() }] }
+  };
+
+  setInterval(() => {
+    food = Math.max(0, food - depletionPerSec);
+    water = Math.max(0, water - depletionPerSec);
+    updateBars();
+    advanceTime(2);
+    if (!foodOnTable && Math.random() < 0.1) {
+      foodOnTable = true;
+      log("Mom placed a fresh cooked meal on the dining room table!", "event");
+      renderRoom();
+    }
+    if (isGrounded) {
+      lockTimer--;
+      document.getElementById('ground-timer').innerText = `Remaining: ${lockTimer}s`;
+      if (lockTimer <= 0) {
+        isGrounded = false;
+        document.getElementById('grounded-screen').style.display = "none";
+        log("You are no longer grounded! You can leave your room now.", "event");
+        renderRoom();
+      }
+    }
+    if (hour === 18 && minute === 0 && !dadCalling) {
+      startDinnerCall();
+    }
+  }, 1000);
+
+  function advanceTime(mins) {
+    minute += mins;
+    if (minute >= 60) {
+      minute -= 60;
+      hour++;
+      if (hour >= 24) { hour = 0; dayIndex = (dayIndex + 1) % 7; dadCalling = false; }
+    }
+    updateTimeDisplay();
+  }
+
+  function updateTimeDisplay() {
+    document.getElementById('clock-txt').innerText = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    document.getElementById('day-txt').innerText = `Day ${dayIndex + 1} (${days[dayIndex]})`;
+  }
+
+  function updateBars() {
+    document.getElementById('food-bar').style.width = `${food}%`;
+    document.getElementById('water-bar').style.width = `${water}%`;
+    document.getElementById('food-pct').innerText = `${Math.round(food)}%`;
+    document.getElementById('water-pct').innerText = `${Math.round(water)}%`;
+  }
+
+  function log(msg, style = "") {
+    const box = document.getElementById('log-box');
+    const div = document.createElement('div');
+    div.className = `log-line ${style ? 'log-' + style : ''}`;
+    div.innerText = `[${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')}] ${msg}`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function moveTo(key) {
+    if (isGrounded && key !== 'your_room') return;
+    currentLocation = key;
+    renderRoom();
+  }
+
+  function renderRoom() {
+    const r = rooms[currentLocation];
+    document.getElementById('room-title').innerText = r.name;
+    document.getElementById('room-desc').innerText = r.desc;
+    const actionGrid = document.getElementById('action-grid');
+    actionGrid.innerHTML = '';
+    r.actions.forEach(act => {
+      const btn = document.createElement('button');
+      btn.innerText = act.label;
+      btn.onclick = act.run;
+      actionGrid.appendChild(btn);
+    });
+    renderNav();
+  }
+
+  function renderNav() {
+    const nav = document.getElementById('nav-grid');
+    nav.innerHTML = '';
+    if (isGrounded) return;
+    Object.keys(rooms).forEach(key => {
+      if (key === currentLocation) return;
+      const btn = document.createElement('button');
+      btn.className = "nav-btn";
+      btn.innerText = rooms[key].name;
+      btn.onclick = () => moveTo(key);
+      nav.appendChild(btn);
+    });
+  }
+
+  // Tree View & Node Controls Logic
+  function renderTreeView() {
+    const list = document.getElementById('tree-list');
+    list.innerHTML = '';
+    treeNodes.forEach(node => {
+      const item = document.createElement('div');
+      item.className = `tree-node ${node.id === activeSelectedNode ? 'selected' : ''}`;
+      item.onclick = () => handleNodeClick(node.id);
+
+      const nameContainer = document.createElement('span');
+      nameContainer.innerText = node.name;
+      if (node.chatCon) {
+        const chk = document.createElement('span');
+        chk.className = 'badge-check';
+        chk.innerText = ' ✓';
+        nameContainer.appendChild(chk);
+      }
+      if (node.isTarget) {
+        const tgt = document.createElement('span');
+        tgt.className = 'badge-target';
+        tgt.innerText = ' ✓ (Target)';
+        nameContainer.appendChild(tgt);
+      }
+
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'node-btn-group';
+
+      // Chat Con Button placed NEXT TO Delete Button
+      const chatBtn = document.createElement('button');
+      chatBtn.className = 'btn-chat-con';
+      chatBtn.innerText = '+ Chat Con';
+      chatBtn.onclick = (e) => {
+        e.stopPropagation();
+        toggleNodeChatCon(node.id);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'btn-del';
+      delBtn.innerText = '- Del';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteNode(node.id);
+      };
+
+      btnGroup.appendChild(chatBtn);
+      btnGroup.appendChild(delBtn);
+
+      item.appendChild(nameContainer);
+      item.appendChild(btnGroup);
+      list.appendChild(item);
+    });
+    renderChatView();
+  }
+
+  function handleNodeClick(id) {
+    if (isAppleTargetMode) {
+      treeNodes.forEach(n => n.isTarget = false);
+      const targetNode = treeNodes.find(n => n.id === id);
+      if (targetNode) targetNode.isTarget = true;
+      isAppleTargetMode = false;
+      document.body.classList.remove('apply-target-mode');
+      log(`Selected ${targetNode.name} as target recipient!`, "event");
+    } else {
+      activeSelectedNode = id;
+    }
+    renderTreeView();
+  }
+
+  function toggleNodeChatCon(id) {
+    const node = treeNodes.find(n => n.id === id);
+    if (node) {
+      node.chatCon = !node.chatCon;
+      log(`Toggled Chat Con for ${node.name}`, "event");
+      renderTreeView();
+    }
+  }
+
+  function deleteNode(id) {
+    treeNodes = treeNodes.filter(n => n.id !== id);
+    log(`Deleted node from Tree View.`, "warn");
+    if (activeSelectedNode === id && treeNodes.length > 0) {
+      activeSelectedNode = treeNodes[0].id;
+    }
+    renderTreeView();
+  }
+
+  function activateAppleMode() {
+    isAppleTargetMode = true;
+    document.body.classList.add('apply-target-mode');
+    log("Apple mode active: Click any box on the tree view to mark with red checkmark.", "event");
+  }
+
+  // Messaging Logic
+  function renderChatView() {
+    const activeNodeObj = treeNodes.find(n => n.id === activeSelectedNode);
+    const chatContainer = document.getElementById('chat-messages');
+    const chatInputArea = document.querySelector('.chat-input-area');
+    chatContainer.innerHTML = '';
+
+    if (!activeNodeObj || !activeNodeObj.chatCon) {
+      chatContainer.innerHTML = '<div style="color: #666; font-size: 0.8rem;">Select a box with "+ Chat Con" enabled.</div>';
+      chatInputArea.style.display = 'none';
+      return;
+    }
+
+    chatInputArea.style.display = 'flex';
+    const targetNodeObj = treeNodes.find(n => n.isTarget);
+    const targetId = targetNodeObj ? targetNodeObj.id : null;
+
+    if (!targetId) {
+      chatContainer.innerHTML = '<div style="color: #ff4757; font-size: 0.8rem;">Click Apple button and select a Target Box first!</div>';
+      return;
+    }
+
+    const messages = messageStore[targetId] || [];
+    messages.forEach(msg => {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-msg';
+      msgDiv.innerText = `[From: ${msg.sender}] ${msg.text}`;
+      chatContainer.appendChild(msgDiv);
+    });
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const activeNodeObj = treeNodes.find(n => n.id === activeSelectedNode);
+    const targetNodeObj = treeNodes.find(n => n.isTarget);
+
+    if (!activeNodeObj || !activeNodeObj.chatCon || !targetNodeObj) return;
+
+    if (!messageStore[targetNodeObj.id]) messageStore[targetNodeObj.id] = [];
+
+    messageStore[targetNodeObj.id].push({ sender: activeNodeObj.name, text: text });
+    input.value = '';
+    renderChatView();
+  }
+
+  function handleChatKey(e) {
+    if (e.key === 'Enter') sendChatMessage();
+  }
+
+  function drinkWater() { water = 100; renderRoom(); }
+  function momCooks() { foodOnTable = true; renderRoom(); }
+  function playViolin() { advanceTime(30); }
+  function goSleep() { hour = 7; minute = 0; advanceTime(0); }
+  function playGames() { advanceTime(40); }
+  function doArt() { advanceTime(30); }
+  function doChore(desc) { advanceTime(20); }
+  function rideSwings() { advanceTime(10); }
+  function goSchool() { moveTo("school"); }
+  function attendClass() { advanceTime(120); }
+  function startDinnerCall() { dadCalling = true; }
+
+  renderRoom();
+  updateTimeDisplay();
+  updateBars();
+  renderTreeView();
+</script>
+</body>
+</html>

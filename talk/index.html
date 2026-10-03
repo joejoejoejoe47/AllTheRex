@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Princess Math Castle 👑</title>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', 'Bubblegum Sans', cursive, sans-serif;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+            color: #4a2810;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        #bgMediaContainer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1;
+            display: none;
+            overflow: hidden;
+        }
+        #bgMediaContainer img, #bgMediaContainer video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: filter 0.5s ease;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.95);
+            border: 5px solid #ffb6c1;
+            border-radius: 25px;
+            padding: 25px;
+            width: 360px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(255, 182, 193, 0.5);
+            position: relative;
+            z-index: 2;
+            flex-shrink: 0;
+        }
+        h1 {
+            color: #d63384;
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .princess-avatar {
+            font-size: 35px;
+            margin: 2px 0;
+        }
+        .stats {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+        .problem-box {
+            font-size: 24px;
+            margin: 10px 0;
+            color: #581845;
+            background: #fff0f5;
+            padding: 10px;
+            border-radius: 15px;
+            border: 2px dashed #ff69b4;
+        }
+        input[type="text"], input[type="number"] {
+            font-size: 18px;
+            width: 80%;
+            padding: 6px;
+            text-align: center;
+            border: 2px solid #dda7a5;
+            border-radius: 10px;
+            outline: none;
+            margin: 6px 0;
+        }
+        button {
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 8px;
+            font-family: inherit;
+            box-shadow: 0 4px #c71585;
+        }
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #c71585;
+        }
+        #message {
+            margin-top: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            min-height: 20px;
+        }
+        .screen {
+            display: none;
+        }
+        .active-screen {
+            display: block;
+        }
+        .drop-zone {
+            border: 2px dashed #ff69b4;
+            border-radius: 10px;
+            padding: 8px;
+            margin: 6px 0;
+            background: #fff0f5;
+            font-size: 12px;
+        }
+        .media-preview {
+            max-width: 50px;
+            max-height: 50px;
+            margin-top: 4px;
+            border-radius: 6px;
+        }
+
+        #screen-game-container {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0; left: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            gap: 20px;
+        }
+        #screen-game-container.active-screen {
+            display: flex;
+        }
+        
+        /* Side media panes stretched to fill maximum available vertical and horizontal space on their sides */
+        .side-media-pane {
+            flex-grow: 1;
+            height: calc(100vh - 40px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 4px solid #ff69b4;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+        }
+        .side-media-pane img, .side-media-pane video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: filter 0.5s ease;
+        }
+
+        .corner-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ffb6c1;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 2px #ff69b4;
+            z-index: 10;
+        }
+
+        .coin-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid #ff69b4;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #d63384;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            z-index: 50;
+            display: none;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0px) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-120px) scale(1.2); opacity: 0; }
+        }
+        .floating-coin {
+            position: fixed;
+            font-size: 24px;
+            animation: floatUp 3s ease-out forwards;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .chat-overlay-box {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-radius: 20px;
+            border: 3px solid #ff69b4;
+            width: 450px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 20;
+        }
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="bgMediaContainer"></div>
+    <div class="coin-counter" id="coinCounter">🪙 <span id="coinCount">0</span> Pink Coins</div>
+
+    <!-- SCREEN 1: SIGN IN -->
+    <div class="game-card screen active-screen" id="screen-signin">
+        <h1>👑 Royal Sign In 👑</h1>
+        <p>Enter your royal account name:</p>
+        <input type="text" id="usernameInput" placeholder="Account Name">
+        <br>
+        <button onclick="handleSignIn()">Enter Castle</button>
+    </div>
+
+    <!-- SCREEN 2: SECRET 4546 CUSTOMIZER -->
+    <div class="game-card screen" id="screen-customizer">
+        <h1>🎨 Secret Princess Setup 🎨</h1>
+        <p style="font-size: 12px;">Upload your media assets:</p>
+        
+        <div class="drop-zone">
+            Video One (Left Side): <input type="file" id="file1" accept="image/*,video/*" onchange="previewFile(this, 'prev1')"><br>
+            <div id="prev1"></div>
+        </div>
+
+        <div class="drop-zone">
+            Video Two (Right Side): <input type="file" id="file2" accept="image/*,video/*" onchange="previewFile(this, 'prev2')"><br>
+            <div id="prev2"></div>
+        </div>
+
+        <div class="drop-zone">
+            Talk Princess Background (Full Screen): <input type="file" id="fileTalk" accept="image/*,video/*" onchange="previewFile(this, 'prevTalk')"><br>
+            <div id="prevTalk"></div>
+        </div>
+
+        <button onclick="goToLevelSelect()">Next: Choose Level</button>
+    </div>
+
+    <!-- SCREEN 3: LEVEL SELECT -->
+    <div class="game-card screen" id="screen-level">
+        <h1>👑 Choose Starting Level 👑</h1>
+        <p>What level would you like to start on?</p>
+        <input type="number" id="startLevelInput" value="1" min="1" max="10">
+        <br>
+        <button onclick="startGamePlay()">Begin Math Adventure</button>
+    </div>
+
+    <!-- SCREEN 4: GAMEPLAY WITH MAXIMIZED SIDE PANES -->
+    <div id="screen-game-container" class="screen">
+        <button class="corner-btn" onclick="openChatMode()">Chat & Dress</button>
+        
+        <div class="side-media-pane" id="leftMediaPane">
+            <span style="font-size: 14px; color: #888;">Video One Here</span>
+        </div>
+
+        <div class="game-card">
+            <h1>👑 Princess Math Castle 👑</h1>
+            <div class="princess-avatar" id="avatar">👸🏽</div>
+            <div class="stats">
+                Score: <span id="score">0</span> 🌟 | Level: <span id="level">1</span>
+            </div>
+            
+            <div class="problem-box" id="problem">
+                Loading...
+            </div>
+
+            <input type="number" id="answerInput" placeholder="?" autocomplete="off"><br>
+            <button onclick="checkAnswer()">Submit Magic Answer</button>
+
+            <div id="message"></div>
+        </div>
+
+        <div class="side-media-pane" id="rightMediaPane">
+            <span style="font-size: 14px; color: #888;">Video Two Here</span>
+        </div>
+    </div>
+
+    <!-- CHAT & DRESS OVERLAY BOX -->
+    <div class="chat-overlay-box" id="chatOverlay">
+        <h3 style="color: #d63384; margin: 0 0 5px 0; font-size: 16px;">Princess Chat & Dress 🎀</h3>
+        <p style="font-size: 11px; color: #666; margin: 0 0 8px 0;">Tip: Say "make my dress blue/pink/purple" (Costs 30 coins!)</p>
+        <div class="chat-input-row">
+            <input type="text" id="aiInput" placeholder="Talk to princess AI..." style="width: 75%; margin:0;">
+            <button style="margin-top:0; padding: 6px 10px;" onclick="sendToAI()">Send</button>
+            <button style="margin-top:0; padding: 6px 10px; background-color: #6c757d; box-shadow: 0 4px #495057;" onclick="closeChatMode()">Exit</button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let level = 1;
+        let coins = 0;
+        let currentAnswer = 0;
+        let media1HTML = "";
+        let media2HTML = "";
+        let talkMediaHTML = "";
+        
+        const princesses = ["👸🏻", "👸🏼", "👸🏽", "👸🏾", "👸🏿"];
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen, #screen-game-container').forEach(s => s.classList.remove('active-screen'));
+            document.getElementById(screenId).classList.add('active-screen');
+        }
+
+        function handleSignIn() {
+            const user = document.getElementById("usernameInput").value.trim();
+            if (user === "4546") {
+                switchScreen('screen-customizer');
+            } else if (user !== "") {
+                level = 1;
+                setupGamePlay();
+            } else {
+                alert("Please enter a royal account name!");
+            }
+        }
+
+        function previewFile(input, previewId) {
+            const file = input.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                let generatedHTML = "";
+                if (file.type.startsWith('image/')) {
+                    generatedHTML = `<img src="${url}">`;
+                } else {
+                    generatedHTML = `<video src="${url}" autoplay muted loop></video>`;
+                }
+
+                if (previewId === 'prev1') media1HTML = generatedHTML;
+                if (previewId === 'prev2') media2HTML = generatedHTML;
+                if (previewId === 'prevTalk') talkMediaHTML = generatedHTML;
+
+                document.getElementById(previewId).innerHTML = `<img src="${url}" class="media-preview">`;
+            }
+        }
+
+        function goToLevelSelect() {
+            switchScreen('screen-level');
+        }
+
+        function startGamePlay() {
+            const lvlInput = parseInt(document.getElementById("startLevelInput").value);
+            level = isNaN(lvlInput) || lvlInput < 1 ? 1 : lvlInput;
+            setupGamePlay();
+        }
+
+        function setupGamePlay() {
+            score = (level - 1) * 50;
+            document.getElementById("score").innerText = score;
+            document.getElementById("level").innerText = level;
+            document.getElementById("coinCounter").style.display = "block";
+
+            if (media1HTML) document.getElementById("leftMediaPane").innerHTML = media1HTML;
+            if (media2HTML) document.getElementById("rightMediaPane").innerHTML = media2HTML;
+
+            switchScreen('screen-game-container');
+            generateProblem();
+        }
+
+        function generateProblem() {
+            const randomPrincess = princesses[Math.floor(Math.random() * princesses.length)];
+            document.getElementById("avatar").innerText = randomPrincess;
+
+            let num1, num2, op;
+            if (Math.random() > 0.5 && level > 1) {
+                op = "-";
+                num1 = Math.floor(Math.random() * 10) + 5;
+                num2 = Math.floor(Math.random() * 5) + 1;
+                if (num1 < num2) [num1, num2] = [num2, num1];
+            } else {
+                op = "+";
+                num1 = Math.floor(Math.random() * 10) + 1;
+                num2 = Math.floor(Math.random() * 10) + 1;
+            }
+
+            currentAnswer = (op === "+") ? (num1 + num2) : (num1 - num2);
+
+            document.getElementById("problem").innerText = `${num1} ${op} ${num2} = ?`;
+            document.getElementById("answerInput").value = "";
+            document.getElementById("message").innerText = "";
+            document.getElementById("answerInput").focus();
+        }
+
+        function spawnCoinsAnimation() {
+            coins += 10;
+            document.getElementById("coinCount").innerText = coins;
+
+            for (let i = 0; i < 10; i++) {
+                let coin = document.createElement("div");
+                coin.className = "floating-coin";
+                coin.innerHTML = "🪙";
+                coin.style.left = Math.random() * window.innerWidth + "px";
+                coin.style.bottom = (Math.random() * 100 + 50) + "px";
+                document.body.appendChild(coin);
+
+                setTimeout(() => {
+                    coin.remove();
+                }, 3000);
+            }
+        }
+
+        function checkAnswer() {
+            const userInputValue = document.getElementById("answerInput").value;
+            if (userInputValue === "") return;
+
+            const userAnswer = parseInt(userInputValue);
+            const messageDiv = document.getElementById("message");
+
+            if (userAnswer === currentAnswer) {
+                score += 10;
+                level = Math.floor(score / 50) + 1;
+                document.getElementById("score").innerText = score;
+                document.getElementById("level").innerText = level;
+                
+                messageDiv.style.color = "#28a745";
+                messageDiv.innerText = "✨ Correct! Princesses rejoice! 🎉";
+                
+                spawnCoinsAnimation();
+                setTimeout(generateProblem, 1200);
+            } else {
+                messageDiv.style.color = "#dc3545";
+                messageDiv.innerText = "❌ Not quite! Try again, royal friend!";
+            }
+        }
+
+        document.getElementById("answerInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                checkAnswer();
+            }
+        });
+
+        function openChatMode() {
+            document.getElementById("screen-game-container").style.display = "none";
+            const bgContainer = document.getElementById("bgMediaContainer");
+            bgContainer.style.display = "block";
+            bgContainer.innerHTML = talkMediaHTML || `<div style="background:#ffc0cb; width:100%; height:100%; display:flex; align-items:center; justifyContent:center; font-size:24px;">Talk Princess Media Here</div>`;
+            
+            document.getElementById("chatOverlay").style.display = "block";
+            document.getElementById("aiInput").focus();
+        }
+
+        function closeChatMode() {
+            document.getElementById("chatOverlay").style.display = "none";
+            document.getElementById("bgMediaContainer").style.display = "none";
+            document.getElementById("screen-game-container").style.display = "flex";
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.pitch = 1.9;
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function applyDressColor(colorName) {
+            let filterStyle = "";
+            let colorLower = colorName.toLowerCase();
+            
+            if (colorLower.includes("blue")) {
+                filterStyle = "hue-rotate(180deg) saturate(2)";
+            } else if (colorLower.includes("purple") || colorLower.includes("violet")) {
+                filterStyle = "hue-rotate(270deg) saturate(2)";
+            } else if (colorLower.includes("green")) {
+                filterStyle = "hue-rotate(90deg) saturate(2)";
+            } else if (colorLower.includes("yellow") || colorLower.includes("gold")) {
+                filterStyle = "hue-rotate(40deg) saturate(2)";
+            } else if (colorLower.includes("red")) {
+                filterStyle = "hue-rotate(330deg) saturate(250%)";
+            } else if (colorLower.includes("pink")) {
+                filterStyle = "sepia(0.5) hue-rotate(280deg) saturate(3)";
+            }
+
+            if (filterStyle) {
+                document.querySelectorAll('#bgMediaContainer img, #bgMediaContainer video, .side-media-pane img, .side-media-pane video').forEach(el => {
+                    el.style.filter = filterStyle;
+                });
+            }
+        }
+
+        function sendToAI() {
+            const inputField = document.getElementById("aiInput");
+            const text = inputField.value.trim();
+            if(!text) return;
+            inputField.value = "";
+
+            let aiResponse = "";
+            const lower = text.toLowerCase();
+
+            if (lower.includes("dress") || lower.includes("color") || lower.includes("make my dress")) {
+                if (coins >= 30) {
+                    coins -= 30;
+                    document.getElementById("coinCount").innerText = coins;
+
+                    let targetColor = "pink";
+                    if (lower.includes("blue")) targetColor = "blue";
+                    else if (lower.includes("purple")) targetColor = "purple";
+                    else if (lower.includes("green")) targetColor = "green";
+                    else if (lower.includes("yellow") || lower.includes("gold")) targetColor = "yellow";
+                    else if (lower.includes("red")) targetColor = "red";
+
+                    applyDressColor(targetColor);
+                    aiResponse = `Ooh la la! For 30 pink coins, I have magically transformed your royal dress into a gorgeous shimmering ${targetColor} gown! ✨👗`;
+                } else {
+                    aiResponse = `Oh sweet friend, you need 30 pink coins to change your dress color, but you only have ${coins} coins! Solve more math problems to earn more! 👑🪙`;
+                }
+            } else if (lower.includes("math") || lower.includes("castle") || lower.includes("score")) {
+                aiResponse = `We are ruling the Princess Math Castle together! Your current score is shining bright at ${score} points! 🏰🌟`;
+            } else if (lower.includes("hi") || lower.includes("hello")) {
+                aiResponse = "Hello there, my royal bestie! Are you ready to solve magical math puzzles with me today? ✨💖";
+            } else {
+                aiResponse = `That sounds like a wonderful adventure inside our magical kingdom! Let's keep our royal hearts sparkly and bright! 👑🌸`;
+            }
+
+            speakText(aiResponse);
+        }
+    </script>
+
+</body>
+</html>

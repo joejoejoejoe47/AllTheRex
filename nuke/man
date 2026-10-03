@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Generative Audio Engine</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #080710;
+            color: #f0f0f5;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            background: rgba(20, 20, 35, 0.85);
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
+            padding: 25px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+        }
+
+        .status {
+            font-size: 0.85rem;
+            color: #ff007f;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            height: 20px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .control-box {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            color: #8a8a9e;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            background: #111;
+            color: #00ffcc;
+            border: 1px solid #333;
+            padding: 5px;
+            border-radius: 4px;
+            outline: none;
+            font-family: monospace;
+        }
+
+        button {
+            width: 100%;
+            background: #ff007f;
+            color: #fff;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #ff3399;
+            box-shadow: 0 0 25px rgba(255, 0, 127, 0.7);
+            transform: scale(1.02);
+        }
+
+        button.playing {
+            background: #00ffcc;
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.6);
+        }
+
+        #visualizer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .log-box {
+            margin-top: 15px;
+            background: #000;
+            border: 1px solid #222;
+            height: 80px;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 0.7rem;
+            color: #00ff66;
+            overflow-y: hidden;
+            text-align: left;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="visualizer"></canvas>
+
+    <div class="dashboard">
+        <h1>Algorithmic Music Engine</h1>
+        <div id="status" class="status">System Idle</div>
+
+        <div class="controls">
+            <div class="control-box">
+                <label>Cyber Mood / Scale</label>
+                <select id="scaleSelect">
+                    <option value="cyberpunk">Cyberpunk (Minor)</option>
+                    <option value="neonZen">Neon Zen (Pentatonic)</option>
+                    <option value="retroWave">Retro Wave (Dorian)</option>
+                </select>
+            </div>
+            <div class="control-box">
+                <label>Tempo (BPM)</label>
+                <input type="range" id="bpmSlider" min="80" max="150" value="110">
+            </div>
+            <div class="control-box" style="grid-column: span 2;">
+                <label>Chaos Mutation Factor (Algorithmic Drift)</label>
+                <input type="range" id="chaosSlider" min="0" max="100" value="30">
+            </div>
+        </div>
+
+        <button id="actionBtn">Initiate Composition</button>
+
+        <div class="log-box" id="terminalLog">
+            [System Initialize] Waiting for user deployment...<br>
+            [Engine] Rules loaded: Auto-generative structural loops active.
+        </div>
+    </div>
+
+    <script>
+        // --- Algorithmic Audio Architecture ---
+        let audioCtx = null;
+        let isPlaying = false;
+        let currentStep = 0;
+        let nextNoteTime = 0.0;
+        let timerId = null;
+
+        // Music Generation State Variables
+        let bpm = 110;
+        let lookahead = 25.0; // ms between scheduling checks
+        let scheduleAheadTime = 0.1; // how far into future to schedule audio (s)
+        
+        // Procedural composition matrices
+        let currentChordRoots = [40, 40, 43, 45]; // MIDI roots (E, E, G, A)
+        let currentChordIndex = 0;
+        let currentScale = [0, 2, 3, 5, 7, 8, 10]; // Natural Minor
+        let targetScaleBase = 40; // E
+
+        // Elements
+        const actionBtn = document.getElementById('actionBtn');
+        const statusDiv = document.getElementById('status');
+        const logBox = document.getElementById('terminalLog');
+        const bpmSlider = document.getElementById('bpmSlider');
+        const scaleSelect = document.getElementById('scaleSelect');
+        const chaosSlider = document.getElementById('chaosSlider');
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+
+        // Setup Canvas Resize
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        // Visualizer effects system
+        let visualTriggers = [];
+
+        // Audio initialization
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Helper to turn MIDI numbers to Frequencies
+        function mtof(midi) {
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        // Dynamic System Log
+        function sysLog(msg) {
+            const lines = logBox.innerHTML.split('<br>');
+            lines.push(`[Composer] ${msg}`);
+            if (lines.length > 4) lines.shift();
+            logBox.innerHTML = lines.join('<br>');
+        }
+
+        // --- Algorithmic Sound Design Synth Generators ---
+        
+        // Procedural Kick Drum
+        function playKick(time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.frequency.setValueAtTime(150, time);
+            osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+            gain.gain.setValueAtTime(0.6, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+
+            osc.start(time);
+            osc.stop(time + 0.16);
+            
+            visualTriggers.push({x: width/4, y: height/2, size: 10, targetSize: 180, color: '#ff007f', alpha: 1});
+        }
+
+        // Procedural Hi-Hat (Noise synthesis)
+        function playHat(time, vol = 0.15) {
+            // Create buffer of white noise
+            const bufferSize = audioCtx.sampleRate * 0.05;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highpass';
+            filter.frequency.setValueAtTime(8000, time);
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(vol, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            noise.start(time);
+            noise.stop(time + 0.05);
+
+            visualTriggers.push({x: (width/4)*3, y: height/3, size: 5, targetSize: 60, color: '#00ffff', alpha: 1});
+        }
+
+        // Procedural Bass Synth
+        function playBass(midiNote, time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(mtof(midiNote), time);
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(200, time);
+            filter.frequency.exponentialRampToValueAtTime(600, time + 0.1);
+
+            gain.gain.setValueAtTime(0.25, time);
+            gain.gain.linearRampToValueAtTime(0.15, time + 0.15);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.28);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.3);
+        }
+
+        // Procedural Melody Lead (With automated glide/portamento illusion)
+        function playMelody(midiNote, time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(mtof(midiNote), time);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1500, time);
+
+            gain.gain.setValueAtTime(0.18, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start(time);
+            osc.stop(time + 0.42);
+
+            visualTriggers.push({
+                x: Math.random() * width, 
+                y: Math.random() * (height / 2), 
+                size: 2, 
+                targetSize: 100, 
+                color: '#00ffcc', 
+                alpha: 1
+            });
+        }
+
+        // --- Algorithmic Composer Logic Loop ---
+        function scheduleNote(step, time) {
+            // 1. Drum generator logic (AI loop decisions)
+            if (step % 4 === 0) playKick(time);                     // Four on the floor kick
+            if (step % 2 === 2 || Math.random() < 0.2) playHat(time, 0.1); // Offbeat standard hats
+            if (step % 4 === 2 && Math.random() < 0.3) playHat(time, 0.05); // Dynamic ghost hats
+
+            // Chord Progression changes every 16 steps
+            if (step === 0) {
+                currentChordIndex = (currentChordIndex + 1) % currentChordRoots.length;
+                
+                // Chaos parameter mutates chord choices procedurally
+                const chaos = parseInt(chaosSlider.value);
+                if (Math.random() * 100 < chaos) {
+                    const shifts = [-2, 2, 3, 5];
+                    currentChordRoots[currentChordIndex] += shifts[Math.floor(Math.random() * shifts.length)];
+                    if(currentChordRoots[currentChordIndex] < 30 || currentChordRoots[currentChordIndex] > 55) {
+                        currentChordRoots[currentChordIndex] = 40; // reset safety boundaries
+                    }
+                    sysLog(`Mutation Triggered! Chord Root shifted to MIDI ${currentChordRoots[currentChordIndex]}`);
+                } else {
+                    sysLog(`Chord Shifted. Harmony Base: MIDI ${currentChordRoots[currentChordIndex]}`);
+                }
+            }
+
+            // 2. Bass Generator Logic
+            let activeRoot = currentChordRoots[currentChordIndex];
+            if (step % 2 === 0) {
+                playBass(activeRoot, time);
+            } else if (Math.random() < 0.4) {
+                // Occasional octave jump or dominant 5th jump for flavor
+                let dynamicBass = activeRoot + (Math.random() < 0.5 ? 12 : 7);
+                playBass(dynamicBass, time);
+            }
+
+            // 3. Generative Melody Generator Logic (Markov style random walks over scale intervals)
+            const chaosLevel = parseInt(chaosSlider.value);
+            // Higher chaos slider = higher probability melody plays notes
+            const melodyDensity = 0.3 + (chaosLevel / 250); 
+            
+            if (Math.random() < melodyDensity) {
+                // Select a step out of the current scale array
+                let randomScaleDegree = currentScale[Math.floor(Math.random() * currentScale.length)];
+                // Convert to a mid-high pitch register (Octave 4 or 5)
+                let targetMidiNote = (activeRoot + 24) + randomScaleDegree;
+                
+                playMelody(targetMidiNote, time);
+            }
+        }
+
+        // Web Audio Clock Scheduler
+        function nextStep() {
+            const secondsPerBeat = 60.0 / bpm;
+            const stepDuration = secondsPerBeat / 4; // 16th notes
+            nextNoteTime += stepDuration;
+
+            currentStep = (currentStep + 1) % 16;
+        }
+
+        function scheduler() {
+            while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime) {
+                scheduleNote(currentStep, nextNoteTime);
+                nextStep();
+            }
+            timerId = setTimeout(scheduler, lookahead);
+        }
+
+        // --- Controller Actions & Scale Sets ---
+        const scales = {
+            cyberpunk: [0, 2, 3, 5, 7, 8, 10], // Natural Minor
+            neonZen: [0, 2, 4, 7, 9],          // Pentatonic Major (Always harmonies beautifully)
+            retroWave: [0, 2, 3, 5, 7, 9, 10]  // Dorian Mode
+        };
+
+        scaleSelect.addEventListener('change', (e) => {
+            currentScale = scales[e.target.value];
+            sysLog(`System Scale shifted to [${e.target.value}]`);
+        });
+
+        bpmSlider.addEventListener('input', (e) => {
+            bpm = parseInt(e.target.value);
+        });
+
+        actionBtn.addEventListener('click', () => {
+            initAudio();
+
+            if (isPlaying) {
+                // Stop engine
+                clearTimeout(timerId);
+                isPlaying = false;
+                actionBtn.textContent = "Initiate Composition";
+                actionBtn.classList.remove('playing');
+                statusDiv.textContent = "System Idle";
+                statusDiv.style.color = "#ff007f";
+                sysLog("Audio Generation Halted.");
+            } else {
+                // Start engine
+                currentStep = 0;
+                nextNoteTime = audioCtx.currentTime + 0.05;
+                scheduler();
+                isPlaying = true;
+                actionBtn.textContent = "Halt Stream";
+                actionBtn.classList.add('playing');
+                statusDiv.textContent = "● Generating Realtime Music";
+                statusDiv.style.color = "#00ffcc";
+                sysLog("Generative Sequence Executing...");
+            }
+        });
+
+        // --- Generative Canvas Paint System ---
+        function drawVisuals() {
+            // Trail paint background for digital movement ghosting
+            ctx.fillStyle = 'rgba(8, 7, 16, 0.08)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw abstract algorithmic network matrix strings background
+            if (isPlaying && Math.random() < 0.05) {
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * width, 0);
+                ctx.lineTo(Math.random() * width, height);
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.02)';
+                ctx.stroke();
+            }
+
+            // Draw procedural sound triggers
+            for (let i = visualTriggers.length - 1; i >= 0; i--) {
+                let t = visualTriggers[i];
+                t.size += (t.targetSize - t.size) * 0.1;
+                t.alpha -= 0.02;
+
+                if (t.alpha <= 0) {
+                    visualTriggers.splice(i, 1);
+                    continue;
+                }
+
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+                ctx.strokeStyle = t.color;
+                ctx.globalAlpha = t.alpha;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+
+            requestAnimationFrame(drawVisuals);
+        }
+
+        // Run visual frame painter loop initially
+        drawVisuals();
+    </script>
+</body>
+</html>

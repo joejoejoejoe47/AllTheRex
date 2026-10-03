@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Allele Drift & Selection Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05050a;
+    --panel: #0b0d19;
+    --panel-border: #1a1e36;
+    
+    /* Neon Palette (Red, Orange, Yellow, Blue) */
+    --neon-blue: #00f3ff;   /* Allele A */
+    --neon-yellow: #ffee00; /* Allele T */
+    --neon-orange: #ff7700; /* Allele C */
+    --neon-red: #ff0055;    /* Allele G */
+    
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .app {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  header {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+  }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #fff;
+    text-shadow: 0 0 10px var(--neon-blue);
+    margin-bottom: 6px;
+  }
+  h1 span { color: var(--neon-blue); }
+
+  .sub {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  /* Grid Layouts */
+  .grid-2 { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+  .grid-dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  /* Panels */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Form Elements */
+  .field { margin-bottom: 12px; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .field-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  input[type="number"], select {
+    width: 100%;
+    background: #020307;
+    border: 1px solid var(--panel-border);
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 8px rgba(0,243,255,0.3);
+  }
+
+  /* Buttons & Action Controls */
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  
+  button {
+    background: #020307;
+    border: 1px solid var(--panel-border);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+  }
+
+  button:hover {
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 10px rgba(0,243,255,0.4);
+    color: var(--neon-blue);
+  }
+
+  button.primary {
+    background: var(--neon-blue);
+    color: #000;
+    border: none;
+    box-shadow: 0 0 12px rgba(0,243,255,0.4);
+  }
+  button.primary:hover {
+    background: #fff;
+    color: #000;
+    box-shadow: 0 0 20px rgba(255,255,255,0.8);
+  }
+
+  button.danger {
+    border-color: var(--neon-red);
+    color: var(--neon-red);
+  }
+  button.danger:hover {
+    background: var(--neon-red);
+    color: #000;
+    box-shadow: 0 0 12px rgba(255,0,85,0.6);
+  }
+
+  /* Analytics Stat Cards */
+  .stat-card {
+    background: #020307;
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+
+  /* Canvas Graph */
+  canvas {
+    width: 100%;
+    height: 220px;
+    background: #020307;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+  }
+
+  /* Grid Visualizer */
+  .organism-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #020307;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+  }
+
+  .node {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 800;
+    color: #000;
+    transition: transform 0.1s ease;
+  }
+  .node:hover { transform: scale(1.3); z-index: 2; }
+
+  .node.A { background: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue); }
+  .node.T { background: var(--neon-yellow); box-shadow: 0 0 8px var(--neon-yellow); }
+  .node.C { background: var(--neon-orange); box-shadow: 0 0 8px var(--neon-orange); }
+  .node.G { background: var(--neon-red); box-shadow: 0 0 8px var(--neon-red); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 11px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* Monte Carlo Output */
+  .mc-output {
+    font-size: 11px;
+    line-height: 1.6;
+    background: #020307;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-border);
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>Neon <span>Allele Drift</span> Lab</h1>
+    <div class="sub">Advanced Population Genetics Simulator · Selection, Mutation, Bottlenecks & Ploidy</div>
+    
+    <div class="legend">
+      <div class="legend-item"><div class="dot" style="background: var(--neon-blue); box-shadow: 0 0 6px var(--neon-blue);"></div> Allele A (Target)</div>
+      <div class="legend-item"><div class="dot" style="background: var(--neon-yellow); box-shadow: 0 0 6px var(--neon-yellow);"></div> Allele T</div>
+      <div class="legend-item"><div class="dot" style="background: var(--neon-orange); box-shadow: 0 0 6px var(--neon-orange);"></div> Allele C</div>
+      <div class="legend-item"><div class="dot" style="background: var(--neon-red); box-shadow: 0 0 6px var(--neon-red);"></div> Allele G</div>
+    </div>
+  </header>
+
+  <div class="grid-2">
+    <!-- Controls Panel -->
+    <div class="panel">
+      <div class="panel-title">Parameters</div>
+      
+      <div class="field">
+        <label>Population Size ($N$)</label>
+        <input type="number" id="popSize" value="50" min="10" max="500" step="10">
+      </div>
+
+      <div class="field">
+        <label>Fitness Advantage of $A$ (%)</label>
+        <input type="number" id="fitness" value="5" min="-100" max="100" step="1">
+      </div>
+
+      <div class="field">
+        <label>Mutation Rate ($\mu$ %)</label>
+        <input type="number" id="mutation" value="0.5" min="0" max="20" step="0.1">
+      </div>
+
+      <div class="field">
+        <label>Ploidy Mode</label>
+        <select id="ploidy">
+          <option value="haploid">Haploid (N)</option>
+          <option value="diploid">Diploid (2N)</option>
+        </select>
+      </div>
+
+      <div class="field" id="dominanceField" style="display:none;">
+        <label>Dominance Model (Diploid)</label>
+        <select id="dominance">
+          <option value="1.0">Complete Dominance (AA = Aa)</option>
+          <option value="0.5">Incomplete Dominance (Co-dominant)</option>
+          <option value="0.0">Recessive (Only AA benefits)</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Sim Speed (ms)</label>
+        <input type="number" id="speed" value="100" min="10" max="1000" step="10">
+      </div>
+
+      <div class="btn-group">
+        <button id="btnRun" class="primary">Start</button>
+        <button id="btnPause">Pause</button>
+        <button id="btnStep">Step</button>
+      </div>
+
+      <div class="btn-group" style="margin-top: 15px;">
+        <button id="btnDisaster" class="danger">⚡ Bottleneck (-75%)</button>
+        <button id="btnExport">📥 Export CSV</button>
+      </div>
+
+      <div style="border-top: 1px solid var(--panel-border); margin-top: 15px; padding-top: 15px;">
+        <div class="panel-title">Monte Carlo Engine</div>
+        <div class="field">
+          <label>Runs</label>
+          <input type="number" id="mcRuns" value="20" min="5" max="100">
+        </div>
+        <button id="btnMonteCarlo" style="width: 100%;">Run Batch Trials</button>
+        <div id="mcOutput" class="mc-output" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Main Visuals Panel -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      
+      <!-- Real-time Dashboard -->
+      <div class="grid-dashboard">
+        <div class="stat-card">
+          <div class="field"><label>Generation</label></div>
+          <div class="stat-value" id="statGen" style="color:#fff;">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="field"><label>Freq $A$ ($p$)</label></div>
+          <div class="stat-value" id="statFreqA" style="color:var(--neon-blue);">0%</div>
+        </div>
+        <div class="stat-card">
+          <div class="field"><label>Expected Het ($H_e$)</label></div>
+          <div class="stat-value" id="statHet" style="color:var(--neon-yellow);">0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="field"><label>Status</label></div>
+          <div class="stat-value" id="statStatus" style="font-size:12px; color:var(--text-dim);">Ready</div>
+        </div>
+      </div>
+
+      <!-- Graph Canvas -->
+      <div class="panel">
+        <div class="panel-title">Allele Trajectory History</div>
+        <canvas id="chartCanvas"></canvas>
+      </div>
+
+      <!-- Organism Grid -->
+      <div class="panel">
+        <div class="panel-title">Population Visualizer Grid</div>
+        <div class="organism-grid" id="grid"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const ALLELES = ['A', 'T', 'C', 'G'];
+
+// Elements
+const popSizeInput = document.getElementById('popSize');
+const fitnessInput = document.getElementById('fitness');
+const mutationInput = document.getElementById('mutation');
+const ploidyInput = document.getElementById('ploidy');
+const dominanceInput = document.getElementById('dominance');
+const dominanceField = document.getElementById('dominanceField');
+const speedInput = document.getElementById('speed');
+
+const btnRun = document.getElementById('btnRun');
+const btnPause = document.getElementById('btnPause');
+const btnStep = document.getElementById('btnStep');
+const btnDisaster = document.getElementById('btnDisaster');
+const btnExport = document.getElementById('btnExport');
+const btnMonteCarlo = document.getElementById('btnMonteCarlo');
+
+const statGen = document.getElementById('statGen');
+const statFreqA = document.getElementById('statFreqA');
+const statHet = document.getElementById('statHet');
+const statStatus = document.getElementById('statStatus');
+const gridEl = document.getElementById('grid');
+const canvas = document.getElementById('chartCanvas');
+const ctx = canvas.getContext('2d');
+const mcOutput = document.getElementById('mcOutput');
+
+// State
+let population = [];
+let generation = 0;
+let isRunning = false;
+let timer = null;
+let history = []; // stores trajectories
+
+// Toggle Ploidy Options
+ploidyInput.addEventListener('change', () => {
+  dominanceField.style.display = ploidyInput.value === 'diploid' ? 'block' : 'none';
+});
+
+// Setup Canvas Size
+function resizeCanvas() {
+  canvas.width = canvas.parentElement.clientWidth - 36;
+  canvas.height = 200;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Initializer
+function initPopulation() {
+  const size = parseInt(popSizeInput.value);
+  const ploidy = ploidyInput.value;
+  population = [];
+  
+  const totalUnits = ploidy === 'diploid' ? size * 2 : size;
+  
+  // Seed with single A allele, rest random T/C/G
+  population.push('A');
+  for(let i = 1; i < totalUnits; i++) {
+    population.push(ALLELES[Math.floor(1 + Math.random() * 3)]);
+  }
+  
+  generation = 0;
+  history = [];
+  recordHistory();
+  render();
+}
+
+function mutate(allele, ratePct) {
+  if (Math.random() * 100 < ratePct) {
+    const choices = ALLELES.filter(a => a !== allele);
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+  return allele;
+}
+
+function stepGeneration() {
+  const size = parseInt(popSizeInput.value);
+  const fitAdv = parseFloat(fitnessInput.value) / 100.0;
+  const mutRate = parseFloat(mutationInput.value);
+  const ploidy = ploidyInput.value;
+  const dom = parseFloat(dominanceInput.value);
+
+  let nextPop = [];
+
+  if (ploidy === 'haploid') {
+    // Haploid Wright-Fisher with Selection & Mutation
+    for (let i = 0; i < size; i++) {
+      // Pick random parent
+      let parent = population[Math.floor(Math.random() * population.length)];
+      
+      // Selection check if parent is A vs Non-A
+      if (parent === 'A') {
+        const pWin = Math.min(1, Math.max(0, 0.5 + fitAdv / 2));
+        if (Math.random() > pWin) {
+          parent = ALLELES[Math.floor(1 + Math.random() * 3)];
+        }
+      }
+      nextPop.push(mutate(parent, mutRate));
+    }
+  } else {
+    // Diploid Selection Model
+    const numDiploids = size;
+    for (let i = 0; i < numDiploids; i++) {
+      // Sample 2 parents
+      let p1 = population[Math.floor(Math.random() * population.length)];
+      let p2 = population[Math.floor(Math.random() * population.length)];
+
+      // Diploid fitness weighting
+      let countA = (p1 === 'A' ? 1 : 0) + (p2 === 'A' ? 1 : 0);
+      let fitnessWeight = 1.0;
+      if (countA === 2) fitnessWeight += fitAdv;
+      else if (countA === 1) fitnessWeight += fitAdv * dom;
+
+      // Selection rejection sampling
+      if (Math.random() < fitnessWeight / (1.0 + Math.max(0, fitAdv))) {
+        nextPop.push(mutate(p1, mutRate));
+        nextPop.push(mutate(p2, mutRate));
+      } else {
+        i--; // Retry sampling
+      }
+    }
+  }
+
+  population = nextPop;
+  generation++;
+  recordHistory();
+  render();
+
+  checkFixation();
+}
+
+function recordHistory() {
+  const counts = { A: 0, T: 0, C: 0, G: 0 };
+  population.forEach(a => counts[a]++);
+  const total = population.length;
+  
+  const freqs = {
+    A: counts.A / total,
+    T: counts.T / total,
+    C: counts.C / total,
+    G: counts.G / total
+  };
+
+  // Expected Heterozygosity He = 1 - sum(p_i^2)
+  const He = 1 - (freqs.A**2 + freqs.T**2 + freqs.C**2 + freqs.G**2);
+
+  history.push({ gen: generation, freqs, He });
+}
+
+function checkFixation() {
+  const first = population[0];
+  const isFixed = population.every(a => a === first);
+  const mutRate = parseFloat(mutationInput.value);
+
+  if (isFixed && mutRate === 0) {
+    stop();
+    statStatus.textContent = first === 'A' ? "FIXED (A)" : `EXTINCT (Fixed ${first})`;
+    statStatus.style.color = first === 'A' ? "var(--neon-blue)" : "var(--neon-red)";
+  }
+}
+
+function render() {
+  // Stats
+  const latest = history[history.length - 1];
+  statGen.textContent = generation;
+  statFreqA.textContent = (latest.freqs.A * 100).toFixed(1) + '%';
+  statHet.textContent = latest.He.toFixed(3);
+
+  // Grid
+  gridEl.innerHTML = '';
+  population.forEach(allele => {
+    const node = document.createElement('div');
+    node.className = `node ${allele}`;
+    node.textContent = allele;
+    gridEl.appendChild(node);
+  });
+
+  // Graph
+  drawChart();
+}
+
+function drawChart() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (history.length < 2) return;
+
+  const colors = {
+    A: '#00f3ff',
+    T: '#ffee00',
+    C: '#ff7700',
+    G: '#ff0055'
+  };
+
+  const stepX = canvas.width / Math.max(history.length - 1, 50);
+
+  ALLELES.forEach(allele => {
+    ctx.beginPath();
+    ctx.strokeStyle = colors[allele];
+    ctx.lineWidth = 2;
+
+    history.forEach((h, i) => {
+      const x = i * stepX;
+      const y = canvas.height - (h.freqs[allele] * canvas.height);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+  });
+}
+
+// Controls
+function start() {
+  if (isRunning) return;
+  if (generation === 0) initPopulation();
+  isRunning = true;
+  btnRun.textContent = "Running...";
+  statStatus.textContent = "Simulating...";
+  statStatus.style.color = "var(--neon-blue)";
+  
+  timer = setInterval(() => {
+    stepGeneration();
+  }, parseInt(speedInput.value));
+}
+
+function stop() {
+  isRunning = false;
+  clearInterval(timer);
+  btnRun.textContent = "Start";
+}
+
+btnRun.addEventListener('click', () => {
+  if (isRunning) stop();
+  else start();
+});
+
+btnPause.addEventListener('click', stop);
+
+btnStep.addEventListener('click', () => {
+  stop();
+  if (generation === 0) initPopulation();
+  stepGeneration();
+});
+
+btnDisaster.addEventListener('click', () => {
+  if (population.length < 4) return;
+  // Reduce population size by 75%
+  const removeCount = Math.floor(population.length * 0.75);
+  population.splice(0, removeCount);
+  recordHistory();
+  render();
+});
+
+btnExport.addEventListener('click', () => {
+  let csv = "Generation,Freq_A,Freq_T,Freq_C,Freq_G,Heterozygosity\n";
+  history.forEach(h => {
+    csv += `${h.gen},${h.freqs.A},${h.freqs.T},${h.freqs.C},${h.freqs.G},${h.He}\n`;
+  });
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `allele_drift_gen_${generation}.csv`;
+  a.click();
+});
+
+btnMonteCarlo.addEventListener('click', () => {
+  stop();
+  const runs = parseInt(document.getElementById('mcRuns').value);
+  let aFixed = 0;
+  let aLost = 0;
+
+  for (let r = 0; r < runs; r++) {
+    initPopulation();
+    let maxG = 500;
+    while (maxG-- > 0) {
+      stepGeneration();
+      const first = population[0];
+      if (population.every(a => a === first)) {
+        if (first === 'A') aFixed++;
+        else aLost++;
+        break;
+      }
+    }
+  }
+
+  mcOutput.style.display = 'block';
+  mcOutput.innerHTML = `<b>Monte Carlo (${runs} Trials):</b><br>
+    Fixation Probability A: <span style="color:var(--neon-blue)">${((aFixed/runs)*100).toFixed(1)}%</span><br>
+    Extinction Probability A: <span style="color:var(--neon-red)">${((aLost/runs)*100).toFixed(1)}%</span>`;
+});
+
+// Initialize on Load
+initPopulation();
+</script>
+</body>
+</html>

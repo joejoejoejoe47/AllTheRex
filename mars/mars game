@@ -1,0 +1,928 @@
+// --- GLOBAL WALLET STATE ---
+let playerWallet = {
+    credits: 5000,
+    science: 100,
+    terraformLevel: 0, // Out of 100%
+};
+
+// --- EMPIRE BUILDINGS & UPKEEP STATS ---
+let infrastructure = {
+    cities: 2,
+    commercialMarkets: 2, // Generates Credits
+    campuses: 1,          // Generates Science
+    companies: 1          // Consumes Credits & Science to run
+};
+
+// Rates per tick
+const CREDIT_GENERATION_RATE = 150; // Per Commercial Market
+const COMPANY_CREDIT_COST    = 80;  // Per Company
+const SCIENCE_GENERATION_RATE = 20;  // Per Campus
+const COMPANY_SCIENCE_COST   = 10;  // Per Company
+
+// --- THE GLOBAL TICK ENGINE ---
+const TICK_RATE_MS = 2000; // 2 Seconds (Can be adjusted to 3000ms)
+
+function runGlobalTick() {
+    console.log("--- GLOBAL TICK START ---");
+
+    // 1. Calculate Income & Upkeep
+    const totalIncome = infrastructure.commercialMarkets * CREDIT_GENERATION_RATE;
+    const totalUpkeep = infrastructure.companies * COMPANY_CREDIT_COST;
+    const netCredits  = totalIncome - totalUpkeep;
+
+    // 2. Calculate Science
+    const scienceGenerated = infrastructure.campuses * SCIENCE_GENERATION_RATE;
+    const scienceConsumed  = infrastructure.companies * COMPANY_SCIENCE_COST;
+    const netScience       = scienceGenerated - scienceConsumed;
+
+    // 3. Apply changes to Global Wallet
+    playerWallet.credits += netCredits;
+    
+    // Science cannot go below 0
+    playerWallet.science = Math.max(0, playerWallet.science + netScience);
+
+    // 4. Terraform Progress (Companies driving progress if funded)
+    if (playerWallet.science > 0 && infrastructure.companies > 0) {
+        // Companies use science to terraform Mars
+        const progressIncrement = infrastructure.companies * 0.5; 
+        playerWallet.terraformLevel = Math.min(100, playerWallet.terraformLevel + progressIncrement);
+    }
+
+    // --- REPORT STATE ---
+    console.log(`Credits: ${playerWallet.credits} (${netCredits >= 0 ? '+' : ''}${netCredits}/tick)`);
+    console.log(`Science: ${playerWallet.science} (${netScience >= 0 ? '+' : ''}${netScience}/tick)`);
+    console.log(`Terraforming Progress: ${playerWallet.terraformLevel.toFixed(1)}%`);
+    console.log("------------------------");
+}
+
+// Start the loop
+setInterval(runGlobalTick, TICK_RATE_MS);
+class MarsCity {
+    constructor(name) {
+        this.name = name;
+        this.population = 500;
+        this.happiness = 50.0; // Starts neutral at 50%
+        this.tier = "Small Biosphere Dome";
+        this.isSecuredByMilitary = true; // Secured state via defense troops
+    }
+
+    /**
+     * Updates the city calculations on every global heartbeat tick
+     * @param {string} resourceSupplyState - 'ABUNDANT', 'NORMAL', or 'STARVED'
+     */
+    updateTick(resourceSupplyState) {
+        // 1. EVALUATE HAPPINESS MODIFIERS
+        let happinessChange = 0;
+
+        // Supply modifiers
+        if (resourceSupplyState === 'ABUNDANT') happinessChange += 4.0;
+        else if (resourceSupplyState === 'STARVED') happinessChange -= 8.0;
+
+        // Security modifiers (alien threat presence)
+        if (this.isSecuredByMilitary) {
+            happinessChange += 2.0; 
+        } else {
+            // Unsecured territory breeds high anxiety among colonists
+            happinessChange -= 10.0;
+        }
+
+        // Apply and clamp value between 0% and 100%
+        this.happiness = Math.max(0, Math.min(100, this.happiness + happinessChange));
+
+        // 2. SIMULATE POPULATION GROWTH
+        // Population shifts follow the current happiness environment
+        if (this.happiness > 70) {
+            this.population += Math.floor(this.population * 0.04); // Growth acceleration
+        } else if (this.happiness < 30) {
+            this.population -= Math.floor(this.population * 0.05); // Emigration / losses
+        }
+
+        // 3. AUTO-EVOLUTION UPGRADE LOGIC
+        this.evaluateTierUpgrades();
+    }
+
+    evaluateTierUpgrades() {
+        const oldTier = this.tier;
+
+        if (this.population >= 3500 && this.happiness >= 85) {
+            this.tier = "Skyscraper Megastructure Dome";
+        } else if (this.population >= 1200 && this.happiness >= 70) {
+            this.tier = "Medium Habitation Ring";
+        } else if (this.population < 1000) {
+            // Cities can downscale if population collapses
+            this.tier = "Small Biosphere Dome";
+        }
+
+        if (this.tier !== oldTier) {
+            console.log(`[EVOLUTION ALERT] ${this.name} has converted from a [${oldTier}] to a [${this.tier}]!`);
+        }
+    }
+
+    /**
+     * Determines how capable spawned corporations will be.
+     * Happy cities spawn highly optimized parent firms.
+     */
+    getCompanyCapabilityMultiplier() {
+        if (this.happiness >= 80) return 1.5; // +50% production output efficiency
+        if (this.happiness <= 35) return 0.7; // -30% performance penalty
+        return 1.0;
+    }
+}
+
+// Example instantiation
+const capitalCity = new MarsCity("New Horizon Prime");
+class Company {
+    /**
+     * @param {string} name - Unique corporate identity
+     * @param {number} parentHappiness - The happiness percentage of the spawning city
+     */
+    constructor(name, parentHappiness) {
+        this.name = name;
+        this.tier = 1;
+        
+        // Cost metrics per loop tick
+        this.creditUpkeep = 50;
+        this.scienceUpkeep = 0;
+        
+        // Technological capability permissions
+        this.unlockedTerraformers = ["Small Scout-Terraformer"];
+        this.efficiencyMultiplier = 1.0;
+
+        // Run internal tier calculation upon incorporation
+        this.initializeCorporateTier(parentHappiness);
+    }
+
+    initializeCorporateTier(happiness) {
+        if (happiness >= 80) {
+            this.tier = 3;
+            this.creditUpkeep = 300;
+            this.scienceUpkeep = 40;
+            this.efficiencyMultiplier = 1.5;
+            this.unlockedTerraformers = ["Small Scout-Terraformer", "Medium Regional-Terraformer", "Heavy Mega-Terraformer"];
+        } 
+        else if (happiness >= 45) {
+            this.tier = 2;
+            this.creditUpkeep = 150;
+            this.scienceUpkeep = 15;
+            this.efficiencyMultiplier = 1.1;
+            this.unlockedTerraformers = ["Small Scout-Terraformer", "Medium Regional-Terraformer"];
+        } 
+        else {
+            this.tier = 1;
+            this.creditUpkeep = 50;
+            this.scienceUpkeep = 0;
+            this.efficiencyMultiplier = 0.75; // Low morale penalizes output speeds
+            this.unlockedTerraformers = ["Small Scout-Terraformer"];
+        }
+    }
+
+    getCorporateSpecs() {
+        return {
+            name: this.name,
+            tier: `Tier ${this.tier} Corporation`,
+            maintenance: `${this.creditUpkeep} Credits & ${this.scienceUpkeep} Science per tick`,
+            licenses: this.unlockedTerraformers.join(", "),
+            outputEfficiency: `${(this.efficiencyMultiplier * 100).toFixed(0)}%`
+        };
+    }
+}
+
+// --- UPDATED CITY LINK INGESTION ENGINE ---
+class AugmentedMarsCity {
+    constructor(name, initialHappiness) {
+        this.name = name;
+        this.happiness = initialHappiness;
+        this.spawnedCompanies = [];
+    }
+
+    /**
+     * Action command: Invoked when the player expands corporate options within a city dome
+     */
+    charterNewCompany(companyName) {
+        console.log(`[CHARTER] Creating corporate firm at ${this.name}...`);
+        
+        // The city's current happiness strictly locks the permanent tier baseline of the firm
+        const newFirm = new Company(companyName, this.happiness);
+        
+        this.spawnedCompanies.push(newFirm);
+        return newFirm;
+    }
+}
+class MarsGridTile {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.isTerraformed = false; // The absolute spatial lock variable
+        this.occupyingStructure = null; // Stores object state ('CITY_DOME', 'MILITARY_BASE', etc.)
+    }
+}
+
+class MarsSectorMap {
+    /**
+     * @param {number} width - Horizontal tile limit
+     * @param {number} height - Vertical tile limit
+     */
+    constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.grid = [];
+        
+        this.initializeEmptyGrid();
+    }
+
+    initializeEmptyGrid() {
+        for (let x = 0; x < this.width; x++) {
+            this.grid[x] = [];
+            for (let y = 0; y < this.height; y++) {
+                this.grid[x][y] = new MarsGridTile(x, y);
+            }
+        }
+        // Baseline drop: Every player starts with a small cleared landing zone anchor
+        this.grid[0][0].isTerraformed = true; 
+    }
+
+    /**
+     * Centralized security filter handling placement legalities
+     * @param {number} x 
+     * @param {number} y 
+     * @param {string} structureType - 'CITY_DOME' or 'MILITARY_BASE'
+     * @returns {boolean}
+     */
+    canPlaceStructure(x, y, structureType) {
+        const tile = this.grid[x][y];
+
+        // 1. Check tile vacancy
+        if (tile.occupyingStructure !== null) {
+            console.error(`Placement blocked: Coordinate [${x},${y}] is already occupied.`);
+            return false;
+        }
+
+        // 2. ENFORCE SPECIFIC TERRAFORMING LAW
+        if (!tile.isTerraformed) {
+            console.error(`Placement blocked: Coordinate [${x},${y}] is hazardous! Requires terraforming machine processing.`);
+            return false;
+        }
+
+        // Sector is cleared and safe for colonial layout expansion
+        return true;
+    }
+
+    executePlacement(x, y, structureType) {
+        if (this.canPlaceStructure(x, y, structureType)) {
+            this.grid[x][y].occupyingStructure = structureType;
+            console.log(`[CONSTRUCTION SUCCESS] Placed ${structureType} at spatial coordinates [${x},${y}].`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Invoked exclusively by active Terraforming Machines
+     */
+    completeTerraformSector(x, y) {
+        this.grid[x][y].isTerraformed = true;
+        console.log(`[TERRAIN ALERT] Coordinates [${x},${y}] have been rendered biochemically stable!`);
+    }
+}
+class TerraformerMachine {
+    /**
+     * @param {string} sizeType - 'SMALL' or 'LARGE'
+     * @param {number} centerX - The X grid anchor location
+     * @param {number} centerY - The Y grid anchor location
+     */
+    constructor(sizeType, centerX, centerY) {
+        this.sizeType = sizeType;
+        this.centerX = centerX;
+        this.centerY = centerY;
+        
+        this.progressPercent = 0;
+        this.isComplete = false;
+
+        // Configuration sets based on machine engineering scope
+        if (sizeType === 'LARGE') {
+            this.radius = 4;        // 4 tiles in every direction = 9x9 grid layout
+            this.totalDurationSeconds = 90; 
+        } else {
+            this.radius = 1;        // 1 tile in every direction = 3x3 grid layout
+            this.totalDurationSeconds = 30; 
+        }
+        
+        this.secondsRemaining = this.totalDurationSeconds;
+    }
+
+    /**
+     * Process tick executed every second by the core server engine
+     * @param {boolean} isParentCompanyOperational - Output from player corporate solvency check
+     * @param {MarsSectorMap} currentMapInstance - The live active game grid mapping
+     */
+    processSecondTick(isParentCompanyOperational, currentMapInstance) {
+        if (this.isComplete) return;
+
+        // CODE CONSTRAINT CHECK: Absolute validation rule checking business health
+        if (!isParentCompanyOperational) {
+            console.warn(`[MACHINE STALLED] Terraformer at [${this.centerX},${this.centerY}] is unpowered. Managing company lacks upkeep capital.`);
+            return; // Exit sequence early without accumulating progress
+        }
+
+        // Advance processing counters
+        this.secondsRemaining -= 1;
+        this.progressPercent = ((this.totalDurationSeconds - this.secondsRemaining) / this.totalDurationSeconds) * 100;
+
+        console.log(`[TERRAFORMING] Machine [${this.sizeType}] at [${this.centerX},${this.centerY}]: ${this.progressPercent.toFixed(1)}% complete.`);
+
+        // Validation target evaluation
+        if (this.secondsRemaining <= 0) {
+            this.executeGridConversion(currentMapInstance);
+        }
+    }
+
+    /**
+     * Iterates through the calculation radius to permanently re-write the sector tiles
+     * @param {MarsSectorMap} map 
+     */
+    executeGridConversion(map) {
+        this.isComplete = true;
+        this.progressPercent = 100;
+        
+        console.log(`[CONVERSION TRIGGERED] Atmospheric seal complete. Altering grid blocks...`);
+
+        // Compute localized bounding box bounds based on radius settings
+        const minX = Math.max(0, this.centerX - this.radius);
+        const maxX = Math.min(map.width - 1, this.centerX + this.radius);
+        const minY = Math.max(0, this.centerY - this.radius);
+        const maxY = Math.min(map.height - 1, this.centerY + this.radius);
+
+        // Convert all targeted cellular instances within the zone matrix
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                map.completeTerraformSector(x, y); 
+            }
+        }
+        
+        console.log(`[SUCCESS] A ${this.sizeType === 'LARGE' ? '9x9' : '3x3'} area has been permanently converted.`);
+    }
+}
+class ResourceDeposit {
+    /**
+     * @param {string} type - 'IRON' or 'TITANIUM'
+     * @param {number} x - Horizontal coordinate location
+     * @param {number} y - Vertical coordinate location
+     * @param {number} initialRichness - Total amount available to mine
+     */
+    constructor(type, x, y, initialRichness = 500) {
+        this.type = type; 
+        this.x = x;
+        this.y = y;
+        this.richness = initialRichness;
+        this.isDepleted = false;
+        this.hasHarvester = false;
+    }
+
+    /**
+     * Extracts a fixed volume of ore from the ground vector
+     * @param {number} baseAmount - Standard extraction rate
+     * @returns {number} Actual amount harvested
+     */
+    extractOre(baseAmount) {
+        if (this.isDepleted) return 0;
+
+        // Ensure we don't extract more than what remains in the vein
+        const actualExtracted = Math.min(this.richness, baseAmount);
+        this.richness -= actualExtracted;
+
+        if (this.richness <= 0) {
+            this.isDepleted = true;
+            this.hasHarvester = false;
+            console.log(`[RESOURCE DEPLETED] Mining node at [${this.x},${this.y}] has run completely dry!`);
+        }
+
+        return actualExtracted;
+    }
+}
+
+class InventoryManager {
+    constructor() {
+        this.iron = 100;
+        this.titanium = 20;
+    }
+
+    /**
+     * Evaluates all active harvesters on the global tick to feed global storage bins
+     * @param {ResourceDeposit[]} globalDepositsList - Array containing all deposits on the map
+     */
+    processHarvestingLoop(globalDepositsList) {
+        globalDepositsList.forEach(deposit => {
+            if (deposit.hasHarvester && !deposit.isDepleted) {
+                if (deposit.type === 'IRON') {
+                    const dynamicAmount = deposit.extractOre(10); // Iron harvest speed rate
+                    this.iron += dynamicAmount;
+                    console.log(`[MINING LOG] Harvested +${dynamicAmount} Iron from coordinate [${deposit.x},${deposit.y}]`);
+                } 
+                else if (deposit.type === 'TITANIUM') {
+                    const dynamicAmount = deposit.extractOre(4);  // Titanium is rarer, harvests slower
+                    this.titanium += dynamicAmount;
+                    console.log(`[MINING LOG] Harvested +${dynamicAmount} Titanium from coordinate [${deposit.x},${deposit.y}]`);
+                }
+            }
+        });
+    }
+}
+// Database defining the resource and monetary costs for troop fabrication
+const TROOP_BLUEPRINTS = {
+    SOLDIER: {
+        name: "Shock Trooper",
+        creditCost: 150,
+        ironCost: 15,
+        titaniumCost: 0,
+        securityRating: 5 // Contributes directly to keeping nearby cities happy
+    },
+    TANK: {
+        name: "Siege Exo-Tank",
+        creditCost: 400,
+        ironCost: 45,
+        titaniumCost: 15,
+        securityRating: 15
+    }
+};
+
+class MilitaryBase {
+    /**
+     * @param {number} x - Location on the 2D grid
+     * @param {number} y - Location on the 2D grid
+     * @param {MarsSectorMap} mapInstance - The active spatial coordinate grid
+     */
+    constructor(x, y, mapInstance) {
+        this.x = x;
+        this.y = y;
+        this.deployedTroops = [];
+        
+        // CODE CONSTRAINT: Validate construction ground suitability
+        const targetTile = mapInstance.grid[x][y];
+        if (!targetTile.isTerraformed) {
+            throw new Error(`Construction Failed: Cannot establish military foundations at [${x},${y}] without stabilized, terraformed ground.`);
+        }
+        
+        // Lock this coordinate down as occupied
+        targetTile.occupyingStructure = "MILITARY_BASE";
+        console.log(`[MILITARY CMD] Firebase established at [${x},${y}]. Foundries online.`);
+    }
+
+    /**
+     * Standard Troop Spawner routine
+     * @param {string} troopType - 'SOLDIER' or 'TANK'
+     * @param {object} playerGlobalWallet - Reference to the global wallet (Step 1.1)
+     * @param {InventoryManager} playerInventory - Reference to the raw materials vault (Step 3.1)
+     */
+    spawnTroop(troopType, playerGlobalWallet, playerInventory) {
+        const blueprint = TROOP_BLUEPRINTS[troopType];
+        
+        if (!blueprint) {
+            console.error(`Tactical registry error: Unknown unit prototype [${troopType}]`);
+            return null;
+        }
+
+        // Validate complete financial and logistical resource coverage
+        const hasCredits = playerGlobalWallet.credits >= blueprint.creditCost;
+        const hasIron    = playerInventory.iron >= blueprint.ironCost;
+        const hasTitanium = playerInventory.titanium >= blueprint.titaniumCost;
+
+        if (!hasCredits || !hasIron || !hasTitanium) {
+            console.warn(`[REJECTED] Cannot authorize unit assembly. Shortages detected:`);
+            console.warn(`- Credits: ${playerGlobalWallet.credits}/${blueprint.creditCost}`);
+            console.warn(`- Iron: ${playerInventory.iron}/${blueprint.ironCost}`);
+            console.warn(`- Titanium: ${playerInventory.titanium}/${blueprint.titaniumCost}`);
+            return null;
+        }
+
+        // Deduct assembly costs from storage
+        playerGlobalWallet.credits -= blueprint.creditCost;
+        playerInventory.iron -= blueprint.ironCost;
+        playerInventory.titanium -= blueprint.titaniumCost;
+
+        // Construct tactical unit payload
+        const newUnit = {
+            id: `UNIT_${Math.floor(Math.random() * 9000) + 1000}`,
+            model: blueprint.name,
+            power: blueprint.securityRating,
+            deployedAt: { x: this.x, y: this.y }
+        };
+
+        this.deployedTroops.push(newUnit);
+        console.log(`[ASSEMBLY SUCCESS] Deployed 1x ${newUnit.model} (${newUnit.id}) at base coordinates [${this.x},${this.y}]`);
+        return newUnit;
+    }
+}
+class TacticalUnit {
+    constructor(id, type, x, y, combatPower) {
+        this.id = id;
+        this.type = type; // 'SOLDIER', 'TANK', or 'ALIEN'
+        this.x = x;
+        this.y = y;
+        this.combatPower = combatPower;
+        this.isDead = false;
+    }
+}
+
+class SecurableCity {
+    constructor(name, x, y, protectionRadius = 2) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+        this.protectionRadius = protectionRadius; // Range checked for military coverage
+        this.isSecure = false;
+        this.happiness = 50;
+    }
+
+    /**
+     * Checks if any active player military units are stationed within the guard perimeter
+     * @param {TacticalUnit[]} playerTroopsList - Current pool of alive player forces
+     */
+    evaluateSecurityPerimeter(playerTroopsList) {
+        let troopFoundInRange = false;
+
+        for (let troop of playerTroopsList) {
+            if (troop.isDead) continue;
+
+            // Calculate Chebyshev distance (representing a square-radius block scan)
+            const distX = Math.abs(this.x - troop.x);
+            const distY = Math.abs(this.y - troop.y);
+            const distance = Math.max(distX, distY);
+
+            if (distance <= this.protectionRadius) {
+                troopFoundInRange = true;
+                break; // One patrol unit is enough to secure the dome bounds
+            }
+        }
+
+        const previousState = this.isSecure;
+        this.isSecure = troopFoundInRange;
+
+        if (this.isSecure !== previousState) {
+            if (this.isSecure) {
+                console.log(`[SECURE] ${this.name} is now heavily protected. Citizens feel safe!`);
+                this.happiness = Math.min(100, this.happiness + 15); // Dynamic happiness booster
+            } else {
+                console.warn(`[VULNERABLE] Patrols have left! ${this.name} has lost active military coverage.`);
+                this.happiness = Math.max(0, this.happiness - 20); // Panic drops morale
+            }
+        }
+    }
+}
+
+class AlienSpawner {
+    /**
+     * @param {number} mapWidth 
+     * @param {number} mapHeight 
+     */
+    constructor(mapWidth, mapHeight) {
+        this.mapWidth = mapWidth;
+        this.mapHeight = mapHeight;
+        this.spawnedAliens = [];
+    }
+
+    /**
+     * Periodically launches hostiles from random coordinate edges
+     */
+    spawnInvasionForce() {
+        // Choose a random outer border edge coordinate
+        const spawnAtX = Math.random() > 0.5 ? 0 : this.mapWidth - 1;
+        const spawnAtY = Math.floor(Math.random() * this.mapHeight);
+
+        const newAlien = new TacticalUnit(
+            `ALIEN_${Math.floor(Math.random() * 9000) + 1000}`,
+            'ALIEN',
+            spawnAtX,
+            spawnAtY,
+            8 // Threat level rating
+        );
+
+        this.spawnedAliens.push(newAlien);
+        console.log(`[ALARM] Hostile bio-signature registered at edge coordinates [${spawnAtX},${spawnAtY}]!`);
+        return newAlien;
+    }
+
+    /**
+     * Directs active alien units toward their nearest urban target coordinates
+     * @param {SecurableCity[]} cityList - List of current potential targets
+     */
+    processInvasionPathfinding(cityList) {
+        if (cityList.length === 0) return;
+
+        this.spawnedAliens.forEach(alien => {
+            if (alien.isDead) return;
+
+            // 1. Locate the nearest colony dome target
+            let nearestCity = cityList[0];
+            let shortestDistance = Infinity;
+
+            cityList.forEach(city => {
+                const distance = Math.hypot(city.x - alien.x, city.y - alien.y);
+                if (distance < shortestDistance) {
+                    shortestDistance = distance;
+                    nearestCity = city;
+                }
+            });
+
+            // 2. Step 1 tile closer to the target (simple path calculation)
+            const stepX = Math.sign(nearestCity.x - alien.x);
+            const stepY = Math.sign(nearestCity.y - alien.y);
+
+            alien.x += stepX;
+            alien.y += stepY;
+
+            console.log(`[THREAT MOVE] ${alien.id} marching forward. Now at [${alien.x},${alien.y}] tracking toward ${nearestCity.name}.`);
+
+            // 3. Evaluate strike zone arrival
+            if (alien.x === nearestCity.x && alien.y === nearestCity.y) {
+                console.error(`[STRIKE] ${alien.id} has breached the dome at ${nearestCity.name}! Panic spreads.`);
+                nearestCity.happiness = Math.max(0, nearestCity.happiness - 40);
+                alien.isDead = true; // Alien expends itself in the destruction run
+            }
+        });
+
+        // Keep active array clear of dead threats
+        this.spawnedAliens = this.spawnedAliens.filter(alien => !alien.isDead);
+    }
+}
+using Unity.Netcode;
+using UnityEngine;
+
+public class NetworkTerraformer : NetworkBehaviour
+{
+    // These variables automatically synchronize from the Server to all Clients
+    public NetworkVariable<int> centerX = new NetworkVariable<int>();
+    public NetworkVariable<int> centerY = new NetworkVariable<int>();
+    public NetworkVariable<float> progressPercent = new NetworkVariable<float>(0f);
+    public NetworkVariable<bool> isComplete = new NetworkVariable<bool>(false);
+
+    private float timer = 30f; // 30s cycle for Small Terraformer
+
+    private void Update()
+    {
+        // Rule: Only the server calculates the time and progresses the game loop!
+        if (!IsServer) return; 
+
+        if (isComplete.Value) return;
+
+        // Code Constraint: Check if the owner's company is still solvent/running
+        bool isCompanyOperational = CheckOwnerCompanyStatus(OwnerClientId);
+
+        if (isCompanyOperational)
+        {
+            timer -= Time.deltaTime;
+            progressPercent.Value = Mathf.Clamp(((30f - timer) / 30f) * 100f, 0f, 100f);
+
+            if (timer <= 0f)
+            {
+                TriggerGridConversionServer();
+            }
+        }
+        else
+        {
+            // If the company is offline, progress stops. The status updates dynamically on clients.
+            Debug.LogWarning($"Terraformer belonging to Client {OwnerClientId} stalled. Company unpaid.");
+        }
+    }
+
+    private void TriggerGridConversionServer()
+    {
+        isComplete.Value = true;
+        
+        // Update the global master map on the server
+        MultiplayerMapManager.Instance.ConvertTileGrid(centerX.Value, centerY.Value, radius: 1);
+        
+        // Notify all clients to trigger local visual/particle effects
+        PlayConversionEffectsClientRpc();
+    }
+
+    [ClientRpc]
+    private void PlayConversionEffectsClientRpc()
+    {
+        // This runs on EVERY player's machine to show the cool blue terraform flash!
+        VisualEffectsManager.Instance.SpawnTerraformFlash(centerX.Value, centerY.Value);
+    }
+
+    private bool CheckOwnerCompanyStatus(ulong clientId)
+    {
+        // Server references the specific player's economy records
+        return MultiplayerEconomyManager.Instance.GetPlayerSolvency(clientId);
+    }
+}
+class AICorporateCompetitor {
+    constructor(id, name, startingX, startingY) {
+        this.id = id;
+        this.name = name;
+        this.baseCoordinates = { x: startingX, y: startingY };
+
+        // Threshold values defining AI comfort limits
+        this.CREDIT_MINIMUM_THRESHOLD = 200;
+        this.SCIENCE_MINIMUM_THRESHOLD = 30;
+        this.SECURITY_ALERT_RADIUS = 3; // Tiles
+    }
+
+    /**
+     * Primary entry point called during the Global Tick
+     * @param {object} aiState - Current parameters representing the AI's status
+     * @param {MarsSectorMap} map - Reference to the global grid
+     */
+    thinkAndExecute(aiState, map) {
+        console.log(`[AI DECISION] Bot "${this.name}" is processing choices...`);
+
+        // PRIORITY 1: Check Credit Balance
+        if (aiState.credits < this.CREDIT_MINIMUM_THRESHOLD) {
+            this.buildCommercialMarket(aiState);
+            return; // Action executed, end tick turn
+        }
+
+        // PRIORITY 2: Check Science Output
+        if (aiState.science < this.SCIENCE_MINIMUM_THRESHOLD) {
+            this.buildCampus(aiState);
+            return; 
+        }
+
+        // PRIORITY 3: Check Security Threats
+        const aliensNearby = this.scanForNearbyThreats(aiState.deployedAliens);
+        if (aliensNearby) {
+            this.establishDefenses(aiState, map);
+            return;
+        }
+
+        // PRIORITY 4: Check For Terraforming Space
+        const unTerraformedTile = this.findUnterraformedTileInSector(map);
+        if (unTerraformedTile) {
+            this.deployTerraformingUnit(aiState, unTerraformedTile);
+            return;
+        }
+
+        // DEFAULT: Idle / Accumulate Capital
+        this.accumulateResources();
+    }
+
+    // --- DECISION ACTIONS ---
+
+    buildCommercialMarket(state) {
+        console.log(`[AI ACTION] -> [FINANCIAL THREAT] Credits low (${state.credits}). Ordering construction of Commercial Market.`);
+        // Logic to subtract build costs and spawn a market structure in an AI city
+        state.credits -= 100;
+        state.commercialMarkets += 1;
+    }
+
+    buildCampus(state) {
+        console.log(`[AI ACTION] -> [RESEARCH THREAT] Science low (${state.science}). Building City Campus.`);
+        state.credits -= 120;
+        state.campuses += 1;
+    }
+
+    scanForNearbyThreats(aliensList) {
+        // Evaluate the physical distance of all aliens to the AI's base coordinates
+        for (let alien of aliensList) {
+            const distX = Math.abs(this.baseCoordinates.x - alien.x);
+            const distY = Math.abs(this.baseCoordinates.y - alien.y);
+            const distance = Math.max(distX, distY); // Chebyshev distance
+
+            if (distance <= this.SECURITY_ALERT_RADIUS) {
+                return true; // Hostiles breached the warning parameter
+            }
+        }
+        return false;
+    }
+
+    establishDefenses(state, map) {
+        console.log(`[AI ACTION] -> [TACTICAL ALERT] Aliens detected near base! Building Military Base and spawning defenders.`);
+        // AI selects a terraformed tile near its city and places a defense outpost
+        state.credits -= 300;
+        state.militaryBases += 1;
+        state.troopsCount += 2; // Automatically drafts units to intercept
+    }
+
+    findUnterraformedTileInSector(map) {
+        // AI scans local grid for a hostile red tile next to its territory
+        for (let x = this.baseCoordinates.x - 2; x <= this.baseCoordinates.x + 2; x++) {
+            for (let y = this.baseCoordinates.y - 2; y <= this.baseCoordinates.y + 2; y++) {
+                if (map.grid[x] && map.grid[x][y] && !map.grid[x][y].isTerraformed) {
+                    return map.grid[x][y]; // Found a viable expansion target
+                }
+            }
+        }
+        return null;
+    }
+
+    deployTerraformingUnit(state, targetTile) {
+        console.log(`[AI ACTION] -> [EXPANSION] Deploying Terraformer Machine targeting coordinate [${targetTile.x}, ${targetTile.y}].`);
+        state.credits -= 150;
+        // Spawns a Terraformer that will flip targetTile.isTerraformed to true
+    }
+
+    accumulateResources() {
+        console.log(`[AI ACTION] -> [STABLE] All systems optimal. Saving credits and science for heavy tech upgrades.`);
+    }
+}
+class AICorporateCompetitor {
+    constructor(id, name, startingX, startingY) {
+        this.id = id;
+        this.name = name;
+        this.baseCoordinates = { x: startingX, y: startingY };
+
+        // Threshold values defining AI comfort limits
+        this.CREDIT_MINIMUM_THRESHOLD = 200;
+        this.SCIENCE_MINIMUM_THRESHOLD = 30;
+        this.SECURITY_ALERT_RADIUS = 3; // Tiles
+    }
+
+    /**
+     * Primary entry point called during the Global Tick
+     * @param {object} aiState - Current parameters representing the AI's status
+     * @param {MarsSectorMap} map - Reference to the global grid
+     */
+    thinkAndExecute(aiState, map) {
+        console.log(`[AI DECISION] Bot "${this.name}" is processing choices...`);
+
+        // PRIORITY 1: Check Credit Balance
+        if (aiState.credits < this.CREDIT_MINIMUM_THRESHOLD) {
+            this.buildCommercialMarket(aiState);
+            return; // Action executed, end tick turn
+        }
+
+        // PRIORITY 2: Check Science Output
+        if (aiState.science < this.SCIENCE_MINIMUM_THRESHOLD) {
+            this.buildCampus(aiState);
+            return; 
+        }
+
+        // PRIORITY 3: Check Security Threats
+        const aliensNearby = this.scanForNearbyThreats(aiState.deployedAliens);
+        if (aliensNearby) {
+            this.establishDefenses(aiState, map);
+            return;
+        }
+
+        // PRIORITY 4: Check For Terraforming Space
+        const unTerraformedTile = this.findUnterraformedTileInSector(map);
+        if (unTerraformedTile) {
+            this.deployTerraformingUnit(aiState, unTerraformedTile);
+            return;
+        }
+
+        // DEFAULT: Idle / Accumulate Capital
+        this.accumulateResources();
+    }
+
+    // --- DECISION ACTIONS ---
+
+    buildCommercialMarket(state) {
+        console.log(`[AI ACTION] -> [FINANCIAL THREAT] Credits low (${state.credits}). Ordering construction of Commercial Market.`);
+        // Logic to subtract build costs and spawn a market structure in an AI city
+        state.credits -= 100;
+        state.commercialMarkets += 1;
+    }
+
+    buildCampus(state) {
+        console.log(`[AI ACTION] -> [RESEARCH THREAT] Science low (${state.science}). Building City Campus.`);
+        state.credits -= 120;
+        state.campuses += 1;
+    }
+
+    scanForNearbyThreats(aliensList) {
+        // Evaluate the physical distance of all aliens to the AI's base coordinates
+        for (let alien of aliensList) {
+            const distX = Math.abs(this.baseCoordinates.x - alien.x);
+            const distY = Math.abs(this.baseCoordinates.y - alien.y);
+            const distance = Math.max(distX, distY); // Chebyshev distance
+
+            if (distance <= this.SECURITY_ALERT_RADIUS) {
+                return true; // Hostiles breached the warning parameter
+            }
+        }
+        return false;
+    }
+
+    establishDefenses(state, map) {
+        console.log(`[AI ACTION] -> [TACTICAL ALERT] Aliens detected near base! Building Military Base and spawning defenders.`);
+        // AI selects a terraformed tile near its city and places a defense outpost
+        state.credits -= 300;
+        state.militaryBases += 1;
+        state.troopsCount += 2; // Automatically drafts units to intercept
+    }
+
+    findUnterraformedTileInSector(map) {
+        // AI scans local grid for a hostile red tile next to its territory
+        for (let x = this.baseCoordinates.x - 2; x <= this.baseCoordinates.x + 2; x++) {
+            for (let y = this.baseCoordinates.y - 2; y <= this.baseCoordinates.y + 2; y++) {
+                if (map.grid[x] && map.grid[x][y] && !map.grid[x][y].isTerraformed) {
+                    return map.grid[x][y]; // Found a viable expansion target
+                }
+            }
+        }
+        return null;
+    }
+
+    deployTerraformingUnit(state, targetTile) {
+        console.log(`[AI ACTION] -> [EXPANSION] Deploying Terraformer Machine targeting coordinate [${targetTile.x}, ${targetTile.y}].`);
+        state.credits -= 150;
+        // Spawns a Terraformer that will flip targetTile.isTerraformed to true
+    }
+
+    accumulateResources() {
+        console.log(`[AI ACTION] -> [STABLE] All systems optimal. Saving credits and science for heavy tech upgrades.`);
+    }
+}

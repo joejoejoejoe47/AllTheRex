@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Lane Rhythm Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        body {
+            background-color: #121214;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 420px;
+            height: 700px;
+            background-color: #1a1a24;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #2a2a3b;
+        }
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            background-color: #1a1a24;
+            transition: opacity 0.3s ease;
+        }
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+        /* Shop Screen Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 22px;
+            background: linear-gradient(45deg, #ff7300, #fa00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .coins-display {
+            background: #252536;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #ffd700;
+            border: 1px solid #3a3a52;
+        }
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8a8a9e;
+            margin-bottom: 12px;
+        }
+        .song-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 4px;
+        }
+        .song-card {
+            background: #232333;
+            border: 1px solid #32324a;
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.1s;
+        }
+        .song-card:hover {
+            border-color: #4f4f78;
+        }
+        .song-info h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .song-info p {
+            font-size: 12px;
+            color: #8a8a9e;
+        }
+        .btn {
+            background: linear-gradient(135deg, #6e00ff, #b800ff);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn.buy {
+            background: linear-gradient(135deg, #ff8800, #ffbb00);
+            color: #121214;
+        }
+        .btn:disabled {
+            background: #3a3a52;
+            color: #6a6a82;
+            cursor: not-allowed;
+        }
+
+        /* Gameplay Screen Styles */
+        #gameplay-screen {
+            background-color: #0d0d12;
+            padding: 0;
+            justify-content: space-between;
+        }
+        .game-header {
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(26, 26, 36, 0.8);
+            z-index: 10;
+        }
+        .stat-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stat-label {
+            font-size: 10px;
+            color: #8a8a9e;
+            text-transform: uppercase;
+        }
+        .stat-value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        #track-container {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            background: linear-gradient(to bottom, #121218, #181824);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+        .lane {
+            width: 75px;
+            height: 100%;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+        }
+        .lane:first-child {
+            border-left: 1px solid rgba(255,255,255,0.05);
+        }
+        /* Hit target line at the bottom */
+        .hit-line {
+            position: absolute;
+            bottom: 80px;
+            width: 100%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .lane-key-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: rgba(255,255,255,0.4);
+            transition: background 0.05s, border-color 0.05s, color 0.05s;
+        }
+        .lane-key-indicator.active {
+            background: rgba(110, 0, 255, 0.4);
+            border-color: #b800ff;
+            color: white;
+            box-shadow: 0 0 15px #b800ff;
+        }
+        /* Falling Notes */
+        .note {
+            position: absolute;
+            width: 65px;
+            height: 20px;
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            border-radius: 6px;
+            left: 5px;
+            box-shadow: 0 0 8px rgba(0, 210, 255, 0.6);
+        }
+        .note.lane-1 { background: linear-gradient(135deg, #ff416c, #ff4b2b); box-shadow: 0 0 8px rgba(255, 65, 108, 0.6); }
+        .note.lane-2 { background: linear-gradient(135deg, #f7b733, #fc4a1a); box-shadow: 0 0 8px rgba(247, 183, 51, 0.6); }
+        .note.lane-3 { background: linear-gradient(135deg, #11998e, #38ef7d); box-shadow: 0 0 8px rgba(17, 153, 142, 0.6); }
+        .note.lane-4 { background: linear-gradient(135deg, #8e2de2, #4a00e0); box-shadow: 0 0 8px rgba(142, 45, 226, 0.6); }
+
+        /* Feedback text (Perfect, Good, Miss) */
+        #feedback {
+            position: absolute;
+            bottom: 160px;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            transform: scale(0.9);
+        }
+        #feedback.show {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Results Modal */
+        #results-screen {
+            background: rgba(26, 26, 36, 0.95);
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 16px;
+        }
+        #results-screen h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .result-stats {
+            background: #232333;
+            padding: 20px;
+            border-radius: 12px;
+            width: 80%;
+            margin-bottom: 20px;
+            border: 1px solid #32324a;
+        }
+        .result-stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- SHOP / SONG SELECTION SCREEN -->
+        <div id="shop-screen" class="screen">
+            <header>
+                <h1>Rhythm Arcade</h1>
+                <div class="coins-display">🪙 <span id="coin-count">100</span></div>
+            </header>
+
+            <div class="section-title">Select Track</div>
+            <div class="song-list" id="song-list">
+                <!-- Dynamically populated songs -->
+            </div>
+        </div>
+
+        <!-- GAMEPLAY SCREEN -->
+        <div id="gameplay-screen" class="screen hidden">
+            <div class="game-header">
+                <div class="stat-group">
+                    <span class="stat-label">Score</span>
+                    <span class="stat-value" id="current-score">0</span>
+                </div>
+                <div class="stat-group">
+                    <span class="stat-label">Combo</span>
+                    <span class="stat-value" id="current-combo">0x</span>
+                </div>
+                <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="quitGame()">Quit</button>
+            </div>
+
+            <div id="track-container">
+                <div id="feedback">PERFECT</div>
+                <div class="hit-line"></div>
+                <!-- 4 Lanes -->
+                <div class="lane" data-lane="0">
+                    <div class="lane-key-indicator" id="key-0">D</div>
+                </div>
+                <div class="lane" data-lane="1">
+                    <div class="lane-key-indicator" id="key-1">F</div>
+                </div>
+                <div class="lane" data-lane="2">
+                    <div class="lane-key-indicator" id="key-2">J</div>
+                </div>
+                <div class="lane" data-lane="3">
+                    <div class="lane-key-indicator" id="key-3">K</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESULTS SCREEN -->
+        <div id="results-screen" class="screen hidden">
+            <h2>Song Completed!</h2>
+            <div class="result-stats">
+                <div class="result-stat-row">
+                    <span>Final Score:</span>
+                    <span id="res-score" style="font-weight:bold;">0</span>
+                </div>
+                <div class="result-stat-row">
+                    <span>Max Combo:</span>
+                    <span id="res-combo" style="font-weight:bold;">0</span>
+                </div>
+                <div class="result-stat-row">
+                    <span>Coins Earned:</span>
+                    <span id="res-coins" style="font-weight:bold; color: #ffd700;">+0</span>
+                </div>
+            </div>
+            <button class="btn" onclick="returnToShop()">Back to Shop</button>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let coins = 100;
+        let currentScore = 0;
+        let currentCombo = 0;
+        let maxCombo = 0;
+        let activeSong = null;
+        let gameInterval = null;
+        let audioCtx = null;
+        let songTimer = 0;
+        let notesData = [];
+        let activeNotes = [];
+        let songDuration = 0;
+        let gamePlaying = false;
+
+        // Song Database (3 unlocked by default, 3 available to buy)
+        const songs = [
+            { id: 1, title: "Neon Cyber", artist: "Synthwave", bpm: 120, price: 0, unlocked: true, notesCount: 30 },
+            { id: 2, title: "Pulse Beats", artist: "Electro", bpm: 135, price: 0, unlocked: true, notesCount: 35 },
+            { id: 3, title: "8-Bit Runner", artist: "Chiptune", bpm: 110, price: 0, unlocked: true, notesCount: 28 },
+            { id: 4, title: "Starlight Echo", artist: "Ambient Bass", bpm: 140, price: 50, unlocked: false, notesCount: 45 },
+            { id: 5, title: "Hyperdrive", artist: "Speed Core", bpm: 160, price: 100, unlocked: false, notesCount: 55 },
+            { id: 6, title: "Midnight Groove", artist: "Lo-Fi Beats", bpm: 100, price: 75, unlocked: false, notesCount: 32 }
+        ];
+
+        const keyMap = { 'KeyD': 0, 'KeyF': 1, 'KeyJ': 2, 'KeyK': 3 };
+        const laneKeys = ['D', 'F', 'J', 'K'];
+
+        // Initialize UI
+        function initShop() {
+            const listEl = document.getElementById('song-list');
+            listEl.innerHTML = '';
+            document.getElementById('coin-count').innerText = coins;
+
+            songs.forEach(song => {
+                const card = document.createElement('div');
+                card.className = 'song-card';
+                card.innerHTML = `
+                    <div class="song-info">
+                        <h3>${song.title}</h3>
+                        <p>${song.artist} • ${song.bpm} BPM</p>
+                    </div>
+                    ${song.unlocked 
+                        ? `<button class="btn" onclick="startSong(${song.id})">Play</button>`
+                        : `<button class="btn buy" onclick="buySong(${song.id})">Buy (${song.price} 🪙)</button>`
+                    }
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function buySong(songId) {
+            const song = songs.find(s => s.id === songId);
+            if (coins >= song.price) {
+                coins -= song.price;
+                song.unlocked = true;
+                initShop();
+            } else {
+                alert("Not enough coins!");
+            }
+        }
+
+        // Generate procedural note chart based on BPM and note count
+        function generateChart(song) {
+            notesData = [];
+            const beatInterval = 60 / song.bpm;
+            songDuration = (song.notesCount + 4) * beatInterval * 1000; // duration in ms
+
+            for (let i = 1; i <= song.notesCount; i++) {
+                // Spawn notes on regular intervals or beats
+                let timeOffset = i * beatInterval * 1000 * 0.75;
+                let lane = Math.floor(Math.random() * 4);
+                notesData.push({ time: timeOffset, lane: lane, hit: false, missed: false });
+            }
+        }
+
+        function startSong(songId) {
+            activeSong = songs.find(s => s.id === songId);
+            generateChart(activeSong);
+
+            document.getElementById('shop-screen').classList.add('hidden');
+            document.getElementById('gameplay-screen').classList.remove('hidden');
+
+            currentScore = 0;
+            currentCombo = 0;
+            maxCombo = 0;
+            songTimer = 0;
+            activeNotes = [];
+            gamePlaying = true;
+
+            document.getElementById('current-score').innerText = '0';
+            document.getElementById('current-combo').innerText = '0x';
+
+            // Init Web Audio context on user interaction
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Start main game loop
+            const startTime = performance.now();
+            gameInterval = requestAnimationFrame(updateGame);
+        }
+
+        // Play synth click/note sound on hit
+        function playTone(lane) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            const frequencies = [261.63, 329.63, 392.00, 523.25]; // C, E, G, C chords
+            osc.frequency.value = frequencies[lane];
+            osc.type = 'triangle';
+
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // Main Gameplay loop (~60 FPS)
+        let lastTime = performance.now();
+        function updateGame(timestamp) {
+            if (!gamePlaying) return;
+
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+            songTimer += dt;
+
+            const trackContainer = document.getElementById('track-container');
+            const containerHeight = trackContainer.clientHeight;
+            const hitLinePos = containerHeight - 130; // pixel distance from top where hit line sits
+            const fallSpeed = 0.45; // pixels per millisecond
+
+            // Check notes to spawn
+            notesData.forEach(note => {
+                if (!note.spawned && songTimer >= note.time - (hitLinePos / fallSpeed)) {
+                    note.spawned = true;
+                    const el = document.createElement('div');
+                    el.className = `note lane-${note.lane + 1}`;
+                    trackContainer.appendChild(el);
+                    note.element = el;
+                    activeNotes.push(note);
+                }
+            });
+
+            // Update positions of active notes
+            for (let i = activeNotes.length - 1; i >= 0; i--) {
+                const note = activeNotes[i];
+                // Distance from hit line calculation
+                const travelTime = note.time - songTimer;
+                const currentY = hitLinePos - (travelTime * fallSpeed);
+
+                if (note.element) {
+                    note.element.style.top = `${currentY}px`;
+                }
+
+                // Check for miss (passed below hit line)
+                if (currentY > containerHeight - 50 && !note.hit && !note.missed) {
+                    note.missed = true;
+                    breakCombo();
+                    showFeedback("MISS", "#ff416c");
+                }
+
+                // Remove notes that fell off screen completely
+                if (currentY > containerHeight + 50) {
+                    if (note.element) note.element.remove();
+                    activeNotes.splice(i, 1);
+                }
+            }
+
+            // End song condition
+            if (songTimer > songDuration && activeNotes.length === 0) {
+                endSong();
+                return;
+            }
+
+            gameInterval = requestAnimationFrame(updateGame);
+        }
+
+        // Handle Player Input (Clicks & Keyboard Taps)
+        function hitLane(laneIndex) {
+            if (!gamePlaying) return;
+
+            // Flash indicator
+            const indicator = document.getElementById(`key-${laneIndex}`);
+            indicator.classList.add('active');
+            setTimeout(() => indicator.classList.remove('active'), 100);
+
+            playTone(laneIndex);
+
+            // Find closest note in this lane near the hit line
+            let closestNote = null;
+            let minDistance = Infinity;
+
+            activeNotes.forEach(note => {
+                if (note.lane === laneIndex && !note.hit && !note.missed) {
+                    const trackContainer = document.getElementById('track-container');
+                    const hitLinePos = trackContainer.clientHeight - 130;
+                    const fallSpeed = 0.45;
+                    const currentY = hitLinePos - ((note.time - songTimer) * fallSpeed);
+                    const distance = Math.abs(currentY - hitLinePos);
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestNote = note;
+                    }
+                }
+            });
+
+            // Scoring logic based on window accuracy
+            if (closestNote && minDistance < 70) {
+                closestNote.hit = true;
+                if (closestNote.element) closestNote.element.remove();
+
+                if (minDistance < 20) {
+                    currentScore += 300 * (1 + Math.floor(currentCombo / 10));
+                    showFeedback("PERFECT", "#38ef7d");
+                } else if (minDistance < 45) {
+                    currentScore += 150 * (1 + Math.floor(currentCombo / 10));
+                    showFeedback("GOOD", "#f7b733");
+                } else {
+                    currentScore += 50;
+                    showFeedback("BAD", "#ff4b2b");
+                }
+
+                currentCombo++;
+                if (currentCombo > maxCombo) maxCombo = currentCombo;
+                updateHUD();
+            }
+        }
+
+        function breakCombo() {
+            currentCombo = 0;
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('current-score').innerText = currentScore;
+            document.getElementById('current-combo').innerText = `${currentCombo}x`;
+        }
+
+        function showFeedback(text, color) {
+            const fb = document.getElementById('feedback');
+            fb.innerText = text;
+            fb.style.color = color;
+            fb.classList.add('show');
+            setTimeout(() => fb.classList.remove('show'), 150);
+        }
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Prevent spamming from holding key down
+            if (keyMap.hasOwnProperty(e.code)) {
+                hitLane(keyMap[e.code]);
+            }
+        });
+
+        // Mouse/Touch click support on lane indicators
+        document.querySelectorAll('.lane').forEach((laneEl, idx) => {
+            laneEl.addEventListener('pointerdown', () => {
+                hitLane(idx);
+            });
+        });
+
+        function quitGame() {
+            gamePlaying = false;
+            cancelAnimationFrame(gameInterval);
+            // Clear active notes DOM elements
+            activeNotes.forEach(n => { if (n.element) n.element.remove(); });
+            activeNotes = [];
+            document.getElementById('gameplay-screen').classList.add('hidden');
+            document.getElementById('shop-screen').classList.remove('hidden');
+        }
+
+        function endSong() {
+            gamePlaying = false;
+            cancelAnimationFrame(gameInterval);
+            document.getElementById('gameplay-screen').classList.add('hidden');
+            
+            // Calculate rewards
+            const coinsEarned = Math.floor(currentScore / 1000) + 15;
+            coins += coinsEarned;
+
+            document.getElementById('res-score').innerText = currentScore;
+            document.getElementById('res-combo').innerText = maxCombo;
+            document.getElementById('res-coins').innerText = `+${coinsEarned}`;
+
+            document.getElementById('results-screen').classList.remove('hidden');
+        }
+
+        function returnToShop() {
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('shop-screen').classList.remove('hidden');
+            initShop();
+        }
+
+        // Initial setup on load
+        initShop();
+    </script>
+</body>
+</html>

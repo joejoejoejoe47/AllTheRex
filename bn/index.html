@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE TABLE // President, Bets & Whispers</title>
+    <style>
+        :root {
+            --bg-table: #08110b;
+            --wood-dark: #1a0f08;
+            --wood-accent: #2e1a0e;
+            --gold: #f3c623;
+            --red: #e63946;
+            --green: #2a9d8f;
+            --purple: #7b2cbf;
+            --text-main: #f1f1f1;
+            --neon-glow: rgba(243, 198, 35, 0.4);
+        }
+
+        body {
+            background-color: var(--bg-table);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 40%, rgba(30, 20, 10, 0.8) 0%, rgba(5, 10, 8, 1) 90%);
+        }
+
+        header {
+            border-bottom: 2px solid var(--gold);
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-shadow: 0 0 10px var(--gold);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            color: var(--gold);
+        }
+
+        .stats-hud {
+            display: flex;
+            gap: 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .stat-box {
+            background: var(--wood-dark);
+            border: 1px solid var(--gold);
+            padding: 4px 8px;
+            border-radius: 4px;
+            box-shadow: 0 0 6px var(--neon-glow);
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* Navigation Bar */
+        .nav-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .nav-bar button {
+            flex: 1;
+        }
+
+        /* Table View Layout */
+        .table-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .panel {
+            background-color: var(--wood-dark);
+            border: 1px solid #4a3319;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            font-size: 0.9rem;
+            color: var(--gold);
+            border-bottom: 1px dashed #4a3319;
+            padding-bottom: 5px;
+        }
+
+        /* Live Audio/Chat Conversation Stream at the Table */
+        .table-feed {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin-bottom: 8px;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .conversation-bubble {
+            background: rgba(30, 20, 15, 0.9);
+            border-left: 3px solid var(--gold);
+            padding: 8px 10px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(6px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .speaker-name {
+            font-weight: bold;
+            color: var(--gold);
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Big Fat Join Conversation Button */
+        .btn-join-chat {
+            background: linear-gradient(135deg, #7b2cbf, #9d4edd);
+            color: #fff;
+            border: 2px solid #e0aaff;
+            padding: 6px 10px;
+            font-weight: bold;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 8px rgba(123, 44, 191, 0.6);
+            align-self: flex-start;
+            margin-top: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-join-chat:hover {
+            transform: scale(1.03);
+            box-shadow: 0 0 12px #e0aaff;
+        }
+
+        /* Betting Control Panel */
+        .betting-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #2a1810, #3d2314);
+            color: var(--text-main);
+            border: 1px solid var(--gold);
+            padding: 8px;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            transition: all 0.15s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #3d2314, #5c351f);
+            box-shadow: 0 0 8px var(--neon-glow);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .btn-money {
+            background: linear-gradient(135deg, #1b3b2b, #2d6a4f);
+            border-color: #52b788;
+            color: #52b788;
+        }
+        .btn-money:hover {
+            background: linear-gradient(135deg, #2d6a4f, #40916c);
+            box-shadow: 0 0 8px rgba(82, 183, 136, 0.6);
+        }
+
+        .btn-all-in {
+            background: linear-gradient(135deg, #4a1515, #780000);
+            border-color: var(--red);
+            color: var(--red);
+            grid-column: span 3;
+        }
+
+        /* Inventory & Store */
+        .inventory-list, .store-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .item-row {
+            background: rgba(10, 5, 2, 0.7);
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid var(--green);
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-row button {
+            padding: 4px 8px;
+            font-size: 0.7rem;
+        }
+
+        /* Weird / Chat Dialogue Room View */
+        .chat-room-panel {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            background: var(--wood-dark);
+            border: 1px solid var(--purple);
+            border-radius: 6px;
+            padding: 12px;
+            gap: 10px;
+        }
+
+        .chat-history {
+            flex: 1;
+            background: rgba(5, 2, 8, 0.8);
+            border: 1px solid #3c096c;
+            border-radius: 4px;
+            padding: 10px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.85rem;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: #0d0603;
+            border: 1px solid var(--gold);
+            color: #fff;
+            padding: 10px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        /* Floating Animation Popups */
+        .floating-popup {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.1rem;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            text-shadow: 0 0 8px currentColor;
+            z-index: 100;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            100% { opacity: 0; transform: translateY(-45px) scale(1.2); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>THE TABLE // POLITICS & HIGH STAKES</h1>
+        <div class="stats-hud">
+            <div class="stat-box">MONEY: $<span id="moneyVal">1,200</span></div>
+            <div class="stat-box">TITLE: <span id="titleVal">Citizen</span></div>
+            <div class="stat-box">STATUS: <span id="statusVal">Table Regular</span></div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-bar">
+        <button onclick="switchView('tableView')">🪑 The Table & Bets</button>
+        <button onclick="switchView('storeView')">🛒 Market Store</button>
+        <button onclick="switchView('inventoryView')">🎒 Inventory (<span id="invCount">3</span>)</button>
+        <button onclick="switchView('chatRoomView')" id="navChatBtn" style="display:none; border-color:var(--purple); color:#e0aaff;">💬 Active Conversation</button>
+    </div>
+
+    <!-- VIEW 1: THE TABLE (Listening & Betting) -->
+    <div id="tableView" class="view active">
+        <div class="table-layout" id="tableLayoutContainer">
+            <!-- Left Panel: Table Conversations & Audio Log -->
+            <div class="panel">
+                <h2>TABLE AUDIO FEED & CONVERSATIONS</h2>
+                <div id="tableFeed" class="table-feed">
+                    <!-- Dynamic table chatter generated here -->
+                </div>
+            </div>
+
+            <!-- Right Panel: Betting Actions & Status -->
+            <div class="panel">
+                <h2>THROW DOWN STAKES</h2>
+                <p style="font-size: 0.75rem; color: #aaa; margin-top:0;">Place cash on the table. Win big, or watch it vanish.</p>
+                
+                <div class="betting-controls">
+                    <button class="btn-money" onclick="placeBet(1)">Bet $1</button>
+                    <button class="btn-money" onclick="placeBet(25)">Bet $25</button>
+                    <button class="btn-money" onclick="placeBet(100)">Bet $100</button>
+                    <button class="btn-all-in" onclick="placeBet('all')">🔥 THROW IN ALL THE MONEY 🔥</button>
+                </div>
+
+                <h2 style="margin-top: 10px;">POLITICAL INFLUENCE</h2>
+                <p style="font-size: 0.75rem; color: #aaa; margin-top:0;">Accumulate $10,000 to run for President, or $50,000 to crown yourself King.</p>
+                <div style="display: flex; gap: 6px;">
+                    <button onclick="tryClaimPower('president')" style="flex:1; border-color:var(--green); color:var(--green);">Run for President ($10k)</button>
+                    <button onclick="tryClaimPower('king')" style="flex:1; border-color:var(--gold); color:var(--gold);">Claim King ($50k)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 2: STORE VIEW (Buy stuff to use) -->
+    <div id="storeView" class="view">
+        <div class="panel" style="flex: 1;">
+            <h2>TABLESIDE BLACK MARKET STORE</h2>
+            <p style="font-size: 0.8rem; color: #aaa; margin-top:0;">Purchase items with your money. Click them in your inventory anytime to use them and trigger effects!</p>
+            <ul id="storeList" class="store-list">
+                <!-- Populated via JS -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- VIEW 3: INVENTORY VIEW (Use or lose stuff) -->
+    <div id="inventoryView" class="view">
+        <div class="panel" style="flex: 1;">
+            <h2>YOUR POCKETS & ITEMS</h2>
+            <p style="font-size: 0.8rem; color: #aaa; margin-top:0;">Click 'Use Item' to activate its effect in the game world. Beware: some items can backfire and be lost!</p>
+            <ul id="inventoryList" class="inventory-list">
+                <!-- Populated via JS -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- VIEW 4: JOINED CONVERSATION / TALK ROOM -->
+    <div id="chatRoomView" class="view">
+        <div class="chat-room-panel">
+            <h2 id="roomTitle" style="color:#e0aaff; margin:0;">Conversation with [Speaker Name]</h2>
+            <p id="roomDesc" style="font-size:0.8rem; color:#aaa; margin:0;">You joined their circle. Speak directly—they will respond based on their personality (nice, mean, weird, or harsh).</p>
+            
+            <div id="chatHistory" class="chat-history">
+                <!-- Conversation history -->
+            </div>
+
+            <div class="chat-input-area">
+                <input type="text" id="userChatInput" placeholder="Say something to the table..." autocomplete="off">
+                <button onclick="sendUserMessage()" style="background:var(--purple); border-color:#e0aaff; color:#fff;">Send Message</button>
+                <button onclick="leaveChatRoom()" style="background:#555; border-color:#888;">Leave Circle</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameState = {
+            money: 1200,
+            title: "Citizen",
+            status: "Table Regular",
+            currentSpeakerId: null,
+            inventory: [
+                { id: "lucky_coin", name: "Lucky Golden Coin", desc: "+20% bet win chance for 3 uses", uses: 3, type: "buff" },
+                { id: "cig_pack", name: "Menthol Cigarettes", desc: "Smell nice, impresses table peers", uses: 2, type: "social" },
+                { id: "rusty_shiv", name: "Rusty Pocket Shiv", desc: "Threaten someone (Risky!)", uses: 1, type: "danger" }
+            ],
+            storeItems: [
+                { id: "champagne", name: "Bottle of Vintage Champagne", price: 350, desc: "Splurge to make everyone at the table like you instantly.", type: "social" },
+                { id: "loaded_die", name: "Loaded Casino Die", price: 600, desc: "Guarantees your next big bet wins (or gets confiscated).", type: "cheat" },
+                { id: "royal_scepter", name: "Replica Royal Scepter", price: 2500, desc: "Essential props for aspiring kings and presidents.", type: "status" },
+                { id: "sketchy_pills", name: "Mysterious Blue Pills", price: 150, desc: "Consume to feel weird things. May lose money or gain wisdom.", type: "risk" }
+            ]
+        };
+
+        // Table Speakers & Personalities
+        const tableSpeakers = [
+            { id: "baron", name: "Baron von Sterling", vibe: "mean", intro: "Sterling slams his cigar down. 'This economy is garbage, and everyone sitting near me is a financial parasite.'" },
+            { id: "maggie", name: "Whispering Maggie", vibe: "weird", intro: "Maggie stares blankly at the wood grain. 'The numbers... they aren't numbers anymore. They're teeth chewing on the clock.'" },
+            { id: "sully", name: "Honest Sully", vibe: "nice", intro: "Sully pours a round of drinks. 'Hey friend, rough night at the bets? Pull up a chair, we'll turn it around together.'" },
+            { id: "vance", name: "Syndicate Vance", vibe: "harsh", intro: "Vance leans in with sharp eyes. 'Put your money down or get out of my sight. Losers don't breathe air in this room.'" }
+        ];
+
+        const moneyVal = document.getElementById('moneyVal');
+        const titleVal = document.getElementById('titleVal');
+        const statusVal = document.getElementById('statusVal');
+        const invCount = document.getElementById('invCount');
+        const tableFeed = document.getElementById('tableFeed');
+        const inventoryList = document.getElementById('inventoryList');
+        const storeList = document.getElementById('storeList');
+        const chatHistory = document.getElementById('chatHistory');
+        const userChatInput = document.getElementById('userChatInput');
+        const roomTitle = document.getElementById('roomTitle');
+        const roomDesc = document.getElementById('roomDesc');
+        const navChatBtn = document.getElementById('navChatBtn');
+        const tableLayoutContainer = document.getElementById('tableLayoutContainer');
+
+        function updateHUD() {
+            moneyVal.textContent = gameState.money.toLocaleString();
+            titleVal.textContent = gameState.title;
+            statusVal.textContent = gameState.status;
+            invCount.textContent = gameState.inventory.reduce((acc, item) => acc + item.uses, 0);
+
+            // Render Inventory
+            inventoryList.innerHTML = '';
+            if (gameState.inventory.length === 0) {
+                inventoryList.innerHTML = `<li class="item-row" style="color:#888;">Your pockets are completely empty. Go buy stuff at the store!</li>`;
+            } else {
+                gameState.inventory.forEach((item, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'item-row';
+                    li.innerHTML = `
+                        <span><b>${item.name}</b> (x${item.uses})<br><small style="color:#aaa">${item.desc}</small></span>
+                        <button onclick="useInventoryItem(${index})">Use Item</button>
+                    `;
+                    inventoryList.appendChild(li);
+                });
+            }
+
+            // Render Store
+            storeList.innerHTML = '';
+            gameState.storeItems.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.className = 'item-row';
+                li.innerHTML = `
+                    <span><b>${item.name}</b> - <span style="color:var(--gold)">$${item.price}</span><br><small style="color:#aaa">${item.desc}</small></span>
+                    <button class="btn-money" onclick="buyStoreItem(${index})">Buy Item</button>
+                `;
+                storeList.appendChild(li);
+            });
+        }
+
+        function createPopup(text, color) {
+            const popup = document.createElement('div');
+            popup.className = 'floating-popup';
+            popup.style.color = color;
+            popup.textContent = text;
+            
+            const rect = tableLayoutContainer.getBoundingClientRect();
+            popup.style.left = (Math.random() * (rect.width - 120) + 60) + 'px';
+            popup.style.top = (Math.random() * 100 + 100) + 'px';
+            
+            tableLayoutContainer.appendChild(popup);
+            setTimeout(() => popup.remove(), 800);
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // Periodic table chatter generator (You can hear everything happening)
+        function generateTableChatter() {
+            const speaker = tableSpeakers[Math.floor(Math.random() * tableSpeakers.length)];
+            const chatterPool = {
+                mean: [
+                    "Somebody at this table is bleeding cash and it's pathetic to watch.",
+                    "Keep your hands where I can see them. I didn't get rich by trusting strangers.",
+                    "That last bet you threw down was amateur hour."
+                ],
+                weird: [
+                    "The walls are breathing green ink tonight. Look behind the chandelier.",
+                    "If you throw a dollar into the floorboards, the room whispers back your childhood phone number.",
+                    "Time moves sideways when you're losing money at this exact table."
+                ],
+                nice: [
+                    "Don't let the losses get you down, friend. Everyone turns it around eventually.",
+                    "Here, take half my napkin. Clean up your chips and let's go again.",
+                    "You've got good energy for a newcomer. Stick close to me."
+                ],
+                harsh: [
+                    "If you go broke tonight, security drags you out the back alley. No exceptions.",
+                    "I smelled blood when you sat down at this chair. Let's see how long you last.",
+                    "Double or nothing or get out of the way of real gamblers."
+                ]
+            };
+
+            const text = chatterPool[speaker.vibe][Math.floor(Math.random() * chatterPool[speaker.vibe].length)];
+            
+            const div = document.createElement('div');
+            div.className = 'conversation-bubble';
+            div.innerHTML = `
+                <div class="speaker-name">
+                    <span>🗣️ ${speaker.name} (${speaker.vibe.toUpperCase()})</span>
+                    <span style="color:#aaa; font-weight:normal; font-size:0.75rem;">Just now</span>
+                </div>
+                <span>"${text}"</span>
+                <button class="btn-join-chat" onclick="joinConversation('${speaker.id}')">Join Conversation</button>
+            `;
+            
+            tableFeed.prepend(div);
+            if (tableFeed.children.length > 25) {
+                tableFeed.removeChild(tableFeed.lastChild);
+            }
+        }
+
+        // Trigger random table conversation every few seconds so it feels alive
+        setInterval(generateTableChatter, 7000);
+
+        // Betting logic
+        function placeBet(amount) {
+            let stake = 0;
+            if (amount === 'all') {
+                stake = gameState.money;
+                if (stake <= 0) {
+                    alert("You are completely broke! Go work or buy something else.");
+                    return;
+                }
+            } else {
+                stake = amount;
+                if (gameState.money < stake) {
+                    alert("You don't have enough money for that bet!");
+                    return;
+                }
+            }
+
+            gameState.money -= stake;
+            
+            // Check buff items
+            let hasLuckyCoin = gameState.inventory.find(i => i.id === 'lucky_coin' && i.uses > 0);
+            let winChance = hasLuckyCoin ? 0.65 : 0.48;
+            
+            if (hasLuckyCoin) {
+                hasLuckyCoin.uses--;
+                if (hasLuckyCoin.uses <= 0) {
+                    gameState.inventory = gameState.inventory.filter(i => i.id !== 'lucky_coin');
+                }
+            }
+
+            if (Math.random() < winChance) {
+                const payout = Math.floor(stake * 2.2);
+                gameState.money += payout;
+                createPopup(`+$${payout} WIN!`, 'var(--green)');
+                addTableLog(`🎲 You threw down $${stake} on the table and WON! Payout: +$${payout}.`);
+            } else {
+                createPopup(`-$${stake} LOST [X]`, 'var(--red)');
+                addTableLog(`❌ You threw down $${stake}, a giant red <b>[X]</b> flashed, and you lost the bet.`);
+            }
+
+            updateHUD();
+        }
+
+        function addTableLog(text) {
+            const div = document.createElement('div');
+            div.className = 'conversation-bubble';
+            div.style.borderLeftColor = 'var(--red)';
+            div.innerHTML = `<span class="speaker-name"><span>🎰 TABLE ACTION</span></span><span>${text}</span>`;
+            tableFeed.prepend(div);
+        }
+
+        // Store & Inventory
+        function buyStoreItem(index) {
+            const item = gameState.storeItems[index];
+            if (gameState.money >= item.price) {
+                gameState.money -= item.price;
+                
+                // Add to inventory or stack
+                let existing = gameState.inventory.find(i => i.name === item.name);
+                if (existing) {
+                    existing.uses++;
+                } else {
+                    gameState.inventory.push({
+                        id: item.id,
+                        name: item.name,
+                        desc: item.desc,
+                        uses: 1,
+                        type: item.type
+                    });
+                }
+                createPopup(`PURCHASED!`, 'var(--gold)');
+                updateHUD();
+                switchView('inventoryView');
+            } else {
+                alert("Not enough money for this luxury!");
+            }
+        }
+
+        function useInventoryItem(index) {
+            const item = gameState.inventory[index];
+            item.uses--;
+
+            if (item.id === 'lucky_coin') {
+                alert("You rubbed the Lucky Golden Coin. Your next 3 bets have boosted odds!");
+            } else if (item.id === 'cig_pack') {
+                gameState.money += 75;
+                createPopup(`+$75 TIPS`, 'var(--green)');
+                alert("You smoked a cigarette outside. A table peer was impressed and tossed you $75.");
+            } else if (item.id === 'rusty_shiv') {
+                if (Math.random() < 0.5) {
+                    gameState.money += 300;
+                    createPopup(`+$300 EXTORTION`, 'var(--green)');
+                    alert("You flashed the shiv under the table. Someone panicked and handed over $300!");
+                } else {
+                    gameState.money = Math.max(0, gameState.money - 200);
+                    createPopup(`-$200 BUST`, 'var(--red)');
+                    alert("Bad move! Security caught you flashing a weapon and fined you $200.");
+                }
+            } else if (item.id === 'champagne') {
+                gameState.title = "Table VIP";
+                gameState.money += 150;
+                alert("You popped the vintage champagne. Everyone cheered and bought you into their syndicate!");
+            } else if (item.id === 'sketchy_pills') {
+                if (Math.random() < 0.5) {
+                    gameState.money += 600;
+                    createPopup(`+$600 EUPHORIA`, 'var(--green)');
+                    alert("The pills made reality bend. You foresaw a winning bet and scooped $600 off the floor!");
+                } else {
+                    gameState.money = Math.max(0, gameState.money - 400);
+                    createPopup(`-$400 BLACKOUT`, 'var(--red)');
+                    alert("You blacked out for two hours and woke up missing $400 from your coat pocket.");
+                }
+            } else if (item.id === 'royal_scepter') {
+                alert("You waved the scepter around. People laughed, but your presence felt undeniably presidential.");
+            }
+
+            if (item.uses <= 0) {
+                gameState.inventory.splice(index, 1);
+            }
+
+            updateHUD();
+        }
+
+        // Presidential / King Power Claim
+        function tryClaimPower(tier) {
+            if (tier === 'president') {
+                if (gameState.money >= 10000) {
+                    gameState.money -= 10000;
+                    gameState.title = "President-Elect";
+                    gameState.status = "Leader of the Free Table";
+                    alert("You successfully funded your campaign! You are now President of the Table.");
+                } else {
+                    alert("You need $10,000 to run for President!");
+                }
+            } else if (tier === 'king') {
+                if (gameState.money >= 50000) {
+                    gameState.money -= 50000;
+                    gameState.title = "👑 SUPREME KING 👑";
+                    gameState.status = "Absolute Sovereign";
+                    alert("You bought out the entire room, the building, and the guards. All hail the King!");
+                } else {
+                    alert("You need $50,000 to declare yourself King!");
+                }
+            }
+            updateHUD();
+        }
+
+        // Join Conversation Circle Feature
+        function joinConversation(speakerId) {
+            gameState.currentSpeakerId = speakerId;
+            const speaker = tableSpeakers.find(s => s.id === speakerId);
+            
+            roomTitle.textContent = `Conversation Circle: ${speaker.name}`;
+            roomDesc.textContent = `Personality type: ${speaker.vibe.toUpperCase()}. Whatever you type in chat will be analyzed and answered directly by them.`;
+            
+            chatHistory.innerHTML = `
+                <div class="conversation-bubble">
+                    <span class="speaker-name"><span>${speaker.name}</span></span>
+                    <span>"${speaker.intro}"</span>
+                </div>
+            `;
+
+            navChatBtn.style.display = 'block';
+            switchView('chatRoomView');
+        }
+
+        function leaveChatRoom() {
+            navChatBtn.style.display = 'none';
+            switchView('tableView');
+        }
+
+        function sendUserMessage() {
+            const text = userChatInput.value.trim();
+            if (!text) return;
+
+            // Append user msg
+            const userDiv = document.createElement('div');
+            userDiv.className = 'conversation-bubble';
+            userDiv.style.borderLeftColor = 'var(--purple)';
+            userDiv.innerHTML = `<span class="speaker-name"><span>You</span></span><span>${text}</span>`;
+            chatHistory.appendChild(userDiv);
+            userChatInput.value = '';
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            // Generate AI response based on speaker vibe
+            setTimeout(() => {
+                const speaker = tableSpeakers.find(s => s.id === gameState.currentSpeakerId) || tableSpeakers[0];
+                let reply = "";
+
+                if (speaker.vibe === 'mean') {
+                    const replies = [
+                        `"Is that really the smartest thing your mouth could form? Pathetic."`,
+                        `"Talk less, bet more. Your words aren't worth a plugged nickel around here."`,
+                        `"You sound like someone who loses money on purpose just to feel noticed."`
+                    ];
+                    reply = replies[Math.floor(Math.random() * replies.length)];
+                } else if (speaker.vibe === 'weird') {
+                    const replies = [
+                        `"Interesting choice of syllables... they tasted like cold copper in my ears."`,
+                        `"If you say that word backwards three times, the chandelier turns into a bird."`,
+                        `"The shadows behind your chair nodded when you spoke. They agree with you."`
+                    ];
+                    reply = replies[Math.floor(Math.random() * replies.length)];
+                } else if (speaker.vibe === 'nice') {
+                    const replies = [
+                        `"Hey, I appreciate you sharing that with us. You're alright in my book."`,
+                        `"That's a valid perspective! Let's get you a fresh drink on my tab."`,
+                        `"Keep that chin up. People with your attitude usually end up owning the table."`
+                    ];
+                    reply = replies[Math.floor(Math.random() * replies.length)];
+                } else { // harsh
+                    const replies = [
+                        `"Watch your tone before I take your chips and your jacket."`,
+                        `"Nobody cares about your feelings in a high-stakes syndicate room. Show me cash or silence."`,
+                        `"One more word like that and you're banned from the betting circle."`
+                    ];
+                    reply = replies[Math.floor(Math.random() * replies.length)];
+                }
+
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'conversation-bubble';
+                replyDiv.innerHTML = `<span class="speaker-name"><span>${speaker.name}</span></span><span>"${reply}"</span>`;
+                chatHistory.appendChild(replyDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }, 600);
+        }
+
+        userChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendUserMessage();
+        });
+
+        // Initialize
+        generateTableChatter();
+        updateHUD();
+    </script>
+</body>
+</html>

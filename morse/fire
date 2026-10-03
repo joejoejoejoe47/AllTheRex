@@ -1,0 +1,2512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber Nexus Tactical Grid Arena - Enhanced Edition</title>
+  <style>
+    :root {
+      --bg-dark: #020610;
+      --bg-gradient: radial-gradient(circle at 50% 10%, #3b0764 0%, #020610 70%);
+      --card-bg: rgba(10, 15, 30, 0.9);
+      --neon-gold: #fde047;
+      --neon-cyan: #06b6d4;
+      --neon-pink: #ec4899;
+      --neon-purple: #d8b4fe;
+      --neon-red: #f43f5e;
+      --neon-green: #34d399;
+      --text-main: #ffffff;
+      --glass-border: rgba(6, 182, 212, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg-dark);
+      background-image: var(--bg-gradient);
+      color: var(--text-main);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    #auth-page {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(2, 6, 16, 0.98);
+      backdrop-filter: blur(20px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .auth-container {
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid var(--neon-cyan);
+      border-radius: 24px;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 45px rgba(6, 182, 212, 0.5), inset 0 0 20px rgba(6, 182, 212, 0.2);
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .auth-container h2 {
+      font-size: 2rem;
+      margin: 0;
+      color: #fff;
+      text-shadow: 0 0 25px rgba(6, 182, 212, 1), 0 0 10px rgba(236, 72, 153, 0.8);
+      text-transform: uppercase;
+    }
+
+    .auth-btn {
+      background: linear-gradient(135deg, var(--neon-cyan), #0284c7);
+      color: #020610;
+      border: none;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 900;
+      border-radius: 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      width: 100%;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.7);
+      transition: all 0.25s;
+    }
+
+    .auth-btn:hover {
+      box-shadow: 0 0 35px rgba(6, 182, 212, 1);
+      transform: translateY(-2px);
+    }
+
+    .auth-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .auth-input-group input {
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--neon-cyan);
+      background: rgba(15, 23, 42, 0.9);
+      color: #fff;
+      font-size: 1rem;
+      outline: none;
+      text-align: center;
+      box-shadow: inset 0 0 12px rgba(6, 182, 212, 0.4), 0 0 10px rgba(6, 182, 212, 0.2);
+    }
+
+    .tiny-home-btn {
+      position: fixed;
+      top: 15px;
+      left: 15px;
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--glass-border);
+      padding: 4px 10px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      z-index: 1000;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+      transition: all 0.2s;
+    }
+
+    .tiny-home-btn:hover {
+      background: rgba(6, 182, 212, 0.3);
+      border-color: var(--neon-cyan);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin: 0;
+      color: #fff;
+      text-shadow: 0 0 25px rgba(6, 182, 212, 0.8), 0 0 10px rgba(236, 72, 153, 0.6);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 900;
+    }
+
+    .header-info-bar {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .badge-display {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--neon-gold);
+      box-shadow: 0 0 20px rgba(253, 224, 71, 0.4);
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--neon-gold);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(8px);
+    }
+
+    .top-nav {
+      display: flex;
+      gap: 12px;
+      margin: 15px 0;
+    }
+
+    .nav-btn {
+      background: rgba(15, 23, 42, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--glass-border);
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-btn:hover {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .nav-btn.active {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.4), rgba(216, 180, 254, 0.4));
+      border-color: var(--neon-cyan);
+      color: #fff;
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.7);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), inset 0 0 25px rgba(6, 182, 212, 0.15);
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .view-panel {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .view-panel.active {
+      display: flex;
+    }
+
+    .category-nav {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .cat-btn {
+      flex: 1;
+      min-width: 120px;
+      padding: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.7);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      backdrop-filter: blur(6px);
+    }
+
+    .cat-btn.easy.active { border-color: var(--neon-cyan); color: #fff; background: rgba(6, 182, 212, 0.25); box-shadow: 0 0 20px rgba(6, 182, 212, 0.4); }
+    .cat-btn.medium.active { border-color: var(--neon-gold); color: #fff; background: rgba(253, 224, 71, 0.25); box-shadow: 0 0 20px rgba(253, 224, 71, 0.4); }
+    .cat-btn.hard.active { border-color: var(--neon-pink); color: #fff; background: rgba(236, 72, 153, 0.25); box-shadow: 0 0 20px rgba(236, 72, 153, 0.4); }
+    .cat-btn.legendary.active { border-color: var(--neon-purple); color: #fff; background: rgba(216, 180, 254, 0.25); box-shadow: 0 0 20px rgba(216, 180, 254, 0.4); }
+
+    .shop-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-height: 440px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .fighter-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      transition: all 0.25s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .fighter-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 10px 30px rgba(6, 182, 212, 0.3);
+    }
+
+    .fighter-card .avatar-box {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid var(--neon-cyan);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .fighter-card .avatar-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .fighter-card .title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+    }
+
+    .fighter-card .stats {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .fighter-card .superpower-desc {
+      font-size: 0.75rem;
+      color: var(--neon-gold);
+      background: rgba(253, 224, 71, 0.1);
+      border: 1px dashed rgba(253, 224, 71, 0.4);
+      padding: 6px 8px;
+      border-radius: 8px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .buy-btn {
+      width: 100%;
+      padding: 9px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 800;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      background: var(--neon-gold);
+      color: #020610;
+      transition: all 0.2s;
+      box-shadow: 0 0 20px rgba(253, 224, 71, 0.5);
+    }
+
+    .buy-btn:hover {
+      box-shadow: 0 0 30px rgba(253, 224, 71, 0.8);
+      transform: scale(1.02);
+    }
+
+    .buy-btn.owned {
+      background: rgba(52, 211, 153, 0.25);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+      box-shadow: none;
+      cursor: default;
+    }
+
+    .squad-select-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-height: 340px;
+      overflow-y: auto;
+      margin: 15px 0;
+      padding: 4px;
+    }
+
+    .select-unit-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .select-unit-card.selected-squad {
+      border-color: var(--neon-gold);
+      box-shadow: 0 0 25px rgba(253, 224, 71, 0.4);
+      background: rgba(253, 224, 71, 0.15);
+    }
+
+    .arena-hud {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+      background: rgba(15, 23, 42, 0.7);
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+    }
+
+    .tactical-grid-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .grid-board {
+      display: grid;
+      gap: 8px;
+      background: rgba(5, 10, 25, 0.9);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 12px;
+      width: 100%;
+      max-width: 780px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), inset 0 0 30px rgba(6, 182, 212, 0.1);
+      position: relative;
+    }
+
+    .grid-cell {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      aspect-ratio: 1 / 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .grid-cell:hover {
+      border-color: rgba(6, 182, 212, 0.8);
+      background: rgba(6, 182, 212, 0.15);
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+
+    .grid-cell.has-base {
+      background: radial-gradient(circle, rgba(52, 211, 153, 0.4) 0%, rgba(6, 182, 212, 0.4) 100%);
+      border: 2px dashed var(--neon-green);
+      box-shadow: 0 0 20px rgba(52, 211, 153, 0.6), inset 0 0 15px var(--neon-cyan);
+    }
+    
+    .grid-cell.has-base::after {
+      content: '⚡';
+      position: absolute;
+      font-size: 0.8rem;
+      top: 2px;
+      left: 2px;
+      animation: pulseBase 1.5s infinite alternate;
+    }
+
+    .grid-cell.has-player-bomb::before {
+      content: '💣';
+      position: absolute;
+      font-size: 0.9rem;
+      bottom: 2px;
+      right: 2px;
+      z-index: 5;
+      animation: pulseBomb 1s infinite alternate;
+    }
+
+    .grid-cell.fiery-explosion {
+      background: radial-gradient(circle, #ff4500 0%, #ff8c00 50%, #ff0000 100%) !important;
+      border-color: #ff4500 !important;
+      box-shadow: 0 0 35px #ff4500, inset 0 0 25px #ffff00 !important;
+      animation: fieryPulse 0.5s infinite alternate;
+    }
+
+    @keyframes fieryPulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      100% { transform: scale(1.05); filter: brightness(1.4); }
+    }
+
+    .grid-cell.zappy-explosion {
+      background: radial-gradient(circle, #00ffff 0%, #3b82f6 50%, #9333ea 100%) !important;
+      border-color: var(--neon-cyan) !important;
+      box-shadow: 0 0 35px var(--neon-cyan), inset 0 0 25px #ffffff !important;
+      animation: zappyFlash 0.3s infinite alternate;
+    }
+
+    @keyframes zappyFlash {
+      0% { transform: scale(1); filter: hue-rotate(0deg); }
+      100% { transform: scale(1.05); filter: hue-rotate(90deg) brightness(1.5); }
+    }
+
+    @keyframes pulseBomb {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      100% { transform: scale(1.2); opacity: 1; }
+    }
+
+    @keyframes pulseBase {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      100% { transform: scale(1.1); opacity: 1; }
+    }
+
+    .grid-cell.highlight-move {
+      border-color: var(--neon-gold);
+      background: rgba(253, 224, 71, 0.2);
+      box-shadow: inset 0 0 20px rgba(253, 224, 71, 0.3);
+    }
+
+    .grid-cell.highlight-attack {
+      border-color: var(--neon-red);
+      background: rgba(244, 63, 94, 0.25);
+      box-shadow: inset 0 0 20px rgba(244, 63, 94, 0.3);
+    }
+
+    .grid-cell.highlight-throw {
+      border-color: var(--neon-purple);
+      background: rgba(216, 180, 254, 0.25);
+      box-shadow: inset 0 0 20px rgba(216, 180, 254, 0.4);
+    }
+
+    .grid-cell.highlight-bomb {
+      border-color: var(--neon-pink);
+      background: rgba(236, 72, 153, 0.3);
+      box-shadow: inset 0 0 20px rgba(236, 72, 153, 0.5);
+    }
+
+    .grid-unit {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #fff;
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      background: #000;
+      transition: transform 0.25s ease, opacity 2.5s ease-in-out, filter 2.5s ease-in-out;
+    }
+
+    .grid-unit img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .grid-unit.player {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.7);
+    }
+
+    .grid-unit.enemy {
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 20px rgba(236, 72, 153, 0.7);
+    }
+
+    .grid-unit.selected {
+      transform: scale(1.15);
+      box-shadow: 0 0 30px var(--neon-gold), 0 0 15px #fff;
+      border-color: var(--neon-gold);
+    }
+
+    .grid-unit.completely-invisible {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      filter: blur(5px);
+      transition: opacity 0.5s ease-in-out, filter 0.5s ease-in-out !important;
+    }
+
+    .grid-unit.fading-red-powerloss {
+      opacity: 0 !important;
+      filter: drop-shadow(0 0 25px #ff4500) sepia(100%) saturate(500%) hue-rotate(-30deg) brightness(1.5) blur(3px) !important;
+      transform: scale(0.2) rotate(360deg);
+      transition: opacity 2.5s ease-in-out, filter 2.5s ease-in-out, transform 2.5s ease-in-out !important;
+    }
+
+    .grid-unit.zappy-victim {
+      opacity: 0 !important;
+      filter: drop-shadow(0 0 30px #00ffff) invert(80%) sepia(100%) saturate(800%) hue-rotate(140deg) brightness(2) blur(4px) !important;
+      transform: scale(0.1) skewX(45deg) rotate(720deg);
+      transition: opacity 1.8s ease-in-out, filter 1.8s ease-in-out, transform 1.8s ease-in-out !important;
+    }
+
+    .grid-unit.fading-slowly {
+      opacity: 0.35 !important;
+      filter: blur(1.5px) grayscale(60%);
+      transition: opacity 2.5s ease-in-out, filter 2.5s ease-in-out !important;
+    }
+
+    .grid-unit.speed-blur {
+      transform: scale(0.6) skewX(-25deg);
+      filter: blur(3px) brightness(1.8);
+      box-shadow: 0 0 25px var(--neon-cyan);
+    }
+
+    .grid-unit.twirling-victim {
+      animation: twirlAroundTitan 0.8s linear infinite;
+      z-index: 50;
+      box-shadow: 0 0 25px var(--neon-purple);
+    }
+
+    @keyframes twirlAroundTitan {
+      0% { transform: translate(0, -15px) scale(0.9) rotate(0deg); }
+      25% { transform: translate(15px, 0) scale(0.9) rotate(90deg); }
+      50% { transform: translate(0, 15px) scale(0.9) rotate(180deg); }
+      75% { transform: translate(-15px, 0) scale(0.9) rotate(270deg); }
+      100% { transform: translate(0, -15px) scale(0.9) rotate(360deg); }
+    }
+
+    .grid-unit.slow-mo-soaring {
+      transition: all 2.2s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      transform: scale(1.4) rotate(1080deg);
+      z-index: 100;
+      filter: drop-shadow(0 0 25px var(--neon-gold)) brightness(1.5);
+    }
+
+    .unit-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--neon-purple);
+      color: #020610;
+      font-size: 0.55rem;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 50%;
+      border: 1px solid #fff;
+      z-index: 10;
+    }
+
+    .unit-hp-pip {
+      position: absolute;
+      bottom: -8px;
+      background: rgba(2, 6, 16, 0.95);
+      color: var(--neon-gold);
+      font-size: 0.55rem;
+      font-weight: 900;
+      padding: 1px 4px;
+      border-radius: 4px;
+      border: 1px solid rgba(253, 224, 71, 0.4);
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .battle-controls {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      justify-content: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: #fff;
+      border: 1px solid var(--neon-cyan);
+      padding: 10px 18px;
+      font-size: 0.9rem;
+      font-weight: 800;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .action-btn:hover {
+      border-color: var(--neon-gold);
+      color: var(--neon-gold);
+      box-shadow: 0 0 25px rgba(253, 224, 71, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, #0891b2, #0e7490);
+      border-color: var(--neon-cyan);
+    }
+
+    .action-btn.danger {
+      background: linear-gradient(135deg, #e11d48, #9f1239);
+      border-color: var(--neon-pink);
+    }
+
+    .action-btn.special {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      border-color: var(--neon-purple);
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      width: 100%;
+      margin-top: 15px;
+    }
+
+    .damage-popup {
+      position: absolute;
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: var(--neon-gold);
+      text-shadow: 0 0 15px var(--neon-pink), 2px 2px 0 #000;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      z-index: 120;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(0.8); }
+      100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+    }
+
+    .back-btn {
+      background: rgba(51, 65, 85, 0.9);
+      margin-top: 12px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      width: fit-content;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      color: #fff;
+      cursor: pointer;
+      font-weight: 800;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .back-btn:hover {
+      background: rgba(100, 116, 139, 0.9);
+      box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(2, 6, 16, 0.9);
+      backdrop-filter: blur(15px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 30px rgba(6, 182, 212, 0.3);
+      max-width: 460px;
+      width: 90%;
+      text-align: center;
+      animation: modalScaleUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes modalScaleUp {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-title-gameover {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--neon-pink);
+      text-shadow: 0 0 25px rgba(236, 72, 153, 0.8);
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .modal-title-victory {
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: var(--neon-green);
+      text-shadow: 0 0 30px rgba(52, 211, 153, 0.8);
+      margin: 0;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      animation: victoryPulse 1s infinite alternate;
+    }
+
+    @keyframes victoryPulse {
+      0% { transform: scale(1); filter: brightness(1); }
+      100% { transform: scale(1.05); filter: brightness(1.3); text-shadow: 0 0 40px #34d399, 0 0 20px #ffffff; }
+    }
+
+    .modal-subtitle {
+      font-size: 1.05rem;
+      color: #cbd5e1;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .home-btn-large {
+      background: linear-gradient(135deg, var(--neon-cyan), #0284c7);
+      color: #020610;
+      border: none;
+      padding: 12px 32px;
+      font-size: 1.05rem;
+      font-weight: 900;
+      border-radius: 12px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 30px rgba(6, 182, 212, 0.7);
+      transition: all 0.25s;
+    }
+
+    .home-btn-large:hover {
+      box-shadow: 0 0 40px rgba(6, 182, 212, 1);
+      transform: translateY(-2px) scale(1.03);
+    }
+
+    .top-score-badge {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--neon-purple);
+      box-shadow: 0 0 25px rgba(216, 180, 254, 0.4);
+      padding: 10px 18px;
+      border-radius: 14px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--neon-purple);
+      z-index: 500;
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-container { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+    .select-dropdown { width: 100%; padding: 12px; border-radius: 10px; background: rgba(15, 23, 42, 0.9); color: #fff; border: 1px solid var(--glass-border); outline: none; box-shadow: 0 0 15px rgba(6, 182, 212, 0.2); }
+    .chat-display { height: 200px; background: rgba(2, 6, 16, 0.85); border-radius: 12px; padding: 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; text-align: left; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5); }
+    .chat-message { padding: 10px 14px; border-radius: 10px; background: rgba(30, 41, 59, 0.9); max-width: 85%; font-size: 0.9rem; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+    .chat-message.self { align-self: flex-end; background: rgba(8, 145, 178, 0.5); border: 1px solid rgba(6, 182, 212, 0.5); box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+    .chat-input-group { display: flex; gap: 10px; }
+    .chat-input-group input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(15, 23, 42, 0.9); color: #fff; outline: none; box-shadow: 0 0 15px rgba(6, 182, 212, 0.15); }
+
+    .buy-score-box {
+      margin-top: 15px;
+      padding: 14px;
+      background: rgba(216, 180, 254, 0.1);
+      border: 1px solid var(--neon-purple);
+      border-radius: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      box-shadow: 0 0 20px rgba(216, 180, 254, 0.2);
+    }
+
+    .slider-container {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--glass-border);
+      padding: 16px;
+      border-radius: 14px;
+      width: 100%;
+      margin: 15px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .slider-container input[type="range"] {
+      width: 100%;
+      accent-color: var(--neon-cyan);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="auth-page">
+    <div class="auth-container" id="auth-main-panel">
+      <h2>Super Account Portal</h2>
+      <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;">Choose an option to begin your journey or restore your saved progress.</p>
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 10px;">
+        <button class="auth-btn" onclick="showCreateAccountInput()">Create a New Super Account</button>
+        <button class="auth-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 0 25px rgba(139, 92, 246, 0.7);" onclick="showOpenAccountInput()">Open Up Your Super Account</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="tiny-home-btn" id="tiny-home-btn" style="display: none;" onclick="returnToHome()">Home</button>
+
+  <header>
+    <h1>Live-Action Superhero Grid Arena</h1>
+    <div class="header-info-bar">
+      <div class="badge-display">
+        <span>💰 Balance:</span>
+        <span id="player-coins">1500</span> Coins
+      </div>
+    </div>
+  </header>
+
+  <nav class="top-nav">
+    <button class="nav-btn active" id="tab-shop" onclick="switchMainTab('shop')">Superhero Roster Shop</button>
+    <button class="nav-btn" id="tab-arena" onclick="switchMainTab('arena')">Tactical Battle Arena</button>
+    <button class="nav-btn" id="tab-chat" onclick="switchMainTab('chat')">Player Chat</button>
+  </nav>
+
+  <main class="container" id="main-container">
+
+    <section id="shop-view" class="view-panel active">
+      <h2>Superhero Marketplace</h2>
+      <p style="margin: 5px 0 10px 0; color: #cbd5e1; font-size: 0.95rem;">Build your squad with real, good superheroes portraying elite powers!</p>
+      
+      <div class="buy-score-box">
+        <div style="text-align: left;">
+          <strong style="color: var(--neon-purple); font-size: 1rem;">🏆 Score Exchange</strong>
+          <div style="font-size: 0.82rem; color: #cbd5e1;">Boost your standing instantly using coins! (+10 Score for 200 Coins)</div>
+        </div>
+        <button class="action-btn special" onclick="buyScorePoints()">Buy +10 Score ($200)</button>
+      </div>
+
+      <div class="category-nav" style="margin-top: 15px;">
+        <button class="cat-btn easy active" id="cat-easy-btn" onclick="switchCategory('easy')">🟢 Easy Tier</button>
+        <button class="cat-btn medium" id="cat-med-btn" onclick="switchCategory('medium')">🟡 Medium Tier</button>
+        <button class="cat-btn hard" id="cat-hard-btn" onclick="switchCategory('hard')">🔴 Hard Tier</button>
+        <button class="cat-btn legendary" id="cat-leg-btn" onclick="switchCategory('legendary')">🟣 Legendary Tier</button>
+      </div>
+
+      <div class="shop-grid" id="shop-cards-container"></div>
+    </section>
+
+    <section id="arena-view" class="view-panel">
+      
+      <div id="arena-select-step" style="width: 100%;">
+        <h2>Select Battle Difficulty</h2>
+        <p style="color: var(--neon-gold); font-size: 0.95rem; margin-bottom: 15px;">Face live-action villain boss enemies! Earn game coins per enemy killed to spend on extra invisible turns, titan throws, or bomb recharges!</p>
+        <div class="btn-grid">
+          <button class="action-btn" onclick="prepSquadSelection('easy')">🟢 Easy Arena (+500 Coins)</button>
+          <button class="action-btn" onclick="prepSquadSelection('medium')">🟡 Medium Arena (+700 Coins)</button>
+          <button class="action-btn" onclick="prepSquadSelection('hard')">🔴 Hard Arena (+1200 Coins)</button>
+          <button class="action-btn" onclick="prepSquadSelection('legendary')">🟣 Legendary Arena (+2000 Coins)</button>
+        </div>
+      </div>
+
+      <div id="arena-squad-step" style="display: none; width: 100%; flex-direction: column; align-items: center;">
+        <h2>Select Your Superhero Squad</h2>
+        <p style="color: var(--neon-cyan); font-size: 0.95rem;">Choose from owned heroes in the <span id="squad-tier-name" style="text-transform: uppercase; font-weight: bold;"></span> tier. (Limit: Only 1 Bomb Layer unit allowed in squad)</p>
+        
+        <div class="slider-container">
+          <label for="squad-count-slider" style="font-weight: 700; color: var(--neon-gold);">
+            Target Squad Size: <span id="slider-target-val" style="font-size: 1.2rem;">5</span> / 20
+          </label>
+          <input type="range" id="squad-count-slider" min="5" max="20" value="5" oninput="onSliderChange(this.value)">
+          <div style="font-size: 0.8rem; color: #94a3b8;">Adjust the bar to set required squad size (5 up to 20; minimum is 5). Arena size expands as squad grows.</div>
+        </div>
+
+        <div class="squad-select-grid" id="squad-select-cards-container"></div>
+
+        <div style="margin-top: 10px; font-weight: 600;">
+          Selected: <span id="selected-count" style="color: var(--neon-gold);">0</span> / <span id="max-target-display">5</span> (Required: <span id="target-req-label">5</span>)
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 18px;">
+          <button class="action-btn primary" id="launch-battle-btn" onclick="confirmAndStartBattle()" disabled>Launch Into Battle</button>
+          <button class="back-btn" onclick="resetArena()">Back</button>
+        </div>
+      </div>
+
+      <div id="arena-fight-step" style="display: none; width: 100%; flex-direction: column; align-items: center;">
+        <h2 id="arena-status" style="margin: 0 0 8px 0; color:var(--neon-gold); font-size: 1.2rem;">TACTICAL COMBAT</h2>
+        
+        <div class="arena-hud">
+          <div>Your Squad Alive: <strong id="player-alive-count" style="color:var(--neon-cyan);">0</strong></div>
+          <div style="color: var(--neon-gold); font-weight: 800;">🪙 Game Coins: <span id="arena-game-coins">0</span></div>
+          <div id="turn-indicator" style="color:var(--neon-gold); font-weight:bold;">Your Turn</div>
+          <div>Villain Units Alive: <strong id="enemy-alive-count" style="color:var(--neon-pink);">5</strong></div>
+        </div>
+
+        <div class="tactical-grid-container">
+          <div class="grid-board" id="grid-board"></div>
+        </div>
+
+        <div class="battle-controls" id="extra-ability-controls"></div>
+
+        <button id="arena-back-btn" class="back-btn" style="display: none;" onclick="returnToShopFromArena()">Return to Home</button>
+      </div>
+
+    </section>
+
+    <section id="chat-view" class="view-panel">
+      <h2>Global Superhero Chat</h2>
+      <div class="chat-container">
+        <label for="chat-target" style="text-align: left; font-size: 0.9rem; color: #cbd5e1;">Select Hero / AI entity:</label>
+        <select id="chat-target" class="select-dropdown">
+          <option value="Oracle-AI (Superhero Hub)">Oracle-AI (Superhero Hub)</option>
+          <option value="Captain Justice">Captain Justice</option>
+          <option value="Solar Sentinel">Solar Sentinel</option>
+          <option value="Aura Champion">Aura Champion</option>
+        </select>
+
+        <div class="chat-display" id="chat-box">
+          <div class="chat-message"><em>System: Connected to Live-Action Superhero Arena Global Channel...</em></div>
+        </div>
+
+        <div class="chat-input-group">
+          <input type="text" id="chat-msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+          <button class="action-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="modal-overlay" id="game-over-modal">
+    <div class="modal-content">
+      <div class="modal-title-gameover">Defeat</div>
+      <p class="modal-subtitle">All your good superhero squad members have been defeated in battle.</p>
+      <button class="home-btn-large" onclick="returnHomeFromModal()">Home</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="victory-modal">
+    <div class="modal-content">
+      <div class="modal-title-victory" id="victory-modal-title">Victory</div>
+      <p class="modal-subtitle" id="victory-reward-text">You successfully defeated all live-action villain units in the arena!</p>
+      <button class="home-btn-large" onclick="returnHomeFromModal()">Home</button>
+    </div>
+  </div>
+
+  <div class="top-score-badge">
+    <span>🏆 Score:</span>
+    <span id="player-score">0</span>
+  </div>
+
+  <script>
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playBeep(freq = 440, type = 'sine', duration = 0.1) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playVictoryMelody() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        setTimeout(() => {
+          playBeep(freq, 'triangle', 0.25);
+        }, idx * 180);
+      });
+    }
+
+    function playShhSound() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const bufferSize = audioCtx.sampleRate * 1.5;
+      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 800;
+      filter.Q.value = 2;
+
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      noise.start();
+    }
+
+    let currentAccountName = '';
+    let userCoins = 1500;
+    let playerScore = 0;
+    let arenaGameCoins = 0;
+
+    function showCreateAccountInput() {
+      playBeep(600, 'sine', 0.1);
+      const panel = document.getElementById('auth-main-panel');
+      panel.innerHTML = `
+        <h2>Create Super Account</h2>
+        <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;">Type in any account name to begin.</p>
+        <div class="auth-input-group">
+          <input type="text" id="account-name-input" placeholder="Enter Any Account Name..." autofocus>
+          <button class="auth-btn" onclick="submitCreateAccount()">Create New Account</button>
+        </div>
+      `;
+    }
+
+    function submitCreateAccount() {
+      const inputVal = document.getElementById('account-name-input').value.trim();
+      if (!inputVal) {
+        alert("Please enter a valid account name!");
+        return;
+      }
+      currentAccountName = inputVal;
+      
+      initializeFreshRosters();
+      userCoins = 1500;
+      playerScore = 0;
+      saveCurrentProgress();
+
+      playBeep(880, 'sine', 0.3);
+      enterGame();
+    }
+
+    function showOpenAccountInput() {
+      playBeep(600, 'sine', 0.1);
+      const panel = document.getElementById('auth-main-panel');
+      panel.innerHTML = `
+        <h2>Open Super Account</h2>
+        <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;">Type in your existing account name to open your super account.</p>
+        <div class="auth-input-group">
+          <input type="text" id="account-name-input" placeholder="Enter Account Name..." autofocus>
+          <button class="auth-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 0 25px rgba(139, 92, 246, 0.7);" onclick="submitOpenAccount()">Open Your Super Account</button>
+        </div>
+      `;
+    }
+
+    function submitOpenAccount() {
+      const inputVal = document.getElementById('account-name-input').value.trim();
+      if (!inputVal) {
+        alert("Please enter a valid account name!");
+        return;
+      }
+      
+      const savedData = localStorage.getItem(`super_account_${inputVal}`);
+      if (!savedData) {
+        currentAccountName = inputVal;
+        initializeFreshRosters();
+        userCoins = 1500;
+        playerScore = 0;
+        saveCurrentProgress();
+        playBeep(880, 'sine', 0.3);
+        enterGame();
+        return;
+      }
+
+      currentAccountName = inputVal;
+      const parsed = JSON.parse(savedData);
+      userCoins = parsed.userCoins ?? 1500;
+      playerScore = parsed.playerScore ?? 0;
+      if (parsed.unitRoster) {
+        for (let tier in parsed.unitRoster) {
+          if (unitRoster[tier]) {
+            parsed.unitRoster[tier].forEach((savedU, idx) => {
+              if (unitRoster[tier][idx]) {
+                unitRoster[tier][idx].owned = savedU.owned;
+              }
+            });
+          }
+        }
+      }
+
+      playBeep(880, 'sine', 0.3);
+      enterGame();
+    }
+
+    function initializeFreshRosters() {
+      unitRoster.easy = generateTierRoster('easy', 0, 70, 14);
+      unitRoster.medium = generateTierRoster('medium', 400, 110, 25);
+      unitRoster.hard = generateTierRoster('hard', 1500, 180, 42);
+      unitRoster.legendary = generateTierRoster('legendary', 5000, 300, 75);
+    }
+
+    function saveCurrentProgress() {
+      if (!currentAccountName) return;
+      const dataToSave = {
+        userCoins,
+        playerScore,
+        unitRoster
+      };
+      localStorage.setItem(`super_account_${currentAccountName}`, JSON.stringify(dataToSave));
+    }
+
+    function enterGame() {
+      document.getElementById('auth-page').style.display = 'none';
+      document.getElementById('tiny-home-btn').style.display = 'block';
+      renderShop();
+      updateCoinsDisplay();
+    }
+
+    function returnToHome() {
+      playBeep(400, 'sine', 0.1);
+      saveCurrentProgress();
+      document.getElementById('tiny-home-btn').style.display = 'none';
+      const authPage = document.getElementById('auth-page');
+      authPage.style.display = 'flex';
+      
+      document.getElementById('auth-main-panel').innerHTML = `
+        <h2>Super Account Portal</h2>
+        <p style="color: #cbd5e1; font-size: 0.95rem; margin: 0;">Choose an option to begin your journey or restore your saved progress.</p>
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; margin-top: 10px;">
+          <button class="auth-btn" onclick="showCreateAccountInput()">Create a New Super Account</button>
+          <button class="auth-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); box-shadow: 0 0 25px rgba(139, 92, 246, 0.7);" onclick="showOpenAccountInput()">Open Up Your Super Account</button>
+        </div>
+      `;
+    }
+
+    function updateCoinsDisplay() {
+      document.getElementById('player-coins').innerText = userCoins;
+      document.getElementById('player-score').innerText = playerScore;
+      document.getElementById('arena-game-coins').innerText = arenaGameCoins;
+      saveCurrentProgress();
+    }
+
+    function buyScorePoints() {
+      const cost = 200;
+      if (userCoins < cost) {
+        alert("Not enough coins to buy score! You need 200 coins.");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+      userCoins -= cost;
+      playerScore += 10;
+      updateCoinsDisplay();
+      playBeep(900, 'sine', 0.3);
+    }
+
+    function switchMainTab(tabName) {
+      playBeep(600, 'sine', 0.08);
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+      document.getElementById(`${tabName}-view`).classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    let currentCategory = 'easy';
+
+    const superpowerTypes = [
+      { name: "Speedster Dash", desc: "Zooms in a fast blur across 4 spaces to strike villains.", type: "speed" },
+      { name: "Titan Strength", desc: "Twirls a villain around and throws them to soar across the sky!", type: "strength" },
+      { name: "Quantum Invisibility", desc: "Turns completely invisible so it cannot be seen.", type: "invisible" },
+      { name: "Bomb Layer", desc: "Can lay 1 active hidden bomb. Buy another bomb recharge for 2 game coins after it's used!", type: "bomber" },
+      { name: "Plasma Shielding", desc: "Absorbs incoming damage and retaliates automatically.", type: "shield" }
+    ];
+
+    const realisticSuperheroPhotos = [
+      "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=150&q=80",
+      "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80"
+    ];
+
+    function getLiveActionPhotoURL(uniqueSeedId, isVillain = false) {
+      if (isVillain) {
+        return `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80&sig=${uniqueSeedId + 999}`;
+      } else {
+        const index = uniqueSeedId % realisticSuperheroPhotos.length;
+        return realisticSuperheroPhotos[index];
+      }
+    }
+
+    function generateTierRoster(tierName, basePrice, baseHp, basePower) {
+      const roster = [];
+      const goodHeroNames = [
+        "Captain Justice", "Solar Sentinel", "Aura Champion", "Star Guardian", "Nova Defender",
+        "Apex Paladin", "Valor Knight", "Photon Warrior", "Sky Vanguard", "Light Crusader",
+        "Omega Champion", "Radiant Master", "Iron Shield", "Thunder Hawk", "Storm Wolf",
+        "Blaze Panther", "Silver Eagle", "Gold Griffin", "Quantum Titan", "Cosmic Phoenix",
+        "Eclipse Hero", "Zenith Protector", "Astral Knight", "Brave Stryker", "Heroic Spirit",
+        "Courage Ranger", "Neon Guardian", "Flash Defender", "Alpha Champion", "Prime Paladin",
+        "True Warrior", "Pure Sentinel", "Kind Guardian", "Noble Hero", "Graceful Champion",
+        "Serene Defender", "Bright Shield", "Radiant Paladin", "Stellar Knight", "Solar Warrior",
+        "Lunar Vanguard", "Hyper Crusader", "Atomic Champion", "Mega Master", "Super Guardian",
+        "Power Defender", "Swift Knight", "Grand Paladin", "Ultimate Hero", "Supreme Champion"
+      ];
+      
+      for (let i = 1; i <= 50; i++) {
+        let uniqueGlobalId = (tierName === 'easy' ? 100 : tierName === 'medium' ? 300 : tierName === 'hard' ? 500 : 700) + i;
+        let pName = goodHeroNames[(i - 1) % goodHeroNames.length];
+        let pPrice = i <= 3 ? 0 : basePrice + ((i - 3) * (tierName === 'easy' ? 25 : tierName === 'medium' ? 60 : tierName === 'hard' ? 120 : 250));
+        let pHp = baseHp + (i * 2);
+        let pPwr = basePower + Math.floor(i / 2);
+        let pPowObj = superpowerTypes[i % superpowerTypes.length];
+        let isOwned = i <= 3;
+        let photoUrl = getLiveActionPhotoURL(uniqueGlobalId, false);
+
+        roster.push({
+          id: `${tierName[0]}${i}`,
+          tier: tierName,
+          name: pName,
+          price: pPrice,
+          hp: pHp,
+          power: pPwr,
+          range: 1,
+          photoUrl: photoUrl,
+          owned: isOwned,
+          powerObj: pPowObj
+        });
+      }
+      return roster;
+    }
+
+    const unitRoster = {
+      easy: generateTierRoster('easy', 0, 70, 14),
+      medium: generateTierRoster('medium', 400, 110, 25),
+      hard: generateTierRoster('hard', 1500, 180, 42),
+      legendary: generateTierRoster('legendary', 5000, 300, 75)
+    };
+
+    function switchCategory(cat) {
+      currentCategory = cat;
+      document.getElementById('cat-easy-btn').classList.toggle('active', cat === 'easy');
+      document.getElementById('cat-med-btn').classList.toggle('active', cat === 'medium');
+      document.getElementById('cat-hard-btn').classList.toggle('active', cat === 'hard');
+      document.getElementById('cat-leg-btn').classList.toggle('active', cat === 'legendary');
+      renderShop();
+    }
+
+    function renderShop() {
+      const container = document.getElementById('shop-cards-container');
+      container.innerHTML = '';
+
+      const list = unitRoster[currentCategory];
+      list.forEach(f => {
+        const card = document.createElement('div');
+        card.className = `fighter-card`;
+        
+        let buttonHTML = f.owned ? 
+          `<button class="buy-btn owned">UNLOCKED</button>` : 
+          `<button class="buy-btn" onclick="buyUnit('${f.tier}', '${f.id}')">BUY FOR $${f.price}</button>`;
+
+        card.innerHTML = `
+          <div class="avatar-box"><img src="${f.photoUrl}" alt="${f.name}" loading="lazy"></div>
+          <div class="title">${f.name}</div>
+          <div class="stats">
+            <span>❤️ Health: <strong>${f.hp} HP</strong></span>
+            <span>⚔️ Attack: <strong>${f.power}</strong></span>
+          </div>
+          <div class="superpower-desc">⚡ <strong>${f.powerObj.name}</strong>: ${f.powerObj.desc}</div>
+          <div style="font-weight:900; color:var(--neon-gold); font-size:1rem;">${f.price === 0 ? 'FREE (Starter)' : `$${f.price} Coins`}</div>
+          ${buttonHTML}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function buyUnit(tier, uId) {
+      const unit = unitRoster[tier].find(u => u.id === uId);
+      if (!unit) return;
+      if (userCoins < unit.price) {
+        alert("Not enough coins to purchase this real superhero!");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+
+      userCoins -= unit.price;
+      unit.owned = true;
+      updateCoinsDisplay();
+      playBeep(880, 'sine', 0.3);
+      renderShop();
+    }
+
+    let activeSquadTier = 'easy';
+    let selectedSquadIds = [];
+    let targetSquadSize = 5;
+
+    function prepSquadSelection(tier) {
+      playBeep(500, 'sine', 0.2);
+      activeSquadTier = tier;
+      selectedSquadIds = [];
+      targetSquadSize = 5;
+
+      document.getElementById('squad-tier-name').innerText = tier;
+      const slider = document.getElementById('squad-count-slider');
+      slider.min = 5;
+      slider.value = 5;
+      document.getElementById('slider-target-val').innerText = 5;
+      document.getElementById('max-target-display').innerText = 5;
+      document.getElementById('target-req-label').innerText = 5;
+
+      document.getElementById('arena-select-step').style.display = 'none';
+      document.getElementById('arena-squad-step').style.display = 'flex';
+      
+      renderSquadSelector();
+      updateSquadSelectionUI();
+    }
+
+    function onSliderChange(val) {
+      let parsedVal = parseInt(val);
+      if (parsedVal < 5) parsedVal = 5;
+      targetSquadSize = parsedVal;
+      document.getElementById('slider-target-val').innerText = targetSquadSize;
+      document.getElementById('max-target-display').innerText = targetSquadSize;
+      document.getElementById('target-req-label').innerText = targetSquadSize;
+      
+      if (selectedSquadIds.length > targetSquadSize) {
+        selectedSquadIds = selectedSquadIds.slice(0, targetSquadSize);
+      }
+      renderSquadSelector();
+      updateSquadSelectionUI();
+    }
+
+    function renderSquadSelector() {
+      const container = document.getElementById('squad-select-cards-container');
+      container.innerHTML = '';
+
+      const ownedUnits = unitRoster[activeSquadTier].filter(u => u.owned);
+      if (ownedUnits.length === 0) {
+        container.innerHTML = `<p style="color:var(--neon-pink); grid-column: 1/-1;">No good superheroes unlocked in this tier!</p>`;
+        return;
+      }
+
+      ownedUnits.forEach(u => {
+        const isSelected = selectedSquadIds.includes(u.id);
+        const card = document.createElement('div');
+        card.className = `select-unit-card ${isSelected ? 'selected-squad' : ''}`;
+        card.onclick = () => toggleSquadMember(u.id);
+
+        card.innerHTML = `
+          <div style="width:48px; height:48px; border-radius:50%; overflow:hidden; border:2px solid var(--neon-cyan); background:#000;"><img src="${u.photoUrl}" alt="${u.name}" style="width:100%; height:100%; object-fit:cover;"></div>
+          <div style="font-weight:700; font-size:0.85rem; color:#fff;">${u.name}</div>
+          <div style="font-size:0.75rem; color:#cbd5e1;">❤️ ${u.hp}HP | ⚔️ ${u.power}</div>
+          <div style="font-size:0.65rem; color:var(--neon-gold);">${u.powerObj.name}</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function toggleSquadMember(uId) {
+      const unit = unitRoster[activeSquadTier].find(u => u.id === uId);
+      if (!unit) return;
+
+      playBeep(520, 'sine', 0.05);
+      if (selectedSquadIds.includes(uId)) {
+        selectedSquadIds = selectedSquadIds.filter(id => id !== uId);
+      } else {
+        if (selectedSquadIds.length >= targetSquadSize) {
+          alert(`You can select up to ${targetSquadSize} squad heroes based on your target size slider!`);
+          return;
+        }
+
+        if (unit.powerObj.type === 'bomber') {
+          const alreadyHasBomber = selectedSquadIds.some(id => {
+            const squadU = unitRoster[activeSquadTier].find(item => item.id === id);
+            return squadU && squadU.powerObj.type === 'bomber';
+          });
+          if (alreadyHasBomber) {
+            alert("You can only play with one Bomb Layer unit in your squad!");
+            return;
+          }
+        }
+
+        selectedSquadIds.push(uId);
+      }
+      renderSquadSelector();
+      updateSquadSelectionUI();
+    }
+
+    function updateSquadSelectionUI() {
+      document.getElementById('selected-count').innerText = selectedSquadIds.length;
+      document.getElementById('launch-battle-btn').disabled = selectedSquadIds.length !== targetSquadSize;
+    }
+
+    let GRID_COLS = 8;
+    let GRID_ROWS = 6;
+    let gridBoardState = []; 
+    let playerBattleUnits = [];
+    let enemyBattleUnits = [];
+    let selectedUnit = null;
+    let isPlayerTurn = true;
+    let specialModeActive = null; 
+
+    let enemyTitanThrowsLeft = 3;
+    let userInvisibilityUsesLeft = 5;
+    let enemyBaseBuilt = false;
+
+    let playerHasActiveBomb = false;
+    let playerPlacedBombCoords = null; 
+    let enemyPlacedBomb = null; 
+
+    function confirmAndStartBattle() {
+      if (selectedSquadIds.length < 5) {
+        alert("You must select at least 5 units to play (Squad size range is 5 to 20).");
+        return;
+      }
+
+      playBeep(700, 'sine', 0.2);
+      playerBattleUnits = [];
+      arenaGameCoins = 0;
+      enemyBaseBuilt = false;
+      playerHasActiveBomb = false;
+      playerPlacedBombCoords = null;
+      enemyPlacedBomb = null;
+
+      selectedSquadIds.forEach(id => {
+        const u = unitRoster[activeSquadTier].find(item => item.id === id);
+        if (u) {
+          playerBattleUnits.push({
+            id: u.id,
+            tier: u.tier,
+            name: u.name,
+            hp: u.hp,
+            maxHp: u.hp,
+            power: u.power,
+            range: 1,
+            photoUrl: u.photoUrl,
+            isPlayer: true,
+            actionsLeft: 2,
+            powerObj: u.powerObj,
+            invisibleTurnsLeft: 0,
+            fadingSlowly: false,
+            completelyInvisible: false,
+            baseActiveTurns: 0,
+            hasBaseTile: null
+          });
+        }
+      });
+
+      const enemyCount = Math.max(5, playerBattleUnits.length);
+      enemyBattleUnits = [];
+      let enemyHp = 70, enemyPower = 14, enemyNamePrefix = "Shadow Boss";
+
+      if (activeSquadTier === 'medium') { enemyHp = 110; enemyPower = 25; enemyNamePrefix = "Shadow Boss"; }
+      else if (activeSquadTier === 'hard') { enemyHp = 180; enemyPower = 42; enemyNamePrefix = "Overlord Villain"; }
+      else if (activeSquadTier === 'legendary') { enemyHp = 300; enemyPower = 75; enemyNamePrefix = "Supreme Nemesis"; }
+
+      const bossTypes = ['titan', 'speedster', 'invisible', 'bomber', 'shield'];
+
+      for (let i = 0; i < enemyCount; i++) {
+        let bType = bossTypes[i % bossTypes.length];
+        let villainPhotoUrl = `https://picsum.photos/seed/villain${activeSquadTier}_${i}/150/150`;
+
+        enemyBattleUnits.push({
+          id: `enemy_${i}`,
+          name: `${enemyNamePrefix} #${i + 1}`,
+          hp: enemyHp,
+          maxHp: enemyHp,
+          power: enemyPower,
+          range: 1,
+          photoUrl: villainPhotoUrl,
+          isPlayer: false,
+          actionsLeft: 2,
+          bossType: bType,
+          moveStateIndex: 0, 
+          invisibleTurnsLeft: 0,
+          enemyInvisUsesLeft: 3,
+          fadingSlowly: false,
+          completelyInvisible: false,
+          baseActiveTurns: 0,
+          hasBaseTile: null
+        });
+      }
+
+      let extraSize = Math.floor((playerBattleUnits.length - 5) / 2) * 2;
+      GRID_COLS = 8 + extraSize;
+      GRID_ROWS = 6 + Math.floor(extraSize / 2);
+
+      enemyTitanThrowsLeft = 3;
+      userInvisibilityUsesLeft = 5;
+      initGridBoardPositions();
+      isPlayerTurn = true;
+      selectedUnit = null;
+      specialModeActive = null;
+
+      document.getElementById('arena-squad-step').style.display = 'none';
+      document.getElementById('arena-fight-step').style.display = 'flex';
+      document.getElementById('turn-indicator').innerText = "Your Turn";
+
+      renderGridBoard();
+      updateCoinsDisplay();
+      updateBattleHUD();
+    }
+
+    function initGridBoardPositions() {
+      gridBoardState = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
+      
+      let pIdx = 0;
+      for (let c = 0; c < 2 && pIdx < playerBattleUnits.length; c++) {
+        for (let r = 0; r < GRID_ROWS && pIdx < playerBattleUnits.length; r++) {
+          gridBoardState[r][c] = playerBattleUnits[pIdx++];
+        }
+      }
+      while(pIdx < playerBattleUnits.length) {
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = 0; c < GRID_COLS; c++) {
+            if (!gridBoardState[r][c] && pIdx < playerBattleUnits.length) {
+              gridBoardState[r][c] = playerBattleUnits[pIdx++];
+            }
+          }
+        }
+      }
+
+      let eIdx = 0;
+      for (let c = GRID_COLS - 1; c >= GRID_COLS - 2 && eIdx < enemyBattleUnits.length; c--) {
+        for (let r = 0; r < GRID_ROWS && eIdx < enemyBattleUnits.length; r++) {
+          if (!gridBoardState[r][c]) {
+            gridBoardState[r][c] = enemyBattleUnits[eIdx++];
+          }
+        }
+      }
+      while(eIdx < enemyBattleUnits.length) {
+        for (let r = 0; r < GRID_ROWS; r++) {
+          for (let c = GRID_COLS - 1; c >= 0; c--) {
+            if (!gridBoardState[r][c] && eIdx < enemyBattleUnits.length) {
+              gridBoardState[r][c] = enemyBattleUnits[eIdx++];
+            }
+          }
+        }
+      }
+    }
+
+    function renderGridBoard() {
+      const boardEl = document.getElementById('grid-board');
+      boardEl.innerHTML = '';
+      boardEl.style.gridTemplateColumns = `repeat(${GRID_COLS}, 1fr)`;
+      boardEl.style.gridTemplateRows = `repeat(${GRID_ROWS}, 1fr)`;
+
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+
+          let hasBaseHere = false;
+          [...playerBattleUnits, ...enemyBattleUnits].forEach(u => {
+            if (u.hasBaseTile && u.hasBaseTile.r === r && u.hasBaseTile.c === c && u.baseActiveTurns > 0) {
+              hasBaseHere = true;
+            }
+          });
+
+          if (hasBaseHere) {
+            cell.classList.add('has-base');
+          }
+
+          if (playerHasActiveBomb && playerPlacedBombCoords && playerPlacedBombCoords.r === r && playerPlacedBombCoords.c === c) {
+            cell.classList.add('has-player-bomb');
+          }
+
+          const unit = gridBoardState[r][c];
+          if (unit) {
+            const unitEl = document.createElement('div');
+            let unitClass = `grid-unit ${unit.isPlayer ? 'player' : 'enemy'}`;
+            
+            if (!unit.isPlayer && unit.completelyInvisible) {
+              unitClass += ' completely-invisible';
+            } else if (unit.fadingSlowly) {
+              unitClass += ' fading-slowly';
+            }
+
+            if (selectedUnit === unit) {
+              unitClass += ' selected';
+            }
+            unitEl.className = unitClass;
+            unitEl.innerHTML = `<img src="${unit.photoUrl}" alt="${unit.name}">`;
+
+            const badge = document.createElement('div');
+            badge.className = 'unit-badge';
+            badge.innerText = unit.invisibleTurnsLeft > 0 ? `inv:${unit.invisibleTurnsLeft}` : unit.actionsLeft;
+            unitEl.appendChild(badge);
+
+            const hpPip = document.createElement('div');
+            hpPip.className = 'unit-hp-pip';
+            hpPip.innerText = `${unit.hp}HP`;
+            unitEl.appendChild(hpPip);
+
+            cell.appendChild(unitEl);
+          }
+
+          if (selectedUnit && selectedUnit.isPlayer && isPlayerTurn && selectedUnit.actionsLeft > 0) {
+            const selectedPos = findUnitPosition(selectedUnit);
+            if (selectedPos) {
+              const dist = Math.abs(selectedPos.r - r) + Math.abs(selectedPos.c - c);
+              let maxMove = selectedUnit.powerObj.type === 'speed' ? 4 : 1;
+
+              if (specialModeActive === 'throw_target') {
+                if (!unit && dist <= 3) cell.classList.add('highlight-throw');
+              } else if (specialModeActive === 'lay_bomb') {
+                if (!unit && dist <= 1 && !(playerPlacedBombCoords && playerPlacedBombCoords.r === r && playerPlacedBombCoords.c === c)) {
+                  cell.classList.add('highlight-bomb');
+                }
+              } else {
+                if (selectedUnit.baseActiveTurns > 0) {
+                } else {
+                  if (dist <= maxMove && !unit) cell.classList.add('highlight-move');
+                }
+                
+                let targetInBase = unit && unit.baseActiveTurns > 0;
+                if (dist <= 1 && unit && !unit.isPlayer && !unit.completelyInvisible && !targetInBase) {
+                  cell.classList.add('highlight-attack');
+                }
+              }
+            }
+          }
+
+          cell.onclick = () => handleCellClick(r, c);
+          boardEl.appendChild(cell);
+        }
+      }
+      renderSpecialControls();
+    }
+
+    function renderSpecialControls() {
+      const controlsEl = document.getElementById('extra-ability-controls');
+      controlsEl.innerHTML = '';
+
+      const containerDiv = document.createElement('div');
+      containerDiv.style.display = 'flex';
+      containerDiv.style.gap = '10px';
+      containerDiv.style.alignItems = 'center';
+      containerDiv.style.flexWrap = 'wrap';
+      containerDiv.style.justifyContent = 'center';
+
+      const endTurnBtn = document.createElement('button');
+      endTurnBtn.className = 'action-btn danger';
+      endTurnBtn.innerText = `🛑 End Turn`;
+      endTurnBtn.onclick = () => triggerEndTurnButton();
+      containerDiv.appendChild(endTurnBtn);
+
+      const quitBtn = document.createElement('button');
+      quitBtn.className = 'action-btn danger';
+      quitBtn.style.background = 'linear-gradient(135deg, #7f1d1d, #450a0a)';
+      quitBtn.innerText = `❌ Quit Arena (-8 Score)`;
+      quitBtn.onclick = () => triggerQuitArena();
+      containerDiv.appendChild(quitBtn);
+
+      if (selectedUnit && selectedUnit.isPlayer) {
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'action-btn';
+        skipBtn.style.borderColor = 'var(--neon-cyan)';
+        skipBtn.innerText = `⏭️ Skip Unit`;
+        skipBtn.onclick = () => skipSelectedUnitTurn();
+        containerDiv.appendChild(skipBtn);
+
+        const buildBaseBtn = document.createElement('button');
+        buildBaseBtn.className = 'action-btn special';
+        buildBaseBtn.disabled = selectedUnit.baseActiveTurns > 0 || selectedUnit.hasBaseTile !== null;
+        buildBaseBtn.innerText = selectedUnit.baseActiveTurns > 0 ? `Base Active (${selectedUnit.baseActiveTurns} turns)` : `🏗️ Build Base (Cost: 1 Coin)`;
+        buildBaseBtn.onclick = () => buildBaseForUnit();
+        containerDiv.appendChild(buildBaseBtn);
+
+        if (selectedUnit.powerObj.type === 'bomber') {
+          const bombBtn = document.createElement('button');
+          bombBtn.className = `action-btn special ${specialModeActive === 'lay_bomb' ? 'danger' : ''}`;
+          bombBtn.disabled = playerHasActiveBomb;
+          bombBtn.innerText = specialModeActive === 'lay_bomb' ? 'Cancel Bomb' : (playerHasActiveBomb ? 'Bomb Active (1 Max)' : '💣 Lay Bomb (1 Active)');
+          bombBtn.onclick = () => toggleLayBomb();
+          containerDiv.appendChild(bombBtn);
+
+          const buyBombBtn = document.createElement('button');
+          buyBombBtn.className = 'action-btn';
+          buyBombBtn.style.borderColor = 'var(--neon-gold)';
+          buyBombBtn.style.color = 'var(--neon-gold)';
+          buyBombBtn.innerText = `🪙 Buy Bomb ($2 Coins)`;
+          buyBombBtn.onclick = () => buyNewBombRecharge();
+          containerDiv.appendChild(buyBombBtn);
+        }
+
+        if (selectedUnit.powerObj.type === 'strength') {
+          const throwBtn = document.createElement('button');
+          throwBtn.className = `action-btn special ${specialModeActive === 'throw_target' ? 'danger' : ''}`;
+          throwBtn.innerText = specialModeActive === 'throw_target' ? 'Cancel Throw' : `⚡ Titan Throw (${enemyTitanThrowsLeft} left)`;
+          throwBtn.onclick = () => toggleLiftAndThrow();
+          containerDiv.appendChild(throwBtn);
+
+          const buyThrowBtn = document.createElement('button');
+          buyThrowBtn.className = 'action-btn';
+          buyThrowBtn.style.borderColor = 'var(--neon-gold)';
+          buyThrowBtn.style.color = 'var(--neon-gold)';
+          buyThrowBtn.innerText = `🪙 Spend 1 Coin (+1 Throw)`;
+          buyThrowBtn.onclick = () => spendCoinForTitanThrow();
+          containerDiv.appendChild(buyThrowBtn);
+
+        } else if (selectedUnit.powerObj.type === 'invisible') {
+          const invBtn = document.createElement('button');
+          invBtn.className = 'action-btn special';
+          invBtn.disabled = selectedUnit.invisibleTurnsLeft > 0 || userInvisibilityUsesLeft <= 0;
+          invBtn.innerText = selectedUnit.invisibleTurnsLeft > 0 ? `Invisibility Active` : `⚡ Quantum Stealth (${userInvisibilityUsesLeft} left)`;
+          invBtn.onclick = () => activateInvisibility();
+          containerDiv.appendChild(invBtn);
+
+          const buyInvBtn = document.createElement('button');
+          buyInvBtn.className = 'action-btn';
+          buyInvBtn.style.borderColor = 'var(--neon-gold)';
+          buyInvBtn.style.color = 'var(--neon-gold)';
+          buyInvBtn.innerText = `🪙 Spend 1 Coin (+1 Invisibility)`;
+          buyInvBtn.onclick = () => spendCoinForInvisibility();
+          containerDiv.appendChild(buyInvBtn);
+        }
+      }
+
+      controlsEl.appendChild(containerDiv);
+    }
+
+    function toggleLayBomb() {
+      playBeep(600, 'sine', 0.1);
+      if (specialModeActive === 'lay_bomb') {
+        specialModeActive = null;
+        document.getElementById('arena-status').innerText = `Selected: ${selectedUnit.name}`;
+      } else {
+        if (playerHasActiveBomb) {
+          alert("You already have an active bomb laid! You can only have 1 active bomb at a time, or buy a new one for 2 game coins.");
+          return;
+        }
+        specialModeActive = 'lay_bomb';
+        document.getElementById('arena-status').innerText = `Click an adjacent empty tile to lay your active bomb!`;
+      }
+      renderGridBoard();
+    }
+
+    function buyNewBombRecharge() {
+      if (arenaGameCoins < 2) {
+        alert("You need at least 2 game coins earned from defeating enemies to buy a new bomb recharge!");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+      arenaGameCoins -= 2;
+      playerHasActiveBomb = false; 
+      playerPlacedBombCoords = null;
+      playBeep(950, 'sine', 0.4);
+      updateCoinsDisplay();
+      document.getElementById('arena-status').innerText = `Bomb recharged! You can now lay a new bomb.`;
+      renderGridBoard();
+    }
+
+    function triggerQuitArena() {
+      playBeep(150, 'sawtooth', 0.3);
+      isPlayerTurn = false;
+      playerBattleUnits.forEach(u => u.hp = 0); 
+      
+      playerScore = Math.max(0, playerScore - 8); 
+      updateCoinsDisplay();
+
+      document.getElementById('game-over-modal').classList.add('show'); 
+    }
+
+    function triggerEndTurnButton() {
+      if (!isPlayerTurn) return;
+      playBeep(350, 'sawtooth', 0.15);
+      
+      playerBattleUnits.forEach(u => {
+        if (u.hp > 0) u.actionsLeft = 0;
+      });
+
+      selectedUnit = null;
+      specialModeActive = null;
+      unitToThrow = null;
+      titanPosRef = null;
+
+      document.getElementById('arena-status').innerText = `Turn ended manually. Enemy taking turn...`;
+      renderGridBoard();
+      checkTurnCompletion();
+    }
+
+    function buildBaseForUnit() {
+      if (!selectedUnit || !selectedUnit.isPlayer) return;
+      if (arenaGameCoins < 1) {
+        alert("It costs one game coin to build a base! Earn coins by defeating enemy units.");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+
+      const pos = findUnitPosition(selectedUnit);
+      if (!pos) return;
+
+      arenaGameCoins--;
+      selectedUnit.baseActiveTurns = 2;
+      selectedUnit.hasBaseTile = { r: pos.r, c: pos.c };
+      selectedUnit.hp = selectedUnit.maxHp;
+      
+      playBeep(950, 'sine', 0.4);
+      updateCoinsDisplay();
+      document.getElementById('arena-status').innerText = `${selectedUnit.name} built a base!`;
+      
+      renderGridBoard();
+      updateBattleHUD();
+    }
+
+    function skipSelectedUnitTurn() {
+      if (!selectedUnit || !selectedUnit.isPlayer) return;
+      playBeep(400, 'sine', 0.1);
+      selectedUnit.actionsLeft = 0;
+      selectedUnit = null;
+      specialModeActive = null;
+      unitToThrow = null;
+      titanPosRef = null;
+      document.getElementById('arena-status').innerText = `Unit turn skipped.`;
+      renderGridBoard();
+      checkTurnCompletion();
+    }
+
+    function spendCoinForInvisibility() {
+      if (arenaGameCoins < 1) {
+        alert("You need at least 1 game coin earned from killing an enemy to spend on invisibility!");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+      arenaGameCoins--;
+      userInvisibilityUsesLeft++;
+      playBeep(950, 'sine', 0.3);
+      updateCoinsDisplay();
+      renderGridBoard();
+    }
+
+    function spendCoinForTitanThrow() {
+      if (arenaGameCoins < 1) {
+        alert("You need at least 1 game coin earned from killing an enemy to spend on Titan throw!");
+        playBeep(150, 'sawtooth', 0.2);
+        return;
+      }
+      arenaGameCoins--;
+      enemyTitanThrowsLeft++;
+      playBeep(950, 'sine', 0.3);
+      updateCoinsDisplay();
+      renderGridBoard();
+    }
+
+    function activateInvisibility() {
+      if (!selectedUnit || selectedUnit.powerObj.type !== 'invisible') return;
+      if (userInvisibilityUsesLeft <= 0) {
+        alert("You have no invisibility turns left! Spend a game coin to get more.");
+        return;
+      }
+
+      playShhSound();
+      userInvisibilityUsesLeft--;
+      selectedUnit.fadingSlowly = true;
+      selectedUnit.invisibleTurnsLeft = 3;
+      selectedUnit.actionsLeft = Math.max(0, selectedUnit.actionsLeft - 1);
+      
+      document.getElementById('arena-status').innerText = `Shhh... ${selectedUnit.name} vanishes into quantum stealth!`;
+      renderGridBoard();
+      updateBattleHUD();
+
+      if (selectedUnit.actionsLeft <= 0) selectedUnit = null;
+      checkTurnCompletion();
+    }
+
+    let unitToThrow = null;
+    let titanPosRef = null;
+
+    function toggleLiftAndThrow() {
+      playBeep(600, 'sine', 0.1);
+      if (specialModeActive === 'throw_target') {
+        specialModeActive = null;
+        unitToThrow = null;
+        titanPosRef = null;
+        document.getElementById('arena-status').innerText = `Selected: ${selectedUnit.name}`;
+      } else {
+        if (enemyTitanThrowsLeft <= 0) {
+          alert("Titan throw uses exhausted! Spend a game coin to get another throw.");
+          return;
+        }
+
+        const pos = findUnitPosition(selectedUnit);
+        let adjacentEnemy = false;
+        if (pos) {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (Math.abs(dr) + Math.abs(dc) === 1) {
+                let nr = pos.r + dr, nc = pos.c + dc;
+                if (nr >= 0 && nr < GRID_ROWS && nc >= 0 && nc < GRID_COLS) {
+                  let occupant = gridBoardState[nr][nc];
+                  let occupantInBase = occupant && occupant.baseActiveTurns > 0;
+                  if (occupant && !occupant.isPlayer && !occupant.completelyInvisible && !occupantInBase) adjacentEnemy = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (!adjacentEnemy) {
+          alert("Must stand adjacent to a visible villain not in a base to use Titan Throw!");
+          return;
+        }
+
+        specialModeActive = 'throw_target';
+        document.getElementById('arena-status').innerText = `Click the adjacent visible villain to twirl and throw!`;
+      }
+      renderGridBoard();
+    }
+
+    function findUnitPosition(targetUnit) {
+      for (let r = 0; r < GRID_ROWS; r++) {
+        for (let c = 0; c < GRID_COLS; c++) {
+          if (gridBoardState[r][c] === targetUnit) return { r, c };
+        }
+      }
+      return null;
+    }
+
+    function handleCellClick(r, c) {
+      if (!isPlayerTurn) return;
+
+      const clickedUnit = gridBoardState[r][c];
+
+      if (clickedUnit && !clickedUnit.isPlayer && clickedUnit.completelyInvisible) {
+        return;
+      }
+
+      if (clickedUnit && clickedUnit.isPlayer) {
+        playBeep(450, 'sine', 0.08);
+        selectedUnit = clickedUnit;
+        specialModeActive = null;
+        unitToThrow = null;
+        titanPosRef = null;
+        renderGridBoard();
+        document.getElementById('arena-status').innerText = `Selected: ${clickedUnit.name}`;
+        return;
+      }
+
+      if (!selectedUnit || selectedUnit.actionsLeft <= 0) return;
+
+      const selectedPos = findUnitPosition(selectedUnit);
+      if (!selectedPos) return;
+
+      const dist = Math.abs(selectedPos.r - r) + Math.abs(selectedPos.c - c);
+
+      if (specialModeActive === 'lay_bomb') {
+        if (dist === 1 && !clickedUnit) {
+          playerHasActiveBomb = true;
+          playerPlacedBombCoords = { r, c };
+          specialModeActive = null;
+          selectedUnit.actionsLeft--;
+          playBeep(900, 'square', 0.2);
+          document.getElementById('arena-status').innerText = `${selectedUnit.name} laid an active bomb!`;
+          if (selectedUnit.actionsLeft <= 0) selectedUnit = null;
+          renderGridBoard();
+          checkTurnCompletion();
+        } else {
+          alert("Bombs can only be placed on an adjacent empty cell!");
+        }
+        return;
+      }
+
+      if (specialModeActive === 'throw_target') {
+        if (!unitToThrow) {
+          let occupantInBase = clickedUnit && clickedUnit.baseActiveTurns > 0;
+          if (clickedUnit && !clickedUnit.isPlayer && !clickedUnit.completelyInvisible && !occupantInBase && dist === 1) {
+            unitToThrow = { unit: clickedUnit, r, c };
+            titanPosRef = selectedPos;
+            enemyTitanThrowsLeft--;
+            playBeep(800, 'sine', 0.3);
+            document.getElementById('arena-status').innerText = `Titan twirls ${clickedUnit.name}! Click target destination.`;
+            
+            gridBoardState[r][c] = null;
+            setTimeout(() => {
+              const titanCellEl = document.querySelector(`[data-row='${selectedPos.r}'][data-col='${selectedPos.c}']`);
+              if (titanCellEl) {
+                const victimEl = document.createElement('div');
+                victimEl.className = 'grid-unit enemy twirling-victim';
+                victimEl.style.position = 'absolute';
+                victimEl.innerHTML = `<img src="${clickedUnit.photoUrl}" alt="${clickedUnit.name}">`;
+                titanCellEl.appendChild(victimEl);
+              }
+            }, 50);
+            renderGridBoard();
+          }
+        } else {
+          if (!clickedUnit) {
+            specialModeActive = null;
+            playBeep(500, 'sawtooth', 0.8);
+            document.getElementById('arena-status').innerText = `Throwing across the sky...`;
+
+            gridBoardState[r][c] = unitToThrow.unit;
+            renderGridBoard();
+
+            setTimeout(() => {
+              const targetCellEl = document.querySelector(`[data-row='${r}'][data-col='${c}'] .grid-unit`);
+              if (targetCellEl) targetCellEl.classList.add('slow-mo-soaring');
+            }, 50);
+
+            setTimeout(() => {
+              spawnDamagePopup(r, c, "SOAR IMPACT! -35");
+              unitToThrow.unit.hp = Math.max(0, unitToThrow.unit.hp - 35);
+              if (unitToThrow.unit.hp <= 0) {
+                gridBoardState[r][c] = null;
+                arenaGameCoins++; 
+                updateCoinsDisplay();
+                document.getElementById('arena-status').innerText = `1 less enemy to destroy`;
+              }
+
+              selectedUnit.actionsLeft--;
+              unitToThrow = null;
+              titanPosRef = null;
+              if (selectedUnit.actionsLeft <= 0) selectedUnit = null;
+
+              renderGridBoard();
+              updateBattleHUD();
+              checkBattleStatus();
+            }, 2200);
+          }
+        }
+        return;
+      }
+
+      let targetInBase = clickedUnit && clickedUnit.baseActiveTurns > 0;
+      if (dist <= 1 && clickedUnit && !clickedUnit.isPlayer && !clickedUnit.completelyInvisible && !targetInBase) {
+        let baseDmg = selectedUnit.power;
+        if (selectedUnit.powerObj.type === 'speed') baseDmg = 4;
+        let damage = baseDmg + Math.floor(Math.random() * 6) - 3;
+        
+        clickedUnit.hp = Math.max(0, clickedUnit.hp - damage);
+        playBeep(700, 'square', 0.15);
+        spawnDamagePopup(r, c, `-${damage}`);
+        
+        selectedUnit.actionsLeft--;
+        if (clickedUnit.hp <= 0) {
+          gridBoardState[r][c] = null;
+          arenaGameCoins++; 
+          updateCoinsDisplay();
+          document.getElementById('arena-status').innerText = `1 less enemy to destroy`;
+        }
+        if (selectedUnit.actionsLeft <= 0) selectedUnit = null;
+
+        renderGridBoard();
+        updateBattleHUD();
+        checkBattleStatus();
+      } else {
+        if (selectedUnit.baseActiveTurns > 0) {
+          alert("This unit is stuck in their base and cannot move out for two turns!");
+          return;
+        }
+
+        let maxMove = selectedUnit.powerObj.type === 'speed' ? 4 : 1;
+        if (dist <= maxMove && !clickedUnit) {
+          if (selectedUnit.powerObj.type === 'speed') {
+            playBeep(1200, 'sine', 0.2);
+            const startCellEl = document.querySelector(`[data-row='${selectedPos.r}'][data-col='${selectedPos.c}'] .grid-unit`);
+            if (startCellEl) startCellEl.classList.add('speed-blur');
+          } else {
+            playBeep(300, 'sine', 0.1);
+          }
+
+          setTimeout(() => {
+            gridBoardState[selectedPos.r][selectedPos.c] = null;
+            gridBoardState[r][c] = selectedUnit;
+            selectedUnit.actionsLeft--;
+
+            if (enemyPlacedBomb && enemyPlacedBomb.r === r && enemyPlacedBomb.c === c) {
+              playBeep(200, 'sawtooth', 0.6);
+              spawnDamagePopup(r, c, "BOOM! UNIT LOST");
+
+              const targetCell = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+              if (targetCell) targetCell.classList.add('fiery-explosion');
+
+              const unitEl = document.querySelector(`[data-row='${r}'][data-col='${c}'] .grid-unit`);
+              if (unitEl) unitEl.classList.add('fading-red-powerloss');
+
+              setTimeout(() => {
+                selectedUnit.hp = 0;
+                gridBoardState[r][c] = null;
+                enemyPlacedBomb = null;
+                document.getElementById('arena-status').innerText = `Your unit stepped on a hidden enemy bomb, faded red, lost power, and died!`;
+                renderGridBoard();
+                checkBattleStatus();
+              }, 2500);
+
+              return;
+            }
+
+            if (selectedUnit.actionsLeft <= 0) selectedUnit = null;
+
+            renderGridBoard();
+            checkTurnCompletion();
+          }, selectedUnit.powerObj.type === 'speed' ? 350 : 0);
+        }
+      }
+    }
+
+    function spawnDamagePopup(r, c, text) {
+      const board = document.getElementById('grid-board');
+      const popup = document.createElement('div');
+      popup.className = 'damage-popup';
+      popup.innerText = text;
+      const leftPct = ((c + 0.5) / GRID_COLS) * 100;
+      const topPct = ((r + 0.5) / GRID_ROWS) * 100;
+      popup.style.left = `${leftPct}%`;
+      popup.style.top = `${topPct}%`;
+      board.appendChild(popup);
+      setTimeout(() => popup.remove(), 800);
+    }
+
+    function checkTurnCompletion() {
+      const livingPlayerUnits = playerBattleUnits.filter(u => u.hp > 0);
+      const allDone = livingPlayerUnits.every(u => u.actionsLeft <= 0);
+
+      if (allDone && livingPlayerUnits.length > 0) {
+        isPlayerTurn = false;
+        selectedUnit = null;
+        specialModeActive = null;
+        document.getElementById('turn-indicator').innerText = "Villain Turn...";
+        
+        playerBattleUnits.forEach(u => {
+          if (u.baseActiveTurns > 0) {
+            u.baseActiveTurns--;
+            u.hp = Math.min(u.maxHp, u.hp + Math.ceil(u.maxHp * 0.3));
+          }
+        });
+
+        renderGridBoard();
+        setTimeout(executeEnemyTurn, 1000);
+      } else {
+        checkBattleStatus();
+      }
+    }
+
+    function executeEnemyTurn() {
+      enemyBattleUnits.forEach(e => { if (e.hp > 0) e.actionsLeft = 2; });
+
+      enemyBattleUnits.forEach(e => {
+        if (e.invisibleTurnsLeft > 0) e.invisibleTurnsLeft--;
+        if (e.invisibleTurnsLeft === 0) {
+          e.fadingSlowly = false;
+          e.completelyInvisible = false;
+        }
+      });
+      playerBattleUnits.forEach(u => {
+        if (u.invisibleTurnsLeft > 0) u.invisibleTurnsLeft--;
+        if (u.invisibleTurnsLeft === 0) {
+          u.fadingSlowly = false;
+          u.completelyInvisible = false;
+        }
+      });
+
+      if (!enemyPlacedBomb && Math.random() < 0.6) {
+        const activeEnemies = enemyBattleUnits.filter(e => e.hp > 0);
+        if (activeEnemies.length > 0) {
+          const bomberEnemy = activeEnemies[Math.floor(Math.random() * activeEnemies.length)];
+          const ePos = findUnitPosition(bomberEnemy);
+          if (ePos && ePos.c > 0) {
+            enemyPlacedBomb = { r: ePos.r, c: ePos.c - 1 };
+          }
+        }
+      }
+
+      if (!enemyBaseBuilt) {
+        const activeEnemies = enemyBattleUnits.filter(e => e.hp > 0);
+        if (activeEnemies.length > 0) {
+          const builderEnemy = activeEnemies[Math.floor(Math.random() * activeEnemies.length)];
+          const ePos = findUnitPosition(builderEnemy);
+          if (ePos) {
+            enemyBaseBuilt = true;
+            builderEnemy.baseActiveTurns = 2;
+            builderEnemy.hasBaseTile = { r: ePos.r, c: ePos.c };
+            builderEnemy.hp = builderEnemy.maxHp;
+          }
+        }
+      }
+
+      enemyBattleUnits.forEach(e => {
+        if (e.baseActiveTurns > 0) {
+          e.baseActiveTurns--;
+          e.hp = Math.min(e.maxHp, e.hp + Math.ceil(e.maxHp * 0.3));
+        }
+      });
+
+      enemyBattleUnits.forEach(enemy => {
+        if (enemy.hp <= 0) return;
+
+        while (enemy.actionsLeft > 0) {
+          const ePos = findUnitPosition(enemy);
+          if (!ePos) break;
+
+          if (enemy.bossType === 'invisible' && enemy.invisibleTurnsLeft === 0 && enemy.enemyInvisUsesLeft > 0 && Math.random() < 0.8) {
+            playShhSound();
+            enemy.enemyInvisUsesLeft--;
+            enemy.invisibleTurnsLeft = 3;
+            enemy.completelyInvisible = true;
+            enemy.actionsLeft--;
+            continue;
+          }
+
+          let targetPlayer = null, targetPR = -1, targetPC = -1;
+          let minDistance = Infinity;
+
+          for (let r = 0; r < GRID_ROWS; r++) {
+            for (let c = 0; c < GRID_COLS; c++) {
+              const unit = gridBoardState[r][c];
+              if (unit && unit.isPlayer && unit.baseActiveTurns === 0) {
+                const d = Math.abs(ePos.r - r) + Math.abs(ePos.c - c);
+                if (d < minDistance) {
+                  minDistance = d;
+                  targetPlayer = unit;
+                  targetPR = r;
+                  targetPC = c;
+                }
+              }
+            }
+          }
+
+          if (targetPlayer && minDistance <= 1) {
+            let dmg = enemy.power + Math.floor(Math.random() * 6) - 3;
+            targetPlayer.hp = Math.max(0, targetPlayer.hp - dmg);
+            playBeep(200, 'sawtooth', 0.15);
+            spawnDamagePopup(targetPR, targetPC, `-${dmg}`);
+            if (targetPlayer.hp <= 0) {
+              gridBoardState[targetPR][targetPC] = null;
+              document.getElementById('arena-status').innerText = `1 less unit to destroy (you lost a unit)`;
+            }
+            enemy.actionsLeft--;
+          } else if (targetPlayer) {
+            if (enemy.baseActiveTurns > 0) {
+              enemy.actionsLeft--;
+              continue;
+            }
+
+            let dr = Math.sign(targetPR - ePos.r);
+            let dc = Math.sign(targetPC - ePos.c);
+            
+            let nextR = ePos.r;
+            let nextC = ePos.c;
+            if (Math.abs(targetPR - ePos.r) >= Math.abs(targetPC - ePos.c)) {
+              nextR += dr;
+            } else {
+              nextC += dc;
+            }
+
+            if (nextR >= 0 && nextR < GRID_ROWS && nextC >= 0 && nextC < GRID_COLS && !gridBoardState[nextR][nextC]) {
+              gridBoardState[ePos.r][ePos.c] = null;
+              gridBoardState[nextR][nextC] = enemy;
+
+              if (playerHasActiveBomb && playerPlacedBombCoords && playerPlacedBombCoords.r === nextR && playerPlacedBombCoords.c === nextC) {
+                playBeep(250, 'square', 0.5);
+                spawnDamagePopup(nextR, nextC, "BOOM! ZAPPED!");
+
+                const targetCell = document.querySelector(`[data-row='${nextR}'][data-col='${nextC}']`);
+                if (targetCell) targetCell.classList.add('zappy-explosion');
+
+                const unitEl = document.querySelector(`[data-row='${nextR}'][data-col='${nextC}'] .grid-unit`);
+                if (unitEl) unitEl.classList.add('zappy-victim');
+
+                setTimeout(() => {
+                  enemy.hp = 0;
+                  gridBoardState[nextR][nextC] = null;
+                  playerHasActiveBomb = false;
+                  playerPlacedBombCoords = null;
+                  arenaGameCoins++;
+                  updateCoinsDisplay();
+                  document.getElementById('arena-status').innerText = `An enemy unit walked on your bomb, became red and zappy, and disappeared!`;
+                  renderGridBoard();
+                  checkBattleStatus();
+                }, 1800);
+
+                enemy.actionsLeft = 0;
+                continue;
+              }
+            } else {
+              let fallbackC = ePos.c - 1;
+              if (fallbackC >= 0 && fallbackC < GRID_COLS && !gridBoardState[ePos.r][fallbackC]) {
+                gridBoardState[ePos.r][ePos.c] = null;
+                gridBoardState[ePos.r][fallbackC] = enemy;
+              }
+            }
+            enemy.actionsLeft--;
+          } else {
+            enemy.actionsLeft--;
+          }
+        }
+      });
+
+      playerBattleUnits.forEach(u => { if (u.hp > 0) u.actionsLeft = 2; });
+
+      isPlayerTurn = true;
+      document.getElementById('turn-indicator').innerText = "Your Turn";
+      renderGridBoard();
+      updateBattleHUD();
+      checkBattleStatus();
+    }
+
+    function updateBattleHUD() {
+      const alivePlayers = playerBattleUnits.filter(u => u.hp > 0).length;
+      const aliveEnemies = enemyBattleUnits.filter(u => u.hp > 0).length;
+      document.getElementById('player-alive-count').innerText = alivePlayers;
+      document.getElementById('enemy-alive-count').innerText = aliveEnemies;
+    }
+
+    function checkBattleStatus() {
+      const alivePlayers = playerBattleUnits.filter(u => u.hp > 0).length;
+      const aliveEnemies = enemyBattleUnits.filter(u => u.hp > 0).length;
+
+      updateBattleHUD();
+
+      if (aliveEnemies === 0) {
+        playerScore += 8;
+        userCoins += 500; 
+        updateCoinsDisplay();
+
+        if (activeSquadTier === 'easy') {
+          playVictoryMelody();
+          document.getElementById('victory-modal-title').innerText = "🌟 AWESOME VICTORY! 🌟";
+          document.getElementById('victory-reward-text').innerText = `Incredible triumph on Easy Tier! You crushed the enemy squad with awesome style! +8 score and +500 coins!`;
+        } else {
+          playBeep(880, 'sine', 0.4);
+          document.getElementById('victory-modal-title').innerText = "Victory";
+          document.getElementById('victory-reward-text').innerText = `Victory! +8 score and +500 coins!`;
+        }
+
+        document.getElementById('victory-modal').classList.add('show');
+        isPlayerTurn = false;
+      } else if (alivePlayers === 0) {
+        playBeep(150, 'sawtooth', 0.4);
+        
+        playerScore = Math.max(0, playerScore - 8);
+        updateCoinsDisplay();
+
+        document.getElementById('game-over-modal').classList.add('show');
+        isPlayerTurn = false;
+      }
+    }
+
+    function returnHomeFromModal() {
+      document.getElementById('game-over-modal').classList.remove('show');
+      document.getElementById('victory-modal').classList.remove('show');
+      resetArena();
+      switchMainTab('shop');
+    }
+
+    function returnToShopFromArena() {
+      resetArena();
+      switchMainTab('shop');
+    }
+
+    function resetArena() {
+      document.getElementById('arena-select-step').style.display = 'block';
+      document.getElementById('arena-squad-step').style.display = 'none';
+      document.getElementById('arena-fight-step').style.display = 'none';
+      specialModeActive = null;
+      unitToThrow = null;
+      arenaGameCoins = 0;
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') {
+        sendChatMessage();
+      }
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-msg-input');
+      const text = input.value.trim();
+      if (!text) return;
+      playBeep(500, 'sine', 0.1);
+
+      const chatBox = document.getElementById('chat-box');
+      const msgSelf = document.createElement('div');
+      msgSelf.className = 'chat-message self';
+      msgSelf.innerText = text;
+      chatBox.appendChild(msgSelf);
+      input.value = '';
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      setTimeout(() => {
+        const target = document.getElementById('chat-target').value;
+        const msgAI = document.createElement('div');
+        msgAI.className = 'chat-message';
+        msgAI.innerHTML = `<strong>${target}:</strong> Roster units are fully prepped and operational for the tactical arena!`;
+        chatBox.appendChild(msgAI);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }, 600);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Workspace Hub</title>
+    <style>
+        :root {
+            --bg-main: #131314;
+            --bg-sidebar: #1e1f20;
+            --bg-input: #282a2c;
+            --text-main: #e3e3e3;
+            --text-sub: #c4c7c5;
+            --accent-blue: #a8c7fa;
+            --border-color: #3c4043;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; height: 100vh; width: 100vw;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR ARCHITECTURE --- */
+        .sidebar {
+            width: 280px; background-color: var(--bg-sidebar);
+            display: flex; flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            flex-shrink: 0; transition: transform 0.3s ease;
+        }
+
+        .sidebar-header { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        
+        .new-chat-btn {
+            background: #2b2c2e; color: var(--text-main);
+            border: 1px solid var(--border-color); border-radius: 24px;
+            padding: 12px 16px; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; gap: 12px; transition: background 0.2s;
+        }
+        .new-chat-btn:hover { background: #353739; }
+
+        .search-wrapper { position: relative; display: flex; align-items: center; }
+        .search-input {
+            width: 100%; background: var(--bg-main); border: 1px solid var(--border-color);
+            border-radius: 8px; padding: 8px 12px 8px 36px; color: var(--text-main); font-size: 14px;
+        }
+        .search-icon { position: absolute; left: 12px; color: var(--text-sub); pointer-events: none; }
+
+        .library-title {
+            font-size: 12px; font-weight: 600; color: #80868b;
+            text-transform: uppercase; padding: 8px 16px; letter-spacing: 0.5px;
+        }
+
+        .chat-history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding: 0 8px; gap: 4px; }
+        .history-item {
+            padding: 10px 12px; border-radius: 8px; cursor: pointer;
+            display: flex; align-items: center; gap: 10px; font-size: 14px;
+            color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .history-item:hover, .history-item.active { background-color: #2d2f31; color: var(--text-main); }
+
+        /* --- MAIN CHAT WORKSPACE --- */
+        .workspace { flex: 1; display: flex; flex-direction: column; height: 100%; background: var(--bg-main); }
+        
+        .workspace-header {
+            padding: 12px 24px; border-bottom: 1px solid #282a2c;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .model-brand { font-size: 1.25rem; font-weight: 500; background: linear-gradient(70deg, #66a6ff, #9b72cb, #ea949d); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        /* Model Selection Pills */
+        .engine-toggles { display: flex; background: #1e1f20; padding: 4px; border-radius: 20px; border: 1px solid var(--border-color); }
+        .toggle-pill {
+            background: none; border: none; color: var(--text-sub);
+            padding: 6px 16px; font-size: 13px; border-radius: 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .toggle-pill.active { background: #282a2c; color: var(--accent-blue); font-weight: 500; }
+
+        /* Chat Feed Output */
+        .chat-feed { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 32px; box-sizing: border-box; }
+        .turn-block { display: flex; flex-direction: column; width: 100%; max-width: 800px; margin: 0 auto; animation: fadeInUp 0.3s ease; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .turn-user { align-items: flex-end; }
+        .turn-user .bubble { background-color: #282a2c; padding: 12px 20px; border-radius: 20px; max-width: 75%; font-size: 16px; line-height: 1.5; }
+        
+        .turn-model { align-items: flex-start; }
+        .turn-model .header-node { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px; color: var(--accent-blue); font-weight: 500; }
+        .turn-model .avatar { width: 24px; height: 24px; background: linear-gradient(45deg, #4285f4, #9b72cb); border-radius: 50%; }
+        
+        /* Long-form Content Styling */
+        .turn-model .body-text { width: 100%; font-size: 16px; line-height: 1.6; color: #e3e3e3; }
+        .turn-model .body-text p { margin: 0 0 16px 0; }
+        .turn-model .body-text ul { margin: 0 0 16px 0; padding-left: 20px; }
+        .turn-model .body-text li { margin-bottom: 8px; }
+        
+        /* Thinking Container Dropdown */
+        .thinking-container { background: #1e1f20; border-left: 3px solid #80868b; padding: 12px 16px; border-radius: 4px 8px 8px 4px; margin-bottom: 16px; width: 100%; box-sizing: border-box; }
+        .thinking-header { font-size: 13px; color: #80868b; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+
+        /* Image Display Cards */
+        .media-card { background: #1e1f20; border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden; margin-top: 16px; max-width: 600px; width: 100%; }
+        .media-card img { width: 100%; height: auto; display: block; background: #131314; }
+        .media-meta { padding: 12px 16px; font-size: 13px; color: var(--text-sub); border-top: 1px solid var(--border-color); }
+
+        /* Loading Animation */
+        .pulse-loader { display: flex; gap: 6px; padding: 12px 0; }
+        .pulse-loader div { width: 8px; height: 8px; background: var(--accent-blue); border-radius: 50%; animation: pulse 1.2s infinite ease-in-out; }
+        .pulse-loader div:nth-child(2) { animation-delay: 0.2s; }
+        .pulse-loader div:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes pulse { 0%, 100% { transform: scale(0.8); opacity: 0.4; } 50% { transform: scale(1.3); opacity: 1; } }
+
+        /* --- BOTTOM DOCK INPUT --- */
+        .bottom-dock { padding: 24px; background: var(--bg-main); display: flex; justify-content: center; }
+        .input-box { width: 100%; max-width: 800px; display: flex; background-color: var(--bg-sidebar); border-radius: 28px; padding: 8px 16px 8px 24px; box-sizing: border-box; border: 1px solid transparent; }
+        .input-box:focus-within { border-color: var(--border-color); }
+        .input-box input { flex: 1; background: transparent; border: none; outline: none; color: var(--text-main); font-size: 16px; height: 40px; }
+        .send-action-btn { background: none; border: none; color: var(--accent-blue); font-size: 20px; cursor: pointer; padding: 0 8px; display: flex; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" onclick="startNewChat()">
+                <span>＋</span> New chat
+            </button>
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" id="sidebarSearch" placeholder="Search chats..." oninput="filterHistoryList()">
+            </div>
+        </div>
+        <div class="library-title">Recent Chats Library</div>
+        <div class="chat-history-list" id="historyList"></div>
+    </aside>
+
+    <main class="workspace">
+        <header class="workspace-header">
+            <div class="model-brand">Gemini Advanced</div>
+            <div class="engine-toggles">
+                <button class="toggle-pill active" id="pillFlash" onclick="switchEngine('Flash')">Flash Mode</button>
+                <button class="toggle-pill" id="pillPro" onclick="switchEngine('Pro')">Pro (Deep Thinking)</button>
+            </div>
+        </header>
+
+        <section class="chat-feed" id="chatFeed"></section>
+
+        <footer class="bottom-dock">
+            <div class="input-box">
+                <input type="text" id="queryInput" placeholder="Ask Gemini..." autocomplete="off">
+                <button class="send-action-btn" onclick="processQuery()">➔</button>
+            </div>
+        </footer>
+    </main>
+
+    <script>
+        // System Prompt forcing comprehensive multi-step analytical and creative outputs
+        const CORE_AI_LOGIC = `You are the genuine Gemini Advanced platform interface running a combination of structural memory loops.
+CRITICAL DIRECTIONS FOR COMPOSITION STRUCTURE:
+1. You must ALWAYS output highly descriptive, structured, and long academic-grade conceptual breakdowns. Avoid brief, cheesy, or lazy single-sentence answers.
+2. Structure your replies using clean HTML elements: use <p> tags for paragraphs, <strong> for emphasis, and formatted <ul>/<li> structures for ordered lists.
+3. DETECTING MODIFICATION INTENT: If the user requests updates, additions, or creative changes to any image or asset mentioned previously in this thread (e.g., adding effects, fire, weather, structural transformations), you must retain the visual elements from earlier in the conversation.
+4. IMAGE INJECTION INSTRUCTIONS: To render images, embed an optimized, programmatically clean HTML template inside your string exactly like this:
+<div class="media-card"><img src="https://image.pollinations.ai/prompt/YOUR_EXPANDED_COMPOSITED_PROMPT_HERE?width=800&height=500&nologo=true&seed=FIXED_OR_RANDOM_SEED" /><div class="media-meta">Descriptive Label Here</div></div>
+If modifying a previous frame, keep the seed query value identical to prevent structural layout drifts. If introducing a brand new topic, pick a new random seed. Provide a comprehensive text breakdown exploring the composition, layout choices, and conceptual context directly alongside the graphic.`;
+
+        // Local Application Memory Store State
+        let workspaceChats = [];
+        let activeChatId = null;
+        let selectedEngine = "Flash"; // Default mode configuration
+
+        window.onload = function() {
+            // Seed storage with initialization layout defaults if history is blank
+            if (localStorage.getItem("gemini_workspace_sessions")) {
+                workspaceChats = JSON.parse(localStorage.getItem("gemini_workspace_sessions"));
+            } else {
+                workspaceChats = [
+                    {
+                        id: "session-1",
+                        title: "Architectural Conceptualization",
+                        engine: "Pro",
+                        history: [
+                            { role: "user", content: "Design a high-tech modern brutalist library architecture model." },
+                            { role: "assistant", content: `Here is a structural projection for a Brutalist Academic Library:<br><br><p>This design utilizes raw monolith structures integrated with floor-to-ceiling smart glass distributions to combine classical massive text preservation spaces with modular modern workstations.</p><div class="media-card"><img src="https://image.pollinations.ai/prompt/Modern%20brutalist%20concrete%20library%20building%20with%20massive%20glass%20facade,%20cinematic%20lighting,%20architectural%20render?width=800&height=500&nologo=true&seed=48291" /><div class="media-meta">Brutalist Library Framework Projection</div></div>` }
+                        ],
+                        timestamp: Date.now()
+                    }
+                ];
+                saveToLocalStorage();
+            }
+            activeChatId = workspaceChats[0].id;
+            renderSidebarHistory();
+            loadActiveChatFeed();
+        };
+
+        function saveToLocalStorage() {
+            localStorage.setItem("gemini_workspace_sessions", JSON.stringify(workspaceChats));
+        }
+
+        function switchEngine(mode) {
+            selectedEngine = mode;
+            document.getElementById('pillFlash').classList.toggle('active', mode === 'Flash');
+            document.getElementById('pillPro').classList.toggle('active', mode === 'Pro');
+        }
+
+        function startNewChat() {
+            const newId = "session-" + Date.now();
+            const newChat = {
+                id: newId,
+                title: "New chat placeholder",
+                engine: selectedEngine,
+                history: [],
+                timestamp: Date.now()
+            };
+            workspaceChats.unshift(newChat); // Add to the top of the stack
+            activeChatId = newId;
+            saveToLocalStorage();
+            renderSidebarHistory();
+            loadActiveChatFeed();
+            document.getElementById('queryInput').focus();
+        }
+
+        function selectChat(id) {
+            activeChatId = id;
+            const currentChat = workspaceChats.find(c => c.id === id);
+            if (currentChat && currentChat.engine) {
+                switchEngine(currentChat.engine);
+            }
+            renderSidebarHistory();
+            loadActiveChatFeed();
+        }
+
+        // Handles sidebar list rendering sorted dynamically by most recent interactions
+        function renderSidebarHistory() {
+            const listContainer = document.getElementById("historyList");
+            listContainer.innerHTML = "";
+            
+            // Sort chats by recent timestamp updates
+            const sortedChats = [...workspaceChats].sort((a, b) => b.timestamp - a.timestamp);
+
+            sortedChats.forEach(chat => {
+                const item = document.createElement("div");
+                item.className = `history-item ${chat.id === activeChatId ? 'active' : ''}`;
+                item.setAttribute("onclick", `selectChat('${chat.id}')`);
+                
+                const titleText = chat.history.length > 0 ? chat.history[0].content : "Empty Workspace Thread";
+                item.innerHTML = `💬 ${escapeHTML(titleText)}`;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function filterHistoryList() {
+            const filterValue = document.getElementById("sidebarSearch").value.toLowerCase();
+            const items = document.querySelectorAll(".history-item");
+            workspaceChats.forEach((chat, index) => {
+                const textToCheck = chat.history.length > 0 ? chat.history[0].content.toLowerCase() : "empty workspace thread";
+                if (textToCheck.includes(filterValue)) {
+                    items[index].style.display = "flex";
+                } else {
+                    items[index].style.display = "none";
+                }
+            });
+        }
+
+        function loadActiveChatFeed() {
+            const feed = document.getElementById("chatFeed");
+            feed.innerHTML = "";
+            const currentChat = workspaceChats.find(c => c.id === activeChatId);
+            
+            if (!currentChat || currentChat.history.length === 0) {
+                feed.innerHTML = `<div style="text-align:center; margin-top:15vh; color:var(--text-sub);"><h3>Gemini Advanced Workspace (${selectedEngine} Active)</h3><p>Submit an analytical prompt or image instruction parameter matrix to begin.</p></div>`;
+                return;
+            }
+
+            currentChat.history.forEach(turn => {
+                const block = document.createElement("div");
+                if (turn.role === "user") {
+                    block.className = "turn-block turn-user";
+                    block.innerHTML = `<div class="bubble">${escapeHTML(turn.content)}</div>`;
+                } else {
+                    block.className = "turn-block turn-model";
+                    let prefixNode = currentChat.engine === "Pro" ? "✨ Gemini Pro (Deep Thinking)" : "✨ Gemini Flash Engine";
+                    block.innerHTML = `
+                        <div class="header-node"><div class="avatar"></div> ${prefixNode}</div>
+                        <div class="body-text">${turn.content}</div>
+                    `;
+                }
+                feed.appendChild(block);
+            });
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        async function processQuery() {
+            const inputEl = document.getElementById("queryInput");
+            const text = inputEl.value.trim();
+            if (!text) return;
+
+            inputEl.value = "";
+            let currentChat = workspaceChats.find(c => c.id === activeChatId);
+            if (!currentChat) return;
+
+            // Push User Message turn packet
+            currentChat.history.push({ role: "user", content: text });
+            currentChat.timestamp = Date.now();
+            currentChat.engine = selectedEngine;
+            
+            saveToLocalStorage();
+            renderSidebarHistory();
+            loadActiveChatFeed();
+
+            // Append live generative runtime components
+            const feed = document.getElementById("chatFeed");
+            const loadingBlock = document.createElement("div");
+            loadingBlock.className = "turn-block turn-model";
+            loadingBlock.id = "async-loading-placeholder";
+            
+            let loadLabel = selectedEngine === "Pro" ? "Evaluating contextual parameters & chaining structures..." : "Processing response query...";
+            loadingBlock.innerHTML = `
+                <div class="header-node"><div class="avatar"></div> ${loadLabel}</div>
+                <div class="pulse-loader"><div></div><div></div><div></div></div>
+            `;
+            feed.appendChild(loadingBlock);
+            feed.scrollTop = feed.scrollHeight;
+
+            // Compile the message history matrix
+            let payloadMessages = [{ role: "system", content: CORE_AI_LOGIC }];
+            currentChat.history.forEach(h => {
+                payloadMessages.push({ role: h.role, content: h.content });
+            });
+
+            try {
+                const response = await fetch('https://text.pollinations.ai/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: payloadMessages,
+                        model: 'openai'
+                    })
+                });
+
+                let resultString = await response.text();
+                
+                // If Pro Thinking engine mode is toggled, generate a structured expandable trace component block
+                if (selectedEngine === "Pro") {
+                    const traceHeader = `<div class="thinking-container"><div class="thinking-header">💭 Deep Thinking Structural Trace Log</div><p style="font-size:13px; color:#80868b; margin:0;">Analyzed prompt syntax for creative intent. Cross-referenced conversational historical constraints. Re-mapping vector parameters to match established design footprints...</p></div>`;
+                    resultString = traceHeader + resultString;
+                }
+
+                // Strip placeholders and apply final state save updates
+                const placeholder = document.getElementById("async-loading-placeholder");
+                if (placeholder) placeholder.remove();
+
+                currentChat.history.push({ role: "assistant", content: resultString });
+                currentChat.timestamp = Date.now();
+                saveToLocalStorage();
+                renderSidebarHistory();
+                loadActiveChatFeed();
+
+            } catch (err) {
+                const placeholder = document.getElementById("async-loading-placeholder");
+                if (placeholder) placeholder.remove();
+                currentChat.history.push({ role: "assistant", content: "<p>System connection exception encountered. Failed to securely poll linguistic vectors.</p>" });
+                saveToLocalStorage();
+                loadActiveChatFeed();
+            }
+        }
+
+        document.getElementById("queryInput").addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                processQuery();
+            }
+        });
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+        }
+    </script>
+</body>
+</html>

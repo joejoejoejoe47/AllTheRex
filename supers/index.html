@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini OmniStudio Ultra</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #131314;
+            --bg-secondary: #1e1f20;
+            --bg-surface: #282a2c;
+            --accent-blue: #a8c7fa;
+            --accent-purple: #d0bcff;
+            --accent-gradient: linear-gradient(135deg, #a8c7fa 0%, #d0bcff 50%, #f2b8b5 100%);
+            --text-main: #e3e2e6;
+            --text-sub: #c4c6d0;
+            --text-muted: #8e918f;
+            --border-color: #444746;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-primary); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
+
+        /* Sidebar Navigation */
+        #sidebar {
+            width: 260px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 14px;
+            gap: 8px;
+        }
+
+        .brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding: 10px 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 28px;
+            color: var(--text-sub);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-align: left;
+            width: 100%;
+        }
+
+        .nav-item:hover {
+            background-color: var(--bg-surface);
+            color: var(--text-main);
+        }
+
+        .nav-item.active {
+            background-color: #004a77;
+            color: #c2e7ff;
+            font-weight: 600;
+        }
+
+        /* Main App Area */
+        #main-app {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-primary);
+            position: relative;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+            padding: 28px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .header-sub {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        /* Module 1: AI Workspace */
+        .chat-wrap { flex: 1; display: flex; flex-direction: column; max-width: 900px; margin: 0 auto; width: 100%; }
+        .chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 8px; }
+        .msg { padding: 16px 20px; border-radius: var(--radius-lg); max-width: 85%; font-size: 0.95rem; line-height: 1.5; }
+        .msg.user { background-color: var(--bg-surface); color: var(--text-main); align-self: flex-end; border-bottom-right-radius: 4px; }
+        .msg.ai { background-color: #1e2022; border: 1px solid var(--border-color); color: var(--text-main); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .chat-input-area { margin-top: 16px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 28px; padding: 8px 16px; display: flex; align-items: center; gap: 10px; }
+        .chat-input-area input { flex: 1; background: transparent; border: none; color: var(--text-main); padding: 10px; font-size: 1rem; outline: none; }
+
+        /* Module 2: Code & Language IDE */
+        .ide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; min-height: 400px; }
+        textarea.code-box { background-color: #0e0e0f; color: #a6e3a1; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; font-family: 'Fira Code', monospace; font-size: 0.9rem; resize: none; outline: none; width: 100%; height: 100%; }
+        .console-box { background-color: #0e0e0f; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; font-family: 'Fira Code', monospace; font-size: 0.85rem; color: #a8c7fa; overflow-y: auto; white-space: pre-wrap; }
+
+        /* Module 3: Canvas Design */
+        .canvas-bar { display: flex; gap: 12px; align-items: center; background-color: var(--bg-secondary); padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px; border: 1px solid var(--border-color); flex-wrap: wrap; }
+        canvas#appCanvas { background-color: #ffffff; border-radius: var(--radius-md); cursor: crosshair; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+        /* Module 4: Game Engine */
+        .game-layout { display: flex; gap: 20px; flex: 1; }
+        .game-panel { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; width: 280px; display: flex; flex-direction: column; gap: 14px; }
+        canvas#gameScreen { background-color: #000; border-radius: var(--radius-md); border: 1px solid var(--border-color); }
+
+        /* Module 5: Plesk Web Host */
+        .plesk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+        .card { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; }
+        .card-title { font-weight: 600; margin-bottom: 10px; color: var(--accent-blue); display: flex; justify-content: space-between; }
+
+        /* Shared Buttons & Form Elements */
+        .btn-prime { background: var(--accent-gradient); color: #000; border: none; padding: 10px 20px; border-radius: 20px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+        .btn-prime:hover { opacity: 0.9; }
+        .btn-sec { background-color: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 16px; font-weight: 500; cursor: pointer; }
+        .btn-sec:hover { background-color: var(--border-color); }
+        .ctrl-group { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-sub); }
+        input[type="range"], input[type="color"], select { accent-color: var(--accent-blue); }
+        select, input[type="text"] { background-color: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="brand-title">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" fill="url(#grad)"/><defs><linearGradient id="grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop stop-color="#A8C7FA"/><stop offset="1" stop-color="#D0BCFF"/></linearGradient></defs></svg>
+            OmniStudio
+        </div>
+        <button class="nav-item active" onclick="switchTab('chatTab', this)">✨ AI Chat Assistant</button>
+        <button class="nav-item" onclick="switchTab('ideTab', this)">💻 Code & Lang Builder</button>
+        <button class="nav-item" onclick="switchTab('canvasTab', this)">🎨 Canvas Graphic Editor</button>
+        <button class="nav-item" onclick="switchTab('gameTab', this)">🎮 Game Engine & Arcade</button>
+        <button class="nav-item" onclick="switchTab('pleskTab', this)">🌐 Plesk Hosting Admin</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="main-app">
+
+        <!-- TAB 1: AI CHAT -->
+        <div id="chatTab" class="tab-content active">
+            <div class="header-title">Gemini Omni Chat</div>
+            <div class="header-sub">Ask questions, write code snippets, or generate content using the built-in assistant.</div>
+            <div class="chat-wrap">
+                <div class="chat-box" id="chatBox">
+                    <div class="msg ai">Hello! I'm your integrated workspace assistant. Select a tool from the sidebar or prompt me directly to get started.</div>
+                </div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="Message OmniStudio AI..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                    <button class="btn-prime" onclick="sendChatMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: CODE IDE & LANGUAGE PARSER -->
+        <div id="ideTab" class="tab-content">
+            <div class="header-title">Language Design & Script Studio</div>
+            <div class="header-sub">Write JavaScript or construct mini-language syntax models with direct execution.</div>
+            <div style="margin-bottom: 12px; display: flex; gap: 10px;">
+                <button class="btn-prime" onclick="runScript()">Run JavaScript</button>
+                <button class="btn-sec" onclick="loadLanguageExample()">Load Mini-Lang Example</button>
+                <button class="btn-sec" onclick="runMiniLang()">Run Custom Lang</button>
+            </div>
+            <div class="ide-grid">
+                <textarea id="codeEditor" class="code-box" spellcheck="false">// Select "Load Mini-Lang Example" or execute JavaScript directly
+console.log("OmniStudio Execution Engine Active.");</textarea>
+                <div id="ideConsole" class="console-box">> Console output initialized...</div>
+            </div>
+        </div>
+
+        <!-- TAB 3: CANVAS GRAPHICS EDITOR -->
+        <div id="canvasTab" class="tab-content">
+            <div class="header-title">Canvas Vector & Painting Studio</div>
+            <div class="header-sub">Create graphics, draw layouts, and export PNG graphics.</div>
+            <div class="canvas-bar">
+                <div class="ctrl-group">
+                    <label>Tool</label>
+                    <select id="drawTool">
+                        <option value="brush">Brush</option>
+                        <option value="rect">Rectangle</option>
+                        <option value="circle">Circle</option>
+                        <option value="eraser">Eraser</option>
+                    </select>
+                </div>
+                <div class="ctrl-group">
+                    <label>Color</label>
+                    <input type="color" id="drawColor" value="#a8c7fa">
+                </div>
+                <div class="ctrl-group">
+                    <label>Size</label>
+                    <input type="range" id="drawSize" min="1" max="40" value="6">
+                </div>
+                <button class="btn-sec" onclick="clearCanvas()">Clear</button>
+                <button class="btn-prime" onclick="exportCanvas()">Export PNG</button>
+            </div>
+            <canvas id="appCanvas" width="900" height="500"></canvas>
+        </div>
+
+        <!-- TAB 4: GAME ENGINE & PLAYGROUND -->
+        <div id="gameTab" class="tab-content">
+            <div class="header-title">2D Physics & Game Studio</div>
+            <div class="header-sub">Adjust real-time variables to create and play customized games.</div>
+            <div class="game-layout">
+                <canvas id="gameScreen" width="600" height="420"></canvas>
+                <div class="game-panel">
+                    <div style="font-weight: 600; font-size: 1.1rem; color: var(--accent-blue);">Game Physics Config</div>
+                    <div class="ctrl-group">
+                        <label>Ball Velocity X</label>
+                        <input type="range" id="ballVx" min="1" max="10" value="4">
+                    </div>
+                    <div class="ctrl-group">
+                        <label>Ball Velocity Y</label>
+                        <input type="range" id="ballVy" min="1" max="10" value="4">
+                    </div>
+                    <div class="ctrl-group">
+                        <label>Paddle Width</label>
+                        <input type="range" id="paddleW" min="50" max="180" value="100">
+                    </div>
+                    <button class="btn-prime" id="gameToggleBtn" onclick="toggleGame()">Start Game</button>
+                    <p style="font-size: 0.8rem; color: var(--text-muted);">Controls: Move mouse horizontally over the game screen to slide the paddle.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: PLESK HOSTING SIMULATOR -->
+        <div id="pleskTab" class="tab-content">
+            <div class="header-title">Plesk Web Control Panel</div>
+            <div class="header-sub">Manage virtual domains, databases, DNS, and SSL configurations.</div>
+            <div class="plesk-grid">
+                <div class="card">
+                    <div class="card-title">Domain Manager <span>Active</span></div>
+                    <p style="font-size: 0.9rem; color: var(--text-sub); margin-bottom: 12px;">Primary: <strong>my-app-server.internal</strong></p>
+                    <button class="btn-sec" onclick="alert('SSL Certificate renewed successfully.')">Renew SSL (Let's Encrypt)</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">Database Server <span>MySQL</span></div>
+                    <p style="font-size: 0.9rem; color: var(--text-sub); margin-bottom: 12px;">Status: Running (Port 3306)</p>
+                    <button class="btn-sec" onclick="alert('Created new database: db_omnistudio')">+ New Database</button>
+                </div>
+                <div class="card">
+                    <div class="card-title">DNS Zone Records</div>
+                    <p style="font-size: 0.85rem; color: var(--text-sub);">A Record -> 127.0.0.1<br>CNAME -> app.local</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Navigation Switcher
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+        }
+
+        // --- MODULE 1: AI CHAT ---
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const box = document.getElementById('chatBox');
+            if (!input.value.trim()) return;
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'msg user';
+            userMsg.innerText = input.value;
+            box.appendChild(userMsg);
+
+            const prompt = input.value.toLowerCase();
+            input.value = '';
+
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'msg ai';
+                
+                if (prompt.includes('code') || prompt.includes('language')) {
+                    aiMsg.innerText = "Switch over to the 'Code & Lang Builder' tab to run JavaScript scripts or construct mini-language syntax interpreters.";
+                } else if (prompt.includes('draw') || prompt.includes('design')) {
+                    aiMsg.innerText = "Check out the 'Canvas Graphic Editor' tab to sketch ideas and export vector/PNG layouts.";
+                } else if (prompt.includes('host') || prompt.includes('server')) {
+                    aiMsg.innerText = "The 'Plesk Hosting Admin' tab allows you to inspect simulated server environments, databases, and SSL configs.";
+                } else {
+                    aiMsg.innerText = `Received prompt: "${prompt}". All modules are ready for input.`;
+                }
+                box.appendChild(aiMsg);
+                box.scrollTop = box.scrollHeight;
+            }, 400);
+        }
+
+        // --- MODULE 2: CODE & MINI-LANGUAGE ENGINE ---
+        const ideConsole = document.getElementById('ideConsole');
+        function runScript() {
+            ideConsole.innerText = "> Running JavaScript script...\n";
+            const code = document.getElementById('codeEditor').value;
+            
+            const oldLog = console.log;
+            console.log = function(...args) {
+                ideConsole.innerText += args.join(' ') + '\n';
+                oldLog.apply(console, args);
+            };
+
+            try {
+                new Function(code)();
+            } catch (err) {
+                ideConsole.innerText += `\nError: ${err.message}`;
+            } finally {
+                console.log = oldLog;
+            }
+        }
+
+        function loadLanguageExample() {
+            document.getElementById('codeEditor').value = 
+`// Custom Language Interpreter Example
+// Commands: SET [var] [val] | PRINT [var] | ADD [var] [val]
+
+SET x 10
+ADD x 5
+PRINT x
+SET name Gemini
+PRINT name`;
+            ideConsole.innerText = "> Loaded Mini-Lang template. Click 'Run Custom Lang' to evaluate.";
+        }
+
+        function runMiniLang() {
+            ideConsole.innerText = "> Parsing Mini-Language Source...\n";
+            const code = document.getElementById('codeEditor').value;
+            const lines = code.split('\n');
+            const memory = {};
+
+            lines.forEach((line, index) => {
+                line = line.trim();
+                if (!line || line.startsWith('//')) return;
+                const parts = line.split(' ');
+                const cmd = parts[0];
+
+                if (cmd === 'SET') {
+                    memory[parts[1]] = parts[2];
+                } else if (cmd === 'ADD') {
+                    memory[parts[1]] = (Number(memory[parts[1]] || 0) + Number(parts[2])).toString();
+                } else if (cmd === 'PRINT') {
+                    ideConsole.innerText += `[Lang Output]: ${memory[parts[1]] || 'undefined'}\n`;
+                } else {
+                    ideConsole.innerText += `[Line ${index + 1}] Syntax Error: Unknown token '${cmd}'\n`;
+                }
+            });
+        }
+
+        // --- MODULE 3: CANVAS DESIGN TOOL ---
+        const canvas = document.getElementById('appCanvas');
+        const ctx = canvas.getContext('2d');
+        let drawing = false, startX, startY;
+
+        canvas.addEventListener('mousedown', (e) => {
+            drawing = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (!drawing) return;
+            drawing = false;
+            const tool = document.getElementById('drawTool').value;
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+
+            ctx.fillStyle = document.getElementById('drawColor').value;
+            ctx.strokeStyle = document.getElementById('drawColor').value;
+            ctx.lineWidth = document.getElementById('drawSize').value;
+
+            if (tool === 'rect') {
+                ctx.fillRect(startX, startY, endX - startX, endY - startY);
+            } else if (tool === 'circle') {
+                const radius = Math.hypot(endX - startX, endY - startY);
+                ctx.beginPath();
+                ctx.arc(startX, startY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!drawing) return;
+            const tool = document.getElementById('drawTool').value;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            if (tool === 'brush' || tool === 'eraser') {
+                ctx.lineWidth = document.getElementById('drawSize').value;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : document.getElementById('drawColor').value;
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            }
+        });
+
+        function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+        function exportCanvas() {
+            const link = document.createElement('a');
+            link.download = 'design.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        // --- MODULE 4: GAME ENGINE ---
+        const gScreen = document.getElementById('gameScreen');
+        const gCtx = gScreen.getContext('2d');
+        let gActive = false, bx = 200, by = 150, paddleX = 250;
+
+        gScreen.addEventListener('mousemove', (e) => {
+            const rect = gScreen.getBoundingClientRect();
+            paddleX = e.clientX - rect.left - (document.getElementById('paddleW').value / 2);
+        });
+
+        function toggleGame() {
+            gActive = !gActive;
+            document.getElementById('gameToggleBtn').innerText = gActive ? "Pause Game" : "Start Game";
+            if (gActive) renderGame();
+        }
+
+        function renderGame() {
+            if (!gActive) return;
+
+            let vx = Number(document.getElementById('ballVx').value);
+            let vy = Number(document.getElementById('ballVy').value);
+            let pWidth = Number(document.getElementById('paddleW').value);
+
+            gCtx.clearRect(0, 0, gScreen.width, gScreen.height);
+
+            // Draw Ball
+            gCtx.beginPath();
+            gCtx.arc(bx, by, 8, 0, Math.PI * 2);
+            gCtx.fillStyle = '#a8c7fa';
+            gCtx.fill();
+
+            // Draw Paddle
+            gCtx.fillStyle = '#d0bcff';
+            gCtx.fillRect(paddleX, gScreen.height - 18, pWidth, 12);
+
+            // Bouncing Physics
+            bx += vx;
+            by += vy;
+
+            if (bx <= 0 || bx >= gScreen.width) document.getElementById('ballVx').value = -vx;
+            if (by <= 0) document.getElementById('ballVy').value = -vy;
+
+            if (by >= gScreen.height - 26) {
+                if (bx >= paddleX && bx <= paddleX + pWidth) {
+                    document.getElementById('ballVy').value = -Math.abs(vy);
+                } else if (by >= gScreen.height) {
+                    bx = 200; by = 100; // Reset
+                }
+            }
+
+            requestAnimationFrame(renderGame);
+        }
+    </script>
+</body>
+</html>

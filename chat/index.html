@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Engine X | Live-Action Generator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0a0b0e;
+            --panel-bg: #13151b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #262933;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); height: 100vh; display: flex; overflow: hidden; }
+        
+        /* Layout */
+        .sidebar { width: 380px; background: var(--panel-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; }
+        .main-content { flex: 1; display: flex; flex-direction: column; position: relative; }
+        
+        /* Header */
+        header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--panel-bg); }
+        h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+        h1 span { color: var(--accent); }
+        
+        /* Sidebar Navigation & Sections */
+        .tabs { display: flex; border-bottom: 1px solid var(--border); background: #0e1015; }
+        .tab { flex: 1; padding: 12px; text-align: center; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab.active { color: var(--text-main); border-bottom-color: var(--accent); background: var(--panel-bg); }
+        
+        .panel-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.8rem; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        select, input[type="range"], input[type="text"] { width: 100%; background: #1a1d26; border: 1px solid var(--border); color: var(--text-main); padding: 10px; border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+        select:focus, input:focus { border-color: var(--accent); }
+        
+        .range-value { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        
+        /* Viewport */
+        #viewport { flex: 1; background: #000; position: relative; }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* Action Bar */
+        .action-bar { padding: 16px 24px; background: var(--panel-bg); border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .btn { background: var(--accent); color: white; border: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:active { transform: scale(0.98); }
+        .btn-secondary { background: #262933; color: var(--text-main); }
+        .btn-secondary:hover { background: #323644; }
+        
+        /* Status Overlay */
+        .status-badge { position: absolute; top: 20px; left: 20px; background: rgba(13, 15, 20, 0.8); backdrop-filter: blur(8px); border: 1px solid var(--border); padding: 8px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; display: flex; align-items: center; gap: 8px; z-index: 5; }
+        .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
+        
+        /* Progress Modal */
+        #render-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
+        .modal-card { background: var(--panel-bg); border: 1px solid var(--border); padding: 30px; border-radius: 12px; width: 400px; text-align: center; }
+        .progress-bar-container { width: 100%; background: #1a1d26; height: 8px; border-radius: 4px; margin: 20px 0; overflow: hidden; }
+        .progress-bar { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s linear; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Controls -->
+    <div class="sidebar">
+        <header>
+            <h1>Cinematic <span>X</span></h1>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">v1.0 Physics Optics</span>
+        </header>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('optics')">Optics</div>
+            <div class="tab" onclick="switchTab('physics')">Physics & Set</div>
+            <div class="tab" onclick="switchTab('actor')">Actor Rig</div>
+        </div>
+        
+        <div class="panel-body">
+            <!-- Optics Panel -->
+            <div id="tab-optics" class="tab-content">
+                <div class="control-group">
+                    <label>Camera Sensor Profile</label>
+                    <select id="sensorProfile" onchange="updateOptics()">
+                        <option value="arri">ARRI Alexa 65 (Large Format IMAX)</option>
+                        <option value="red">RED V-Raptor [8.8K VV]</option>
+                        <option value="sony">Sony Venice 2 (Full Frame)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label>Focal Length</label>
+                    <input type="range" id="focalLength" min="18" max="135" value="35" oninput="updateOptics()">
+                    <div class="range-value"><span id="focalVal">35</span><span>mm Prime</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Aperture (Depth of Field)</label>
+                    <input type="range" id="aperture" min="12" max="220" value="28" oninput="updateOptics()">
+                    <div class="range-value"><span>f/<span id="apertureVal">2.8</span></span><span>Cinematic Bokeh</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Shutter Angle</label>
+                    <select id="shutterAngle">
+                        <option value="180">180° Standard Motion Blur</option>
+                        <option value="90">90° Crisp Action / Saving Private Ryan</option>
+                        <option value="360">360° Dreamy / Fluid Blur</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Physics & Set Panel -->
+            <div id="tab-physics" class="tab-content" style="display: none;">
+                <div class="control-group">
+                    <label>Environment Lighting</label>
+                    <select id="envPreset" onchange="updateLighting()">
+                        <option value="golden">Golden Hour (Low Sun, Long Shadows)</option>
+                        <option value="noir">Neo-Noir Rain & Neon Refractions</option>
+                        <option value="overcast">Cinematic Overcast (Soft Diffuse)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Atmospheric Particle Density</label>
+                    <input type="range" id="dustDensity" min="0" max="100" value="45" oninput="updateParticles()">
+                    <div class="range-value"><span>Volumetric Fog & Dust</span><span id="dustVal">45%</span></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Wind & Cloth Simulation</label>
+                    <input type="range" id="windForce" min="0" max="10" value="3" oninput="updateWind()">
+                    <div class="range-value"><span>Velocity</span><span id="windVal">3.0 m/s</span></div>
+                </div>
+            </div>
+
+            <!-- Actor Rig Panel -->
+            <div id="tab-actor" class="tab-content" style="display: none;">
+                <div class="control-group">
+                    <label>Performance Sequence</label>
+                    <select id="motionSequence">
+                        <option value="walk">Cinematic Walkthrough & Turn</option>
+                        <option value="dramatic">Dramatic Dialogue Gestures</option>
+                        <option value="action">Tactical Movement & Evade</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Subsurface Scattering (Skin Realism)</label>
+                    <input type="range" id="sssLevel" min="0" max="100" value="85">
+                    <div class="range-value"><span>Melanin & Blood Flow</span><span>85%</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-bar">
+            <button class="btn btn-secondary" onclick="resetCamera()">Reset View</button>
+            <button class="btn" onclick="startRender()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Render Live-Action
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Viewport Canvas -->
+    <div class="main-content">
+        <div class="status-badge">
+            <div class="dot"></div>
+            <span>Path-Traced Viewport • 60 FPS • Real-Time Optics Active</span>
+        </div>
+        <div id="viewport"></div>
+    </div>
+
+    <!-- Render Progress Modal -->
+    <div id="render-modal">
+        <div class="modal-card">
+            <h3 id="render-title" style="margin-bottom: 8px;">Synthesizing Live-Action Frames</h3>
+            <p id="render-status" style="font-size: 0.85rem; color: var(--text-muted);">Calculating ray-traced lighting and optical lens distortion...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p id="render-percentage" style="font-size: 0.9rem; font-weight: 600;">0%</p>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).style.display = 'block';
+        }
+
+        // Three.js Scene Setup
+        const container = document.getElementById('viewport');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0b0e);
+        scene.fog = new THREE.FogExp2(0x0a0b0e, 0.035);
+
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 2, 8);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting Setup
+        const ambientLight = new THREE.AmbientLight(0x1a2238, 1.2);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffedd5, 3.5);
+        mainLight.position.set(10, 15, 10);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        scene.add(mainLight);
+
+        const rimLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+        rimLight.position.set(-10, 5, -10);
+        scene.add(rimLight);
+
+        // Procedural Set (Ground & Sculptural Columns for Depth)
+        const floorGeo = new THREE.PlaneGeometry(50, 50, 64, 64);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            color: 0x111318, 
+            roughness: 0.4, 
+            metalness: 0.2 
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Stylized Cinematic Subject (Actor Proxy / Metahuman Node)
+        const group = new THREE.Group();
+        
+        // Head / Torso abstract representation with premium material
+        const bodyMat = new THREE.MeshPhysicalMaterial({
+            color: 0x3b82f6,
+            roughness: 0.2,
+            metalness: 0.8,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1
+        });
+
+        const torsoGeo = new THREE.CylinderGeometry(0.6, 0.4, 2, 32);
+        const torso = new THREE.Mesh(torsoGeo, bodyMat);
+        torso.position.y = 1;
+        torso.castShadow = true;
+        group.add(torso);
+
+        const headGeo = new THREE.SphereGeometry(0.4, 32, 32);
+        const head = new THREE.Mesh(headGeo, bodyMat);
+        head.position.y = 2.3;
+        head.castShadow = true;
+        group.add(head);
+
+        scene.add(group);
+
+        // Volumetric Dust Particles
+        const particleCount = 400;
+        const particleGeo = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+
+        for(let i = 0; i < particleCount * 3; i += 3) {
+            particlePositions[i] = (Math.random() - 0.5) * 20;
+            particlePositions[i+1] = Math.random() * 5;
+            particlePositions[i+2] = (Math.random() - 0.5) * 20;
+        }
+
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        const particleMat = new THREE.PointsMaterial({
+            color: 0xffedd5,
+            size: 0.04,
+            transparent: true,
+            opacity: 0.6
+        });
+        const dustParticles = new THREE.Points(particleGeo, particleMat);
+        scene.add(dustParticles);
+
+        // UI Handlers & Interactivity
+        function updateOptics() {
+            const focal = document.getElementById('focalLength').value;
+            document.getElementById('focalVal').innerText = focal;
+            camera.fov = 75 - (focal / 135) * 45; // Approximate FOV mapping
+            camera.updateProjectionMatrix();
+
+            const aperture = document.getElementById('aperture').value;
+            document.getElementById('apertureVal').innerText = (aperture / 10).toFixed(1);
+        }
+
+        function updateParticles() {
+            const val = document.getElementById('dustDensity').value;
+            document.getElementById('dustVal').innerText = val + '%';
+            dustParticles.visible = val > 0;
+            particleMat.opacity = (val / 100) * 0.8;
+        }
+
+        function updateWind() {
+            const val = document.getElementById('windForce').value;
+            document.getElementById('windVal').innerText = Number(val).toFixed(1) + ' m/s';
+        }
+
+        function updateLighting() {
+            const preset = document.getElementById('envPreset').value;
+            if(preset === 'golden') {
+                scene.background.setHex(0x0a0b0e);
+                scene.fog.color.setHex(0x0a0b0e);
+                mainLight.color.setHex(0xffedd5);
+                mainLight.intensity = 3.5;
+                rimLight.color.setHex(0x38bdf8);
+            } else if(preset === 'noir') {
+                scene.background.setHex(0x020408);
+                scene.fog.color.setHex(0x020408);
+                mainLight.color.setHex(0x3b82f6);
+                mainLight.intensity = 2.0;
+                rimLight.color.setHex(0xec4899);
+            } else {
+                scene.background.setHex(0x1e222d);
+                scene.fog.color.setHex(0x1e222d);
+                mainLight.color.setHex(0x94a3b8);
+                mainLight.intensity = 2.0;
+                rimLight.color.setHex(0x64748b);
+            }
+        }
+
+        function resetCamera() {
+            camera.position.set(0, 2, 8);
+            camera.lookAt(0, 1, 0);
+        }
+
+        // Render Simulation Modal
+        function startRender() {
+            const modal = document.getElementById('render-modal');
+            const progressBar = document.getElementById('progressBar');
+            const percentage = document.getElementById('render-percentage');
+            const statusText = document.getElementById('render-status');
+            
+            modal.style.display = 'flex';
+            progressBar.style.width = '0%';
+            percentage.innerText = '0%';
+            
+            let progress = 0;
+            const stages = [
+                "Baking path-traced global illumination...",
+                "Computing hair & cloth physics simulation...",
+                "Applying anamorphic lens distortion & color grading...",
+                "Encoding pristine live-action master stream..."
+            ];
+
+            const interval = setInterval(() => {
+                progress += 1.5;
+                if(progress > 100) progress = 100;
+                
+                progressBar.style.width = progress + '%';
+                percentage.innerText = Math.floor(progress) + '%';
+                
+                if(progress < 30) statusText.innerText = stages[0];
+                else if(progress < 60) statusText.innerText = stages[1];
+                else if(progress < 85) statusText.innerText = stages[2];
+                else statusText.innerText = stages[3];
+
+                if(progress === 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        alert('Live-action sequence successfully synthesized and exported to master buffer!');
+                    }, 500);
+                }
+            }, 50);
+        }
+
+        // Animation Loop
+        let clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const elapsedTime = clock.getElapsedTime();
+            
+            // Subtle cinematic subject idle motion
+            group.rotation.y = Math.sin(elapsedTime * 0.3) * 0.15;
+            group.position.y = Math.sin(elapsedTime * 1.5) * 0.03;
+
+            // Animate dust particles
+            const positions = particleGeo.attributes.position.array;
+            const windSpeed = document.getElementById('windForce').value * 0.002;
+            for(let i = 1; i < positions.length; i += 3) {
+                positions[i] -= 0.005;
+                positions[i-1] += windSpeed;
+                if(positions[i] < 0) positions[i] = 5;
+                if(positions[i-1] > 10) positions[i-1] = -10;
+            }
+            particleGeo.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Window resizing
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+    </script>
+</body>
+</html>

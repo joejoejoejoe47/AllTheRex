@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Morse Chess</title>
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0c0d0b;
+      --ink-2: #161714;
+      --forest: #3f5d4e;
+      --forest-2: #2d4538;
+      --ivory: #f3ead8;
+      --cream: #e8dcc4;
+      --walnut: #6b4f3a;
+      --walnut-d: #4a3526;
+      --light-sq: #e8dcc4;
+      --dark-sq: #3f5d4e;
+      --gold-line: #c4b08a;
+      --danger: #8b3a2f;
+      --win: #3f5d4e;
+      --mist: #b7b1a4;
+      --panel: #1a1c18;
+      --ink-soft: #141512;
+      --line: rgba(243,234,216,.14);
+      --sky: #0c0d0b;
+      --felt: #24332c;
+    }
+    html.light {
+      --ink: #f6f1e4;
+      --ink-2: #efe8d6;
+      --ivory: #1c1914;
+      --cream: #2a241c;
+      --mist: #6d665b;
+      --panel: #fffdf8;
+      --ink-soft: #efe8d6;
+      --line: rgba(28,25,20,.12);
+      --sky: #f6f1e4;
+      --felt: #4d7260;
+      --gold-line: #6b4f3a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: Outfit, system-ui, sans-serif;
+      background: var(--ink);
+      color: var(--ivory);
+      min-height: 100dvh;
+      font-size: 17px;
+    }
+    h1, h2, h3, .serif { font-family: "Cormorant Garamond", Georgia, serif; }
+    button { font-family: inherit; cursor: pointer; }
+    input { font-family: inherit; }
+
+    .screen { min-height: 100dvh; display: none; }
+    .screen.on { display: flex; flex-direction: column; }
+
+    /* AUTH */
+    #auth {
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background:
+        linear-gradient(180deg, rgba(12,13,11,.35), rgba(12,13,11,.82)),
+        repeating-linear-gradient(90deg, #2a1c12 0 48px, #23180f 48px 96px);
+    }
+    .crest {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 1px solid var(--gold-line);
+      display: grid; place-items: center;
+      background: radial-gradient(circle at 35% 30%, #5a4330, #2a1c12);
+      color: var(--ivory); font-size: 28px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.45);
+    }
+    html.light #auth {
+      background:
+        radial-gradient(ellipse at 50% 0%, #efe8d6 0%, #f6f1e4 55%);
+    }
+    .wordmark {
+      letter-spacing: .42em;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gold-line);
+      margin-top: 18px;
+      text-transform: uppercase;
+    }
+    .title {
+      font-size: clamp(42px, 8vw, 72px);
+      font-weight: 600;
+      line-height: .9;
+      margin: 6px 0 8px;
+    }
+    .sub {
+      color: var(--mist);
+      font-weight: 300;
+      max-width: 380px;
+      text-align: center;
+      margin-bottom: 28px;
+      font-size: 16px;
+    }
+    .panel {
+      width: min(420px, 100%);
+      background: rgba(22,23,20,.88);
+      border: 1px solid rgba(196,176,138,.28);
+      border-radius: 18px;
+      padding: 22px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 16px; }
+    .tab {
+      background: transparent;
+      border: 1px solid rgba(196,176,138,.22);
+      color: #cfc3ab;
+      border-radius: 999px;
+      padding: 9px 12px;
+      font-size: 13px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .tab.active { background: var(--forest); color: var(--ivory); border-color: var(--forest); }
+    label { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #b9ad96; margin: 12px 0 6px; }
+    input[type=text], input[type=password], input[type=email] {
+      width: 100%;
+      background: #0f100e;
+      border: 1px solid rgba(196,176,138,.25);
+      color: var(--ivory);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 16px;
+    }
+    input:focus { outline: 1px solid var(--gold-line); }
+    .btn {
+      width: 100%;
+      margin-top: 18px;
+      background: var(--ivory);
+      color: var(--ink);
+      border: 0;
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-weight: 600;
+      letter-spacing: .04em;
+    }
+    .btn:hover { filter: brightness(1.05); }
+    .btn.ghost {
+      background: transparent;
+      color: var(--ivory);
+      border: 1px solid rgba(196,176,138,.35);
+    }
+    .btn.forest { background: var(--forest); color: var(--ivory); }
+    .btn.danger { background: transparent; color: #e0b8b2; border: 1px solid rgba(139,58,47,.5); }
+    .err { color: #e0b8b2; font-size: 13px; min-height: 18px; margin-top: 8px; }
+
+    /* LOUNGE — club layout from Morse table app */
+    #lounge, #play {
+      background-color: var(--ink);
+      background-image:
+        radial-gradient(900px 420px at 12% -10%, rgba(63,93,78,.22), transparent 58%),
+        radial-gradient(800px 380px at 92% 108%, rgba(107,79,58,.2), transparent 55%);
+    }
+    #lounge { position: relative; }
+    #lounge::before, #play::before {
+      content: "";
+      pointer-events: none;
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(45deg, rgba(107,79,58,.16) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(107,79,58,.16) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(107,79,58,.16) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(107,79,58,.16) 75%);
+      background-size: 56px 56px;
+      background-position: 0 0, 0 28px, 28px -28px, -28px 0;
+      mask-image: radial-gradient(ellipse at center, black 8%, transparent 72%);
+    }
+    #lounge header, #play header {
+      position: relative;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      padding: 22px 28px 8px;
+      background: transparent;
+      border: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .mark {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--forest);
+      color: var(--ivory);
+      display: grid; place-items: center;
+      font-size: 20px;
+    }
+    .brand-title {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      letter-spacing: .22em;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--ivory);
+    }
+    .who { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #b7b1a4; }
+    .who-name { color: var(--ivory); font-size: 14px; }
+    .score-chip, .pill, .hdr-btn {
+      border: 1px solid rgba(243,234,216,.12);
+      background: #1a1c18;
+      border-radius: 999px;
+      padding: 8px 14px;
+      color: var(--ivory);
+      font-size: 14px;
+    }
+    .score-chip b { font-family: ui-monospace, monospace; font-weight: 500; }
+    .hdr-btn {
+      width: auto;
+      margin: 0;
+      font-weight: 500;
+    }
+    #lounge main {
+      position: relative;
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      padding: 18px 28px 48px;
+    }
+    .kicker {
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      font-size: 11px;
+      color: #b7b1a4;
+    }
+    .hero-line {
+      font-size: clamp(42px, 6vw, 72px);
+      font-weight: 500;
+      letter-spacing: -.03em;
+      margin: 8px 0 12px;
+    }
+    .lede { color: #b7b1a4; max-width: 560px; font-size: 15px; line-height: 1.55; }
+    .muted { color: #b7b1a4; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 28px; }
+    @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+    .felt {
+      text-align: left;
+      background:
+        radial-gradient(120% 90% at 50% 0%, rgba(63,93,78,.28), transparent 55%),
+        #1a1c18;
+      border: 1px solid rgba(243,234,216,.12);
+      border-radius: 22px;
+      padding: 24px;
+      color: inherit;
+      width: 100%;
+    }
+    .felt:hover { border-color: rgba(243,234,216,.22); }
+    .felt h3 { font-size: 34px; font-weight: 500; margin: 14px 0 8px; }
+    .felt p { color: #b7b1a4; font-size: 14px; line-height: 1.5; }
+    .ico { font-size: 18px; color: var(--cream); }
+    .warmup {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 14px; background: none; border: 0; color: #b7b1a4; padding: 0;
+    }
+    .warmup:hover { color: var(--ivory); text-decoration: underline; }
+    .lower { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 28px; }
+    @media (max-width: 800px) { .lower { grid-template-columns: 1fr; } }
+    .card {
+      background: #1a1c18;
+      border: 1px solid rgba(243,234,216,.12);
+      border-radius: 22px;
+      padding: 22px;
+    }
+    .card h3 { font-size: 32px; font-weight: 500; margin-bottom: 6px; }
+    .card p { color: #b7b1a4; font-size: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .row .btn { width: auto; margin-top: 0; padding: 10px 16px; }
+    .inbox { display: grid; gap: 10px; margin-top: 16px; }
+    .chal {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 14px; border-radius: 12px; background: #141512;
+      border: 1px solid rgba(243,234,216,.1);
+      font-size: 14px;
+    }
+    .room-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 4px; font-size: 14px; width: 100%;
+      background: none; border: 0; color: var(--ivory);
+    }
+    .room-row span { color: #b7b1a4; font-family: ui-monospace, monospace; font-size: 12px; }
+    .file-rail {
+      text-align: center;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #b7b1a4;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      margin-top: 36px;
+    }
+    .modal {
+      position: fixed; inset: 0; display: none;
+      place-items: center; background: rgba(12,13,11,.7);
+      z-index: 30; padding: 16px;
+    }
+    .modal.on { display: grid; }
+    .sheet {
+      width: min(420px, 100%);
+      background: #1a1c18;
+      border: 1px solid rgba(243,234,216,.14);
+      border-radius: 20px;
+      padding: 22px;
+    }
+    .sheet h2 { font-size: 30px; margin-bottom: 14px; }
+    .choice {
+      width: 100%;
+      text-align: left;
+      background: var(--ivory);
+      color: var(--ink);
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .choice.alt { background: #22251f; color: var(--ivory); }
+    .choice small { display: block; font-weight: 400; opacity: .7; margin-top: 2px; }
+
+    /* PLAY */
+    #play { background: radial-gradient(ellipse at 50% 20%, #1a221c, var(--ink) 70%); }
+    #play { min-height: 100dvh; }
+    .board-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .stage {
+      flex: 1;
+      min-height: 0;
+      display: block;
+      width: 100%;
+      position: relative;
+    }
+    #board3d {
+      position: absolute;
+      inset: 0;
+      min-height: 0;
+      height: 100%;
+      border-radius: 0;
+      overflow: hidden;
+      background: #0c0d0b;
+    }
+    .hud {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .hud .chip {
+      pointer-events: none;
+      background: rgba(12,13,11,.72);
+      border: 1px solid rgba(243,234,216,.14);
+      border-radius: 14px;
+      padding: 8px 14px;
+      backdrop-filter: blur(8px);
+    }
+    .hud .chip b { display: block; font-family: "Cormorant Garamond", serif; font-size: 22px; font-weight: 500; }
+    .view-hint {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      font-size: 12px;
+      color: #b7b1a4;
+      background: rgba(12,13,11,.55);
+      border-radius: 999px;
+      padding: 6px 12px;
+      pointer-events: none;
+    }
+    #board3d canvas { display: block; width: 100% !important; height: 100% !important; }
+    #board2d {
+      display: none; position: absolute; inset: 0; z-index: 2;
+      grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+      width: min(92vw, 72vh); height: min(92vw, 72vh); margin: auto;
+      border: 10px solid #3a2818; box-shadow: 0 20px 50px rgba(0,0,0,.45);
+    }
+    body.flat #board2d { display: grid; }
+    body.flat #board3d canvas { visibility: hidden; }
+    .sq2 { display: grid; place-items: center; font-size: clamp(22px, 4.5vw, 44px); cursor: pointer; user-select: none; }
+    .sq2.d { background: var(--dark-sq); color: #0a0a0a; }
+    .sq2.l { background: var(--light-sq); color: #0a0a0a; }
+    .sq2.on { outline: 3px solid #d7c39a; outline-offset: -3px; }
+    @keyframes spinM { to { transform: rotate(360deg); } }
+    #splash .crest { animation: spinM 1.2s linear infinite; }
+    .board { display: none; }
+    .sq {
+      display: grid; place-items: center;
+      position: relative;
+      font-size: clamp(22px, 5.2vw, 48px);
+      line-height: 1;
+      cursor: pointer;
+    }
+    .sq.light { background: var(--light-sq); }
+    .sq.dark { background: var(--dark-sq); }
+    .sq.sel { outline: 3px solid #d7c39a; outline-offset: -3px; }
+    .sq.legal::after {
+      content: "";
+      width: 28%; height: 28%;
+      border-radius: 50%;
+      background: rgba(12,13,11,.35);
+      position: absolute;
+    }
+    .sq.legal.occ::after {
+      width: 72%; height: 72%;
+      background: transparent;
+      border: 3px solid rgba(12,13,11,.38);
+    }
+    .sq.last { box-shadow: inset 0 0 0 100px rgba(196,176,138,.28); }
+    .coord {
+      position: absolute; font-size: 10px; color: rgba(12,13,11,.45);
+      font-family: Outfit, sans-serif; pointer-events: none;
+    }
+    .coord.f { left: 3px; bottom: 2px; }
+    .coord.r { right: 3px; top: 2px; color: rgba(243,234,216,.55); }
+    .sq.light .coord.r { color: rgba(12,13,11,.4); }
+
+    .side .card { padding: 14px; }
+    .clock {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 36px;
+      letter-spacing: .04em;
+    }
+    .clock.hot { color: #e8c9a0; }
+    .overlay {
+      position: fixed; inset: 0; display: none;
+      place-items: center; background: rgba(12,13,11,.72);
+      z-index: 20;
+    }
+    .overlay.on { display: grid; }
+    .overlay .card { text-align: center; max-width: 420px; }
+    .overlay h2 { font-size: 48px; }
+  </style>
+</head>
+<body>
+  <section id="auth" class="screen on">
+    <div class="crest serif">M</div>
+    <div class="wordmark">The Morse table</div>
+    <h1 class="title">Morse Chess</h1>
+    <p class="sub">Claim a seat. Keep a score. Sit across from MorseBot or send a challenge across the room.</p>
+    <div class="panel">
+      <div class="tabs">
+        <button class="tab active" id="tab-in" type="button">Sign in</button>
+        <button class="tab" id="tab-up" type="button">Create account</button>
+      </div>
+      <label for="user">Username</label>
+      <input id="user" type="text" autocomplete="username" maxlength="18" placeholder="IvoryRook" />
+      <label for="mail">Email</label>
+      <input id="mail" type="email" autocomplete="email" placeholder="you@mail.com" />
+      <label for="pass">Password</label>
+      <input id="pass" type="password" autocomplete="current-password" placeholder="at least 8 characters" />
+      <div class="err" id="auth-err"></div>
+      <button class="btn" id="auth-go" type="button">Enter the club</button>
+      <button class="btn ghost" id="auth-x" type="button">Continue with X</button>
+      <button class="btn ghost" id="auth-g" type="button">Continue with Google</button>
+    </div>
+    <div id="splash" style="display:none;position:fixed;inset:0;place-items:center;background:rgba(12,13,11,.92);z-index:40">
+      <div class="crest serif" style="position:relative">M</div>
+    </div>
+  </section>
+
+  <section id="lounge" class="screen">
+    <header>
+      <div class="brand">
+        <div class="mark serif">M</div>
+        <div class="brand-title">Morse Chess</div>
+      </div>
+      <div class="who">
+        <span class="who-name" id="me-name"></span>
+        <span class="score-chip">Score <b id="me-score">0</b></span>
+        <button class="hdr-btn" id="theme-lounge" type="button">Light</button>
+        <button class="hdr-btn" id="signout" type="button">Sign out</button>
+      </div>
+    </header>
+    <main>
+      <p class="kicker">The lounge</p>
+      <h2 class="hero-line">Your board is waiting.</h2>
+      <p class="lede">Pull a random seat near your score, or send a named challenge. Timed games give each player one minute a turn. Beating a higher score pays more than beating a lower one. A loss costs more when they sit below you.</p>
+
+      <div class="grid-2">
+        <button class="felt" id="open-rand" type="button">
+          <div class="ico">♘</div>
+          <h3>Random pull-up</h3>
+          <p>Sit across from a player near your score. If the lounge is quiet, MorseBot holds the other chair.</p>
+        </button>
+        <button class="felt" id="open-int" type="button">
+          <div class="ico">♔</div>
+          <h3>Intended pull-up</h3>
+          <p>Type a club name. They see that you want to battle, and a yes seats you both at once.</p>
+        </button>
+      </div>
+      <button class="warmup" id="open-bot" type="button">♙ Warm up against MorseBot</button>
+      <button class="warmup" id="open-boards" type="button">Board</button>
+
+      <div class="lower">
+        <article class="card">
+          <h3>Challenges</h3>
+          <p>Messages land here the moment someone names you.</p>
+          <div class="inbox" id="inbox"></div>
+        </article>
+        <article class="card">
+          <h3>In the room</h3>
+          <div class="inbox" id="room"></div>
+        </article>
+      </div>
+      <p class="file-rail">a b c d e f g h</p>
+    </main>
+  </section>
+
+  <div class="modal" id="picker">
+    <div class="sheet">
+      <h2 id="picker-title">How do you want to play?</h2>
+      <div id="picker-modes">
+        <button class="choice" id="pick-timed" type="button">Timed<small>One minute each. Clock runs only on your turn.</small></button>
+        <button class="choice alt" id="pick-breeze" type="button">Breeze<small>No clock. Think as long as you like.</small></button>
+      </div>
+      <div id="picker-name" style="display:none">
+        <label for="target">Who sits across the board?</label>
+        <input id="target" type="text" placeholder="type their username" />
+        <button class="btn" id="send-chal" type="button">Send the challenge</button>
+      </div>
+      <button class="btn ghost" id="picker-close" type="button" style="margin-top:8px">Close</button>
+    </div>
+  </div>
+
+  <div class="modal" id="board-modal">
+    <div class="sheet">
+      <h2>Boards</h2>
+      <p class="muted" style="margin:0 0 12px">Lodge is yours from 0. Crimson and Mystery open at 100. Mystery stays sealed until you own it.</p>
+      <div id="board-list"></div>
+      <button class="btn ghost" id="board-close" type="button" style="margin-top:12px">Back</button>
+    </div>
+  </div>
+
+  <section id="play" class="screen">
+    <header>
+      <div class="brand">
+        <div class="mark serif">M</div>
+        <div class="brand-title">Morse Chess</div>
+      </div>
+      <div class="who">
+        <span class="who-name" id="play-meta"></span>
+        <button class="hdr-btn" id="view-2d" type="button">2D</button>
+        <button class="hdr-btn" id="view-3d" type="button">3D</button>
+        <button class="hdr-btn" id="theme-play" type="button">Light</button>
+        <button class="hdr-btn" id="resign" type="button">Resign</button>
+        <button class="hdr-btn" id="to-lounge" type="button">Lounge</button>
+      </div>
+    </header>
+    <div class="board-wrap">
+      <div class="stage">
+        <div id="board3d" aria-label="3D chess board"></div>
+        <div id="board2d" aria-label="2D chess board"></div>
+        <div class="view-hint">Drag to turn the table · scroll to zoom</div>
+        <div class="hud">
+          <div class="chip">
+            <div class="muted" id="opp-label">Opponent</div>
+            <b id="opp-name">MorseBot</b>
+            <div class="clock" id="opp-clock">—</div>
+          </div>
+          <div class="chip" style="text-align:right">
+            <div class="muted">You</div>
+            <b id="you-name">You</b>
+            <div class="clock" id="you-clock">—</div>
+            <div class="muted" id="turn-line"></div>
+          </div>
+        </div>
+        <aside id="chat-dock" style="position:absolute;right:12px;bottom:12px;width:min(100%,18rem);background:rgba(12,13,11,.88);border:1px solid rgba(196,176,138,.22);border-radius:14px;padding:10px;z-index:8">
+          <div id="chat-log" style="max-height:140px;overflow:auto;font-size:14px;color:var(--ivory)"></div>
+          <form id="chat-form" style="margin-top:8px">
+            <input id="chat-in" type="text" placeholder="Message…" maxlength="280" style="width:100%" />
+          </form>
+          <button class="btn forest" id="live-btn" type="button" style="margin-top:8px">Live</button>
+          <p id="live-status" class="muted" style="margin-top:6px;font-size:12px"></p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <div class="overlay" id="end">
+    <div class="card">
+      <div class="muted" id="end-kicker">Result</div>
+      <h2 id="end-title">Victory</h2>
+      <p class="muted" id="end-sub"></p>
+      <button class="btn forest" id="end-ok" type="button">Return to the lounge</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  const PIECES = {
+    K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
+    k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
+  };
+  const START = [
+    ["r","n","b","q","k","b","n","r"],
+    ["p","p","p","p","p","p","p","p"],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    ["P","P","P","P","P","P","P","P"],
+    ["R","N","B","Q","K","B","N","R"]
+  ];
+  const VAL = { p:100, n:320, b:330, r:500, q:900, k:20000 };
+
+  const db = {
+    load() {
+      try { return JSON.parse(localStorage.getItem("morse-club") || "{}"); }
+      catch { return {}; }
+    },
+    save(data) { localStorage.setItem("morse-club", JSON.stringify(data)); }
+  };
+
+  let state = db.load();
+  if (!state.users) state.users = {};
+  if (!state.challenges) state.challenges = [];
+  if (!state.session) state.session = null;
+  // House player always present
+  if (!state.users.morsebot) {
+    state.users.morsebot = { username: "MorseBot", pass: "__house__", score: 300 };
+  }
+  state.users.morsebot.score = 300;
+  if (!state.theme) state.theme = "dark";
+  db.save(state);
+
+  function applyTheme(theme) {
+    state.theme = theme;
+    document.documentElement.classList.toggle("light", theme === "light");
+    document.documentElement.classList.toggle("dark", theme !== "light");
+    const label = theme === "dark" ? "Light" : "Dark";
+    const a = document.getElementById("theme-lounge");
+    const b = document.getElementById("theme-play");
+    if (a) a.textContent = label;
+    if (b) b.textContent = label;
+    db.save(state);
+    if (typeof board3d !== "undefined" && board3d.ready && board3d.paintRoom) board3d.paintRoom();
+  }
+
+  const $ = (id) => document.getElementById(id);
+  let mode = "in";
+  let intendedMode = "breeze";
+  let game = null;
+  let tick = null;
+
+  function show(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.remove("on"));
+    $(id).classList.add("on");
+  }
+
+  function current() {
+    return state.session ? state.users[state.session] : null;
+  }
+
+  function persist() { db.save(state); }
+
+  function joe47Name(name) {
+    const s = String(name || "").toLowerCase();
+    return s.includes("joe") && s.includes("47");
+  }
+
+  const BOARDS = {
+    lodge: { id: "lodge", name: "Lodge", cost: 0, light: "#ead7b4", dark: "#2f5a44" },
+    crimson: { id: "crimson", name: "Crimson", cost: 100, light: "#2a0d10", dark: "#8a1218" },
+    mystery: { id: "mystery", name: "Mystery", cost: 100 }
+  };
+
+  function ownsBoard(me, id) {
+    if (!me) return false;
+    if (id === "lodge") return true;
+    if (id === "mystery" && joe47Name(me.username)) return true;
+    return (me.score || 0) >= (BOARDS[id].cost || 0);
+  }
+
+  function equippedBoard(me) {
+    const id = (me && me.board) || "lodge";
+    if (ownsBoard(me, id)) return BOARDS[id] || BOARDS.lodge;
+    return BOARDS.lodge;
+  }
+
+  function mysteryPair(t) {
+    const h1 = (t * 40) % 360;
+    const h2 = (h1 + 28) % 360;
+    return ["hsl(" + h1 + " 72% 46%)", "hsl(" + h2 + " 62% 18%)"];
+  }
+
+  function renderBoards() {
+    const me = current();
+    const box = $("board-list");
+    if (!box) return;
+    box.innerHTML = "";
+    Object.values(BOARDS).forEach((b) => {
+      const own = ownsBoard(me, b.id);
+      const using = (me.board || "lodge") === b.id;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "choice";
+      row.style.textAlign = "left";
+      if (b.id === "mystery" && !own) {
+        row.innerHTML = "<b>Mystery</b><small>Sealed until 100 score — or a name with joe and 47. No peek.</small>";
+        row.disabled = true;
+        row.style.opacity = "0.55";
+      } else if (b.id === "mystery") {
+        row.innerHTML = "<b>Mystery</b><small>Unlocked. Colors walk the spectrum.</small>";
+      } else if (b.id === "crimson") {
+        row.innerHTML = own
+          ? "<b>Crimson</b><small>Black and red. Open at 100.</small>"
+          : "<b>Crimson</b><small>Reach 100 to use the black and red table.</small>";
+        if (!own) { row.disabled = true; row.style.opacity = "0.55"; }
+      } else {
+        row.innerHTML = "<b>Lodge</b><small>The first Morse table.</small>";
+      }
+      if (using && own) row.style.outline = "2px solid #c4b08a";
+      if (own) {
+        row.onclick = () => {
+          me.board = b.id;
+          persist();
+          renderBoards();
+        };
+      }
+      box.appendChild(row);
+    });
+  }
+
+  $("tab-in").onclick = () => { mode = "in"; $("tab-in").classList.add("active"); $("tab-up").classList.remove("active"); $("auth-go").textContent = "Enter the club"; $("auth-err").textContent = ""; };
+  $("tab-up").onclick = () => { mode = "up"; $("tab-up").classList.add("active"); $("tab-in").classList.remove("active"); $("auth-go").textContent = "Create account"; $("auth-err").textContent = ""; };
+
+  function validEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function splashThen(fn) {
+    const el = $("splash");
+    el.style.display = "grid";
+    setTimeout(() => { el.style.display = "none"; fn(); }, 2800);
+  }
+
+  function finishAuth(key) {
+    state.session = key;
+    persist();
+    splashThen(enterLounge);
+  }
+
+  $("auth-go").onclick = () => {
+    const username = $("user").value.trim();
+    const email = ($("mail") ? $("mail").value : $("pass").value).trim().toLowerCase();
+    const password = $("pass").value;
+    const key = username.toLowerCase();
+    $("auth-err").textContent = "";
+    if (username.length < 8) return $("auth-err").textContent = "Username must be at least 8 characters.";
+    if (email.length < 8 || !validEmail(email)) return $("auth-err").textContent = "Email must be a real address of at least 8 characters.";
+    if (password.length < 8) return $("auth-err").textContent = "Password must be at least 8 characters.";
+    if (key === "morsebot") return $("auth-err").textContent = "That seat belongs to the house.";
+    if (mode === "up") {
+      if (state.users[key]) return $("auth-err").textContent = "That name is already claimed.";
+      state.users[key] = { username, email, pass: password, score: 0, board: "lodge" };
+      finishAuth(key);
+    } else {
+      const u = state.users[key];
+      if (!u || (u.pass !== password && (u.email || "").toLowerCase() !== email)) {
+        return $("auth-err").textContent = "Invalid email or password.";
+      }
+      finishAuth(key);
+    }
+  };
+
+  function socialSeat(prefix) {
+    const username = prefix + Math.floor(100000 + Math.random() * 900000);
+    const key = username.toLowerCase();
+    state.users[key] = { username, email: key + "@players.morsechess.app", pass: key, score: 0, board: "lodge" };
+    finishAuth(key);
+  }
+  if ($("auth-x")) $("auth-x").onclick = () => socialSeat("Xplayer");
+  if ($("auth-g")) $("auth-g").onclick = () => socialSeat("Gplayer");
+
+  $("signout").onclick = () => {
+    state.session = null;
+    persist();
+    $("pass").value = "";
+    show("auth");
+  };
+
+  function enterLounge() {
+    const me = current();
+    if (!me) return show("auth");
+    $("me-name").textContent = me.username;
+    $("me-score").textContent = me.score;
+    renderInbox();
+    renderRoom();
+    show("lounge");
+  }
+
+  function renderRoom() {
+    const box = $("room");
+    const names = Object.keys(state.users).filter((k) => k !== state.session);
+    box.innerHTML = "";
+    if (!names.length) {
+      box.innerHTML = '<div class="muted">The other chairs are empty.</div>';
+      return;
+    }
+    names.forEach((k) => {
+      const u = state.users[k];
+      const b = document.createElement("button");
+      b.className = "room-row";
+      b.type = "button";
+      b.innerHTML = `<b>${u.username}</b><span>${u.score}</span>`;
+      b.onclick = () => {
+        $("target").value = u.username;
+        openPicker("challenge");
+        $("picker-modes").style.display = "none";
+        $("picker-name").style.display = "block";
+        $("picker-title").textContent = "Who sits across the board?";
+        intendedMode = "timed";
+      };
+      box.appendChild(b);
+    });
+  }
+
+  function renderInbox() {
+    const me = current();
+    const list = state.challenges.filter((c) => c.to === state.session && c.status === "open");
+    const box = $("inbox");
+    if (!list.length) {
+      box.innerHTML = '<div class="muted">No one is waiting on you right now.</div>';
+      return;
+    }
+    box.innerHTML = "";
+    list.forEach((c) => {
+      const from = state.users[c.from];
+      const el = document.createElement("div");
+      el.className = "chal";
+      el.innerHTML = `<div><b>${from ? from.username : c.from}</b> wants to battle you in chess ${c.mode}.</div>`;
+      const yes = document.createElement("button");
+      yes.className = "btn forest";
+      yes.style.cssText = "width:auto;margin:0;padding:8px 12px";
+      yes.textContent = "Yes";
+      yes.onclick = () => acceptChallenge(c);
+      el.appendChild(yes);
+      box.appendChild(el);
+    });
+  }
+
+  let pickIntent = "bot";
+  function openPicker(intent) {
+    pickIntent = intent;
+    $("picker").classList.add("on");
+    $("picker-modes").style.display = "block";
+    $("picker-name").style.display = "none";
+    $("picker-title").textContent = "How do you want to play?";
+  }
+  $("open-rand").onclick = () => openPicker("random");
+  $("open-int").onclick = () => openPicker("challenge");
+  $("open-bot").onclick = () => openPicker("bot");
+  $("picker-close").onclick = () => $("picker").classList.remove("on");
+  function afterMode(m) {
+    intendedMode = m;
+    if (pickIntent === "bot") {
+      $("picker").classList.remove("on");
+      startGame({ mode: m, oppName: "MorseBot", oppKey: "morsebot", bot: true, rated: true });
+    } else if (pickIntent === "random") {
+      $("picker").classList.remove("on");
+      randomMatch(m);
+    } else {
+      $("picker-modes").style.display = "none";
+      $("picker-name").style.display = "block";
+      $("picker-title").textContent = "Who sits across the board?";
+      $("target").focus();
+    }
+  }
+  $("pick-timed").onclick = () => afterMode("timed");
+  $("pick-breeze").onclick = () => afterMode("breeze");
+  $("send-chal").onclick = () => {
+    const me = current();
+    const name = $("target").value.trim();
+    const key = name.toLowerCase();
+    if (!name) return;
+    if (key === state.session) return alert("You already have a chair.");
+    if (!state.users[key]) return alert("No member by that name. They need an account first.");
+    state.challenges.push({
+      id: Date.now(),
+      from: state.session,
+      to: key,
+      mode: intendedMode,
+      status: "open",
+      text: me.username + " wants to battle you in chess " + intendedMode
+    });
+    persist();
+    $("target").value = "";
+    $("picker").classList.remove("on");
+    alert("Slip sent to " + state.users[key].username + ".");
+    renderInbox();
+  };
+
+  function acceptChallenge(c) {
+    c.status = "accepted";
+    persist();
+    const from = state.users[c.from];
+    startGame({
+      mode: c.mode,
+      oppName: from.username,
+      oppKey: c.from,
+      bot: false,
+      rated: true
+    });
+  }
+
+  /* match starts from the lounge picker */
+
+  function randomMatch(m) {
+    const me = current();
+    const others = Object.keys(state.users).filter((k) => k !== state.session && k !== "morsebot");
+    let pick = others.find((k) => Math.abs(state.users[k].score - me.score) <= 16);
+    if (!pick) {
+      startGame({ mode: m, oppName: "MorseBot", oppKey: "morsebot", bot: true, rated: true });
+      return;
+    }
+    startGame({ mode: m, oppName: state.users[pick].username, oppKey: pick, bot: false, rated: true });
+  }
+
+  function cloneBoard(b) { return b.map((r) => r.slice()); }
+  function inB(r, c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+  function isWhite(p) { return p && p === p.toUpperCase(); }
+  function isBlack(p) { return p && p === p.toLowerCase() && p !== p.toUpperCase(); }
+
+  function findKing(board, white) {
+    const t = white ? "K" : "k";
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c] === t) return [r, c];
+    return null;
+  }
+
+  function attacked(board, r, c, byWhite) {
+    const pawnDir = byWhite ? -1 : 1;
+    for (const dc of [-1, 1]) {
+      const rr = r + pawnDir, cc = c + dc;
+      if (inB(rr, cc) && board[rr][cc] === (byWhite ? "P" : "p")) return true;
+    }
+    const n = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+    for (const [dr, dc] of n) {
+      const rr = r+dr, cc = c+dc;
+      if (inB(rr, cc) && board[rr][cc] === (byWhite ? "N" : "n")) return true;
+    }
+    const rays = [
+      [[-1,0],[1,0],[0,-1],[0,1], "r"],
+      [[-1,-1],[-1,1],[1,-1],[1,1], "b"]
+    ];
+    for (const group of rays) {
+      const kind = group[4];
+      for (let i = 0; i < 4; i++) {
+        const [dr, dc] = group[i];
+        for (let k = 1; k < 8; k++) {
+          const rr = r+dr*k, cc = c+dc*k;
+          if (!inB(rr, cc)) break;
+          const p = board[rr][cc];
+          if (!p) continue;
+          const w = isWhite(p);
+          if (w !== byWhite) break;
+          const t = p.toLowerCase();
+          if (t === kind || t === "q") return true;
+          break;
+        }
+      }
+    }
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!dr && !dc) continue;
+      const rr = r+dr, cc = c+dc;
+      if (inB(rr, cc) && board[rr][cc] === (byWhite ? "K" : "k")) return true;
+    }
+    return false;
+  }
+
+  function inCheck(board, white) {
+    const k = findKing(board, white);
+    if (!k) return true;
+    return attacked(board, k[0], k[1], !white);
+  }
+
+  function rawMoves(board, r, c) {
+    const p = board[r][c];
+    if (!p) return [];
+    const white = isWhite(p);
+    const t = p.toLowerCase();
+    const out = [];
+    const add = (rr, cc) => {
+      if (!inB(rr, cc)) return false;
+      const q = board[rr][cc];
+      if (!q) { out.push([rr, cc]); return true; }
+      if (isWhite(q) !== white) out.push([rr, cc]);
+      return false;
+    };
+    if (t === "p") {
+      const dir = white ? -1 : 1;
+      const start = white ? 6 : 1;
+      if (inB(r+dir, c) && !board[r+dir][c]) {
+        out.push([r+dir, c]);
+        if (r === start && !board[r+2*dir][c]) out.push([r+2*dir, c]);
+      }
+      for (const dc of [-1, 1]) {
+        const rr = r+dir, cc = c+dc;
+        if (inB(rr, cc) && board[rr][cc] && isWhite(board[rr][cc]) !== white) out.push([rr, cc]);
+      }
+    } else if (t === "n") {
+      [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dr,dc]) => add(r+dr,c+dc));
+    } else if (t === "k") {
+      for (let dr=-1; dr<=1; dr++) for (let dc=-1; dc<=1; dc++) if (dr||dc) add(r+dr,c+dc);
+    } else {
+      const dirs = t === "r" ? [[-1,0],[1,0],[0,-1],[0,1]]
+        : t === "b" ? [[-1,-1],[-1,1],[1,-1],[1,1]]
+        : [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+      dirs.forEach(([dr,dc]) => { for (let k=1;k<8;k++) if (!add(r+dr*k,c+dc*k)) break; });
+    }
+    return out;
+  }
+
+  function legalMoves(board, r, c, whiteTurn) {
+    const p = board[r][c];
+    if (!p || isWhite(p) !== whiteTurn) return [];
+    return rawMoves(board, r, c).filter(([rr, cc]) => {
+      const next = cloneBoard(board);
+      next[rr][cc] = next[r][c];
+      next[r][c] = null;
+      if (next[rr][cc] === "P" && rr === 0) next[rr][cc] = "Q";
+      if (next[rr][cc] === "p" && rr === 7) next[rr][cc] = "q";
+      return !inCheck(next, whiteTurn);
+    });
+  }
+
+  function allLegal(board, whiteTurn) {
+    const moves = [];
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+      legalMoves(board, r, c, whiteTurn).forEach(([rr,cc]) => moves.push({fr:r,fc:c,tr:rr,tc:cc}));
+    }
+    return moves;
+  }
+
+  function applyMove(board, m) {
+    const next = cloneBoard(board);
+    let piece = next[m.fr][m.fc];
+    next[m.tr][m.tc] = piece;
+    next[m.fr][m.fc] = null;
+    if (piece === "P" && m.tr === 0) next[m.tr][m.tc] = "Q";
+    if (piece === "p" && m.tr === 7) next[m.tr][m.tc] = "q";
+    return next;
+  }
+
+  function evalBoard(board) {
+    let s = 0;
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+      const p = board[r][c];
+      if (!p) continue;
+      const v = VAL[p.toLowerCase()] + (3 - Math.abs(3.5-r)) + (3 - Math.abs(3.5-c)) * 2;
+      s += isWhite(p) ? v : -v;
+    }
+    return s;
+  }
+
+  function botMove(board, whiteTurn) {
+    const moves = allLegal(board, whiteTurn);
+    if (!moves.length) return null;
+    let best = null, bestScore = whiteTurn ? -1e9 : 1e9;
+    for (const m of moves) {
+      const next = applyMove(board, m);
+      let score = evalBoard(next);
+      score += (Math.random() - 0.5) * 12;
+      if (whiteTurn ? score > bestScore : score < bestScore) {
+        bestScore = score;
+        best = m;
+      }
+    }
+    return best;
+  }
+
+  function startGame(opts) {
+    const me = current();
+    const youWhite = Math.random() < 0.5;
+    game = {
+      stamp: Date.now(),
+      board: cloneBoard(START),
+      whiteTurn: true,
+      youWhite,
+      mode: opts.mode,
+      bot: opts.bot,
+      rated: opts.rated,
+      oppName: opts.oppName,
+      oppKey: opts.oppKey,
+      youKey: state.session,
+      selected: null,
+      last: null,
+      over: false,
+      youMs: 60000,
+      oppMs: 60000,
+      lastStamp: Date.now()
+    };
+    $("you-name").textContent = me.username;
+    $("opp-name").textContent = opts.oppName;
+    $("play-meta").textContent = (opts.mode === "timed" ? "Timed · 1 min / turn" : "Breeze") + " · you are " + (youWhite ? "ivory" : "ebony");
+    $("end").classList.remove("on");
+    show("play");
+    drawBoard();
+    updateClocks();
+    if (tick) clearInterval(tick);
+    tick = setInterval(onTick, 200);
+    maybeBot();
+  }
+
+  function onTick() {
+    if (!game || game.over || game.mode !== "timed") return;
+    const now = Date.now();
+    const dt = now - game.lastStamp;
+    game.lastStamp = now;
+    const yourTurn = game.whiteTurn === game.youWhite;
+    if (yourTurn) game.youMs = Math.max(0, game.youMs - dt);
+    else game.oppMs = Math.max(0, game.oppMs - dt);
+    updateClocks();
+    if (yourTurn && game.youMs <= 0) finish(false, "flag");
+    if (!yourTurn && game.oppMs <= 0) finish(true, "flag");
+  }
+
+  function updateClocks() {
+    const fmt = (ms) => {
+      if (!game || game.mode !== "timed") return "—";
+      const s = Math.ceil(ms / 1000);
+      return "0:" + String(Math.max(0, s)).padStart(2, "0");
+    };
+    $("you-clock").textContent = fmt(game.youMs);
+    $("opp-clock").textContent = fmt(game.oppMs);
+    const yourTurn = game.whiteTurn === game.youWhite;
+    $("you-clock").classList.toggle("hot", yourTurn && !game.over);
+    $("opp-clock").classList.toggle("hot", !yourTurn && !game.over);
+    $("turn-line").textContent = game.over ? "Board closed." : (yourTurn ? "Your move." : "Waiting on the other chair.");
+  }
+
+  function sqName(r, c) { return "abcdefgh"[c] + (8 - r); }
+
+  function lathe(pairs) {
+    const pts = pairs.map(([x, y]) => new THREE.Vector2(x, y));
+    return new THREE.LatheGeometry(pts, 28);
+  }
+  function makeGeos() {
+    return {
+      p: lathe([[0,0],[0.32,0],[0.32,0.06],[0.2,0.1],[0.16,0.26],[0.2,0.3],[0.12,0.34],[0.14,0.4],[0.2,0.5],[0.18,0.58],[0.1,0.63],[0,0.64]]),
+      r: lathe([[0,0],[0.34,0],[0.34,0.08],[0.22,0.12],[0.2,0.52],[0.28,0.56],[0.28,0.72],[0.22,0.72],[0,0.72]]),
+      b: lathe([[0,0],[0.32,0],[0.32,0.07],[0.18,0.12],[0.14,0.4],[0.18,0.5],[0.12,0.62],[0.1,0.78],[0.06,0.86],[0.08,0.9],[0,0.92]]),
+      q: lathe([[0,0],[0.34,0],[0.34,0.08],[0.18,0.14],[0.16,0.46],[0.22,0.54],[0.16,0.62],[0.2,0.78],[0.12,0.86],[0.08,0.94],[0,0.96]]),
+      k: lathe([[0,0],[0.34,0],[0.34,0.08],[0.18,0.14],[0.16,0.5],[0.22,0.58],[0.16,0.66],[0.18,0.84],[0.12,0.9],[0,0.9]]),
+      nBase: lathe([[0,0],[0.32,0],[0.32,0.08],[0.2,0.12],[0.18,0.28],[0,0.28]])
+    };
+  }
+  function worldOf(r, c) {
+    return { x: c - 3.5, z: r - 3.5 };
+  }
+
+  const board3d = { ready: false };
+
+  function addKnight(group, mat) {
+    const mk = (w,h,d,x,y,z,rx) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+      m.position.set(x,y,z);
+      if (rx) m.rotation.x = rx;
+      m.castShadow = true;
+      group.add(m);
+    };
+    group.add(Object.assign(new THREE.Mesh(board3d.geos.nBase, mat), { castShadow: true }));
+    mk(0.22, 0.38, 0.34, 0, 0.42, 0.02, 0.15);
+    mk(0.2, 0.22, 0.3, 0, 0.62, 0.16, 0.55);
+    mk(0.16, 0.12, 0.16, 0, 0.72, 0.3, 0);
+    mk(0.08, 0.16, 0.1, 0.05, 0.86, 0.08, 0);
+  }
+
+  function pieceGroup(letter, mat) {
+    const g = new THREE.Group();
+    const t = letter.toLowerCase();
+    if (t === "n") addKnight(g, mat);
+    else {
+      const mesh = new THREE.Mesh(board3d.geos[t], mat);
+      mesh.castShadow = true;
+      g.add(mesh);
+      if (t === "k") {
+        const v = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), mat);
+        v.position.y = 0.98; v.castShadow = true; g.add(v);
+        const h = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.07), mat);
+        h.position.set(0, 1.02, 0); h.castShadow = true; g.add(h);
+      }
+      if (t === "q") {
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2;
+          const s = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 10), mat);
+          s.position.set(Math.cos(a) * 0.12, 0.98, Math.sin(a) * 0.12);
+          s.castShadow = true; g.add(s);
+        }
+      }
+      if (t === "r") {
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+          const m = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), mat);
+          m.position.set(Math.cos(a) * 0.22, 0.79, Math.sin(a) * 0.22);
+          m.castShadow = true; g.add(m);
+        }
+      }
+    }
+    return g;
+  }
+
+  function initBoard3D() {
+    if (board3d.ready) {
+      board3d.resize();
+      if (board3d.paintRoom) board3d.paintRoom();
+      return;
+    }
+    if (typeof THREE === "undefined") return;
+    const host = $("board3d");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#0c0d0b");
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 80);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    host.appendChild(renderer.domElement);
+
+    const hemi = new THREE.HemisphereLight("#efe6d4", "#24332c", 0.55);
+    const amb = new THREE.AmbientLight(0xffffff, 0.28);
+    scene.add(hemi);
+    scene.add(amb);
+    const sun = new THREE.DirectionalLight(0xfff6e8, 1.35);
+    sun.position.set(8, 14, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 40;
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -10;
+    sun.shadow.camera.right = sun.shadow.camera.top = 10;
+    scene.add(sun);
+
+    const felt = new THREE.Mesh(new THREE.CircleGeometry(11, 48), new THREE.MeshStandardMaterial({ color: "#24332c", roughness: 0.9 }));
+    felt.rotation.x = -Math.PI / 2;
+    felt.position.y = -0.28;
+    felt.receiveShadow = true;
+    scene.add(felt);
+    const table = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.28, 9.6), new THREE.MeshStandardMaterial({ color: "#3c261c", roughness: 0.58, metalness: 0.05 }));
+    table.position.y = -0.1;
+    table.receiveShadow = true;
+    scene.add(table);
+
+    const ivory = new THREE.MeshStandardMaterial({ color: "#fff6e8", roughness: 0.28, metalness: 0.08 });
+    const ebony = new THREE.MeshStandardMaterial({ color: "#050506", roughness: 0.22, metalness: 0.18 });
+    const geos = makeGeos();
+    const squares = [];
+    const dots = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const { x, z } = worldOf(r, c);
+        const light = (r + c) % 2 === 1;
+        const mat = new THREE.MeshStandardMaterial({ color: light ? "#ead7b4" : "#2f5a44", roughness: 0.62, metalness: 0.04 });
+        const tile = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.08, 0.98), mat);
+        tile.position.set(x, 0.04, z);
+        tile.receiveShadow = true;
+        tile.userData = { r, c };
+        scene.add(tile);
+        squares.push(tile);
+        const dot = new THREE.Mesh(new THREE.CircleGeometry(0.16, 22), new THREE.MeshBasicMaterial({ color: "#f3ead8", transparent: true, opacity: 0.88 }));
+        dot.rotation.x = -Math.PI / 2;
+        dot.position.set(x, 0.1, z);
+        dot.visible = false;
+        scene.add(dot);
+        dots.push(dot);
+      }
+    }
+
+    const piecesRoot = new THREE.Group();
+    scene.add(piecesRoot);
+
+    const ray = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const target = new THREE.Vector3(0, 0.2, 0);
+    const orbit = { theta: 0, phi: 0.92, dist: 18.8, dragging: false, moved: false, lastX: 0, lastY: 0 };
+    function applyOrbit() {
+      orbit.phi = Math.min(1.05, Math.max(0.55, orbit.phi));
+      orbit.dist = Math.min(18, Math.max(10, orbit.dist));
+      camera.position.set(
+        target.x + orbit.dist * Math.sin(orbit.phi) * Math.sin(orbit.theta),
+        target.y + orbit.dist * Math.cos(orbit.phi),
+        target.z + orbit.dist * Math.sin(orbit.phi) * Math.cos(orbit.theta)
+      );
+      camera.lookAt(target);
+    }
+    function pickSquare(e) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      ray.setFromCamera(pointer, camera);
+      const hits = ray.intersectObjects(squares, false);
+      if (hits[0]) {
+        const { r, c } = hits[0].object.userData;
+        onSquare(r, c);
+      }
+    }
+    host.addEventListener("pointerdown", (e) => {
+      orbit.dragging = true;
+      orbit.moved = false;
+      orbit.lastX = e.clientX;
+      orbit.lastY = e.clientY;
+      host.setPointerCapture(e.pointerId);
+    });
+    host.addEventListener("pointermove", (e) => {
+      if (!orbit.dragging) return;
+      const dx = e.clientX - orbit.lastX;
+      const dy = e.clientY - orbit.lastY;
+      if (Math.abs(dx) + Math.abs(dy) > 3) orbit.moved = true;
+      orbit.lastX = e.clientX;
+      orbit.lastY = e.clientY;
+      orbit.theta -= dx * 0.008;
+      orbit.phi -= dy * 0.008;
+      applyOrbit();
+    });
+    host.addEventListener("pointerup", (e) => {
+      if (!orbit.moved) pickSquare(e);
+      orbit.dragging = false;
+    });
+    host.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      orbit.dist += e.deltaY * 0.01;
+      applyOrbit();
+    }, { passive: false });
+
+    function resize() {
+      const w = host.clientWidth || 640;
+      const h = host.clientHeight || 520;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    }
+    window.addEventListener("resize", resize);
+
+    function look(youWhite) {
+      orbit.theta = youWhite ? 0 : Math.PI;
+      orbit.phi = 0.92;
+      orbit.dist = 18.8;
+      applyOrbit();
+    }
+    function paintRoom() {
+      const light = state.theme === "light";
+      scene.background = new THREE.Color(light ? "#f6f1e4" : "#0c0d0b");
+      felt.material.color.set(light ? "#4d7260" : "#24332c");
+      hemi.color.set(light ? "#fffaf1" : "#efe6d4");
+      hemi.groundColor.set(light ? "#8aa090" : "#24332c");
+      hemi.intensity = light ? 0.85 : 0.55;
+      amb.intensity = light ? 0.46 : 0.28;
+      sun.intensity = light ? 1.15 : 1.35;
+    }
+
+    function tick() {
+      const me = current();
+      if (game && !game.over && equippedBoard(me).id === "mystery" && board3d.squares) {
+        const pair = mysteryPair(Date.now() / 900);
+        board3d.squares.forEach((tile) => {
+          const { r, c } = tile.userData;
+          const king = findKing(game.board, game.whiteTurn);
+          const check = inCheck(game.board, game.whiteTurn);
+          if (check && king && king[0] === r && king[1] === c) return;
+          if (game.selected && game.selected[0] === r && game.selected[1] === c) return;
+          tile.material.color.set((r + c) % 2 === 1 ? pair[0] : pair[1]);
+        });
+      }
+      renderer.render(scene, camera);
+      board3d.raf = requestAnimationFrame(tick);
+    }
+
+    Object.assign(board3d, { ready: true, scene, camera, renderer, squares, dots, piecesRoot, ivory, ebony, geos, look, resize, tick, paintRoom, viewedFor: null });
+    resize();
+    paintRoom();
+    look(true);
+    tick();
+  }
+
+  function draw2d() {
+    const host = $("board2d");
+    if (!host || !game) return;
+    host.innerHTML = "";
+    const legal = new Set();
+    if (game.selected) legalMoves(game.board, game.selected[0], game.selected[1], game.youWhite).forEach(([tr, tc]) => legal.add(tr + "," + tc));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const vr = game.youWhite ? r : 7 - r;
+        const vc = game.youWhite ? c : 7 - c;
+        const cell = document.createElement("div");
+        const p = game.board[vr][vc];
+        cell.className = "sq2 " + ((vr + vc) % 2 ? "l" : "d");
+        if (game.selected && game.selected[0] === vr && game.selected[1] === vc) cell.classList.add("on");
+        cell.textContent = p ? PIECES[p] : "";
+        cell.style.color = p && isWhite(p) ? "#f4efe4" : "#050506";
+        if (p && !isWhite(p)) cell.style.textShadow = "0 0 0 #fff";
+        cell.onclick = () => onSquare(vr, vc);
+        host.appendChild(cell);
+      }
+    }
+  }
+
+  function drawBoard() {
+    draw2d();
+    initBoard3D();
+    if (!board3d.ready || !game) return;
+    const viewKey = game.youWhite + ":" + game.oppKey + ":" + game.youMs + ":" + (game.startedAt || 0);
+    if (board3d.viewedFor !== (game.stamp || 0)) {
+      board3d.look(game.youWhite);
+      board3d.viewedFor = game.stamp || 0;
+    }
+    const legal = new Set();
+    if (game.selected) {
+      legalMoves(game.board, game.selected[0], game.selected[1], game.youWhite).forEach(([tr, tc]) => legal.add(tr + "," + tc));
+    }
+    const king = findKing(game.board, game.whiteTurn);
+    const check = inCheck(game.board, game.whiteTurn);
+    board3d.squares.forEach((tile) => {
+      const { r, c } = tile.userData;
+      const light = (r + c) % 2 === 1;
+      const skin = equippedBoard(current());
+      let lightC = skin.light || "#ead7b4";
+      let darkC = skin.dark || "#2f5a44";
+      if (skin.id === "mystery") {
+        const pair = mysteryPair(Date.now() / 900);
+        lightC = pair[0];
+        darkC = pair[1];
+      }
+      let color = light ? lightC : darkC;
+      if (check && king && king[0] === r && king[1] === c) color = "#c44a3a";
+      else if (game.selected && game.selected[0] === r && game.selected[1] === c) color = "#d7c39a";
+      else if (game.last && ((game.last.fr === r && game.last.fc === c) || (game.last.tr === r && game.last.tc === c))) color = "#8a6a4e";
+      tile.material.color.set(color);
+    });
+    board3d.dots.forEach((dot, i) => {
+      const tile = board3d.squares[i];
+      const { r, c } = tile.userData;
+      dot.visible = legal.has(r + "," + c);
+    });
+    while (board3d.piecesRoot.children.length) {
+      board3d.piecesRoot.remove(board3d.piecesRoot.children[0]);
+    }
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = game.board[r][c];
+        if (!p) continue;
+        const g = pieceGroup(p, isWhite(p) ? board3d.ivory : board3d.ebony);
+        const { x, z } = worldOf(r, c);
+        const lift = game.selected && game.selected[0] === r && game.selected[1] === c ? 0.24 : 0;
+        g.position.set(x, 0.08 + lift, z);
+        if (p.toLowerCase() === "n") {
+          g.rotation.y = (isWhite(p) ? 0 : Math.PI) + (game.youWhite ? 0 : Math.PI);
+        }
+        board3d.piecesRoot.add(g);
+      }
+    }
+    board3d.resize();
+    updateClocks();
+  }
+
+  function onSquare(r, c) {
+    if (!game || game.over) return;
+    if (game.whiteTurn !== game.youWhite) return;
+    const p = game.board[r][c];
+    if (game.selected) {
+      const [sr, sc] = game.selected;
+      const ok = legalMoves(game.board, sr, sc, game.youWhite).some(([tr,tc]) => tr===r && tc===c);
+      if (ok) {
+        playMove({ fr: sr, fc: sc, tr: r, tc: c });
+        return;
+      }
+    }
+    if (p && isWhite(p) === game.youWhite) {
+      game.selected = [r, c];
+      drawBoard();
+    } else {
+      game.selected = null;
+      drawBoard();
+    }
+  }
+
+  function playMove(m) {
+    game.board = applyMove(game.board, m);
+    game.last = m;
+    game.selected = null;
+    game.whiteTurn = !game.whiteTurn;
+    if (game.mode === "timed") {
+      if (game.whiteTurn === game.youWhite) game.youMs = 60000;
+      else game.oppMs = 60000;
+      game.lastStamp = Date.now();
+    }
+    const moves = allLegal(game.board, game.whiteTurn);
+    const check = inCheck(game.board, game.whiteTurn);
+    drawBoard();
+    if (!moves.length) {
+      if (check) finish(game.whiteTurn !== game.youWhite, "mate");
+      else finish(null, "draw");
+      return;
+    }
+    maybeBot();
+  }
+
+  function maybeBot() {
+    if (!game || game.over || !game.bot) return;
+    if (game.whiteTurn === game.youWhite) return;
+    setTimeout(() => {
+      if (!game || game.over) return;
+      const m = botMove(game.board, game.whiteTurn);
+      if (!m) {
+        const check = inCheck(game.board, game.whiteTurn);
+        if (check) finish(true, "mate");
+        else finish(null, "draw");
+        return;
+      }
+      playMove(m);
+    }, 420);
+  }
+
+  function finish(youWin, why) {
+    if (!game || game.over) return;
+    game.over = true;
+    if (tick) clearInterval(tick);
+    const me = current();
+    const opp = game.oppKey ? state.users[game.oppKey] : null;
+    let delta = 0;
+    if (game.rated && youWin !== null) {
+      const myScore = me.score || 0;
+      const theirScore = opp ? opp.score || 0 : myScore;
+      const expected = 1 / (1 + Math.pow(10, (theirScore - myScore) / 400));
+      const K = 32;
+      const result = youWin === true ? 1 : 0;
+      delta = Math.round(K * (result - expected));
+      if (youWin === true && delta < 1) delta = 1;
+      if (youWin === false && delta > -1) delta = -1;
+      me.score = Math.max(0, myScore + delta);
+      if (opp) opp.score = Math.max(0, theirScore - delta);
+    }
+    persist();
+    $("end-kicker").textContent = why === "mate" ? "Checkmate" : why === "flag" ? "Flag fell" : why === "resign" ? "Resignation" : "Drawn board";
+    $("end-title").textContent = youWin === true ? "Victory" : youWin === false ? "Defeat" : "Draw";
+    $("end-sub").textContent = youWin === true
+      ? "The other chair yields. Score " + (delta >= 0 ? "+" : "") + delta + " · now " + me.score + "."
+      : youWin === false
+      ? "The table goes quiet. Score " + delta + " · now " + me.score + "."
+      : "Even pieces. Score unchanged · " + me.score + ".";
+    $("end").classList.add("on");
+    $("me-score").textContent = me.score;
+  }
+
+  $("resign").onclick = () => { if (game && !game.over) finish(false, "resign"); };
+  $("to-lounge").onclick = () => { if (tick) clearInterval(tick); enterLounge(); };
+  if ($("view-2d")) $("view-2d").onclick = () => { document.body.classList.add("flat"); };
+  if ($("view-3d")) $("view-3d").onclick = () => { document.body.classList.remove("flat"); };
+  if ($("chat-form")) $("chat-form").onsubmit = (e) => {
+    e.preventDefault();
+    const box = $("chat-log");
+    const text = $("chat-in").value.trim();
+    if (!text || !box) return;
+    const me = current();
+    const line = document.createElement("p");
+    line.textContent = (me ? me.username : "You") + ": " + text;
+    box.appendChild(line);
+    $("chat-in").value = "";
+    box.scrollTop = box.scrollHeight;
+  };
+  if ($("live-btn")) $("live-btn").onclick = async () => {
+    const status = $("live-status");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      window.__morseLive = stream;
+      if (status) status.textContent = "Live — mic open. They hear you on this table.";
+      $("live-btn").textContent = "On a call";
+    } catch {
+      if (status) status.textContent = "Allow the microphone to go live.";
+    }
+  };
+  $("end-ok").onclick = () => { $("end").classList.remove("on"); enterLounge(); };
+
+  $("pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("auth-go").click(); });
+  $("user").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pass").focus(); });
+  $("theme-lounge").onclick = () => applyTheme(state.theme === "dark" ? "light" : "dark");
+  $("theme-play").onclick = () => applyTheme(state.theme === "dark" ? "light" : "dark");
+  $("open-boards").onclick = () => { renderBoards(); $("board-modal").classList.add("on"); };
+  $("board-close").onclick = () => $("board-modal").classList.remove("on");
+  applyTheme(state.theme === "light" ? "light" : "dark");
+
+  show("auth");
+})();
+</script>
+</body>
+</html>

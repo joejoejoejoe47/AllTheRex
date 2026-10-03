@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dino Creator Tycoon Deluxe</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a2e1a;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 5px;
+        }
+        #stats-bar {
+            display: flex;
+            gap: 30px;
+            background: #2e4d2e;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1100px;
+        }
+        .panel {
+            background: #264026;
+            border: 2px solid #3e6b3e;
+            border-radius: 8px;
+            padding: 20px;
+            flex: 1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h2 {
+            border-bottom: 2px solid #3e6b3e;
+            padding-bottom: 8px;
+            margin-top: 0;
+            color: #81C784;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+            margin: 5px 0;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        .dino-card {
+            background: #1e331e;
+            border-left: 5px solid #81C784;
+            padding: 10px 15px;
+            margin-bottom: 12px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .dino-card img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid #4CAF50;
+        }
+        .dino-info h4 {
+            margin: 0 0 5px 0;
+            color: #A5D6A7;
+        }
+        .preview-container {
+            text-align: center;
+            background: #1e331e;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            border: 1px dashed #4CAF50;
+        }
+        #preview-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #81C784;
+            margin-top: 5px;
+        }
+        .log-box {
+            background: #111e11;
+            padding: 10px;
+            border-radius: 4px;
+            height: 120px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #A9DFBF;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🦕 Dino Creator Tycoon: Visual Edition</h1>
+    <p>Synthesize DNA, incubate magnificent dinosaurs, and grow your visual park!</p>
+
+    <div id="stats-bar">
+        <div>💵 Cash: $<span id="cash">100</span></div>
+        <div>🧬 DNA: <span id="dna">50</span></div>
+        <div>⭐ Park Rating: <span id="rating">0</span></div>
+    </div>
+
+    <div class="main-container">
+        <!-- Lab Panel -->
+        <div class="panel">
+            <h2>Genetics Lab</h2>
+            <p>Extract DNA from ancient fossils to fund your research.</p>
+            <button onclick="extractDNA()">Extract DNA (Cost: $10)</button>
+            <br><br>
+            <h2>Create Dinosaur</h2>
+            <label for="dino-type">Choose Species:</label>
+            <select id="dino-type" onchange="updatePreview()" style="width:100%; padding:8px; margin: 10px 0; border-radius:4px; background:#1e331e; color:white;">
+                <option value="Compys">Compsognathus (Cost: 20 DNA)</option>
+                <option value="Raptor">Velociraptor (Cost: 50 DNA)</option>
+                <option value="T-Rex">Tyrannosaurus Rex (Cost: 150 DNA)</option>
+            </select>
+            
+            <div class="preview-container">
+                <small style="color: #A5D6A7;">Species Preview:</small><br>
+                <img id="preview-img" src="" alt="Dino Preview">
+            </div>
+
+            <button onclick="incubateDino()">Hatch Dinosaur</button>
+        </div>
+
+        <!-- Park Enclosures Panel -->
+        <div class="panel">
+            <h2>Your Enclosures</h2>
+            <div id="dino-list" style="max-height: 280px; overflow-y: auto;">
+                <p style="color: #888;">No dinosaurs in the park yet. Hatch one!</p>
+            </div>
+            
+            <h2>Park Log</h2>
+            <div id="log" class="log-box">Welcome to your new Dinosaur Park! Start by extracting DNA.</div>
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let cash = 100;
+        let dna = 50;
+        let rating = 0;
+        let dinosaurs = [];
+
+        const dinoSpecies = {
+            "Compys": { 
+                dnaCost: 20, 
+                cashGen: 2, 
+                ratingGen: 1, 
+                name: "Compsognathus", 
+                img: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=200&q=80" 
+            },
+            "Raptor": { 
+                dnaCost: 50, 
+                cashGen: 8, 
+                ratingGen: 5, 
+                name: "Velociraptor", 
+                img: "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=200&q=80" 
+            },
+            "T-Rex": { 
+                dnaCost: 150, 
+                cashGen: 30, 
+                ratingGen: 20, 
+                name: "Tyrannosaurus Rex", 
+                img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=200&q=80" 
+            }
+        };
+
+        function updatePreview() {
+            const select = document.getElementById('dino-type');
+            const typeKey = select.value;
+            document.getElementById('preview-img').src = dinoSpecies[typeKey].img;
+        }
+
+        function logMessage(msg) {
+            const logBox = document.getElementById('log');
+            logBox.innerHTML += `<br>> ${msg}`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function updateUI() {
+            document.getElementById('cash').innerText = cash;
+            document.getElementById('dna').innerText = dna;
+            document.getElementById('rating').innerText = rating;
+        }
+
+        function extractDNA() {
+            if (cash >= 10) {
+                cash -= 10;
+                let gainedDNA = Math.floor(Math.random() * 15) + 10;
+                dna += gainedDNA;
+                logMessage(`Extracted fossil layers and found +${gainedDNA} DNA.`);
+                updateUI();
+            } else {
+                logMessage(`Not enough cash to extract DNA! Need $10.`);
+            }
+        }
+
+        function incubateDino() {
+            const select = document.getElementById('dino-type');
+            const typeKey = select.value;
+            const species = dinoSpecies[typeKey];
+
+            if (dna >= species.dnaCost) {
+                dna -= species.dnaCost;
+                dinosaurs.push({
+                    species: species.name,
+                    cashGen: species.cashGen,
+                    ratingGen: species.ratingGen,
+                    img: species.img
+                });
+                logMessage(`Successfully hatched a ${species.name}!`);
+                renderDinosaurs();
+                updateUI();
+            } else {
+                logMessage(`Not enough DNA to hatch a ${species.name}! Need ${species.dnaCost} DNA.`);
+            }
+        }
+
+        function renderDinosaurs() {
+            const listDiv = document.getElementById('dino-list');
+            if (dinosaurs.length === 0) {
+                listDiv.innerHTML = '<p style="color: #888;">No dinosaurs in the park yet. Hatch one!</p>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            dinosaurs.forEach((dino, index) => {
+                listDiv.innerHTML += `
+                    <div class="dino-card">
+                        <img src="${dino.img}" alt="${dino.species}">
+                        <div class="dino-info">
+                            <h4>#${index + 1} - ${dino.species}</h4>
+                            <small>Generates: $${dino.cashGen}/s | ⭐ +${dino.ratingGen} Rating</small>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Game Loop: Generates cash and rating every second
+        setInterval(() => {
+            if (dinosaurs.length > 0) {
+                let totalCashGen = 0;
+                let totalRatingGen = 0;
+
+                dinosaurs.forEach(dino => {
+                    totalCashGen += dino.cashGen;
+                    totalRatingGen += dino.ratingGen;
+                });
+
+                cash += totalCashGen;
+                rating = totalRatingGen;
+                updateUI();
+            }
+        }, 1000);
+
+        // Initialize preview image on load
+        updatePreview();
+        updateUI();
+    </script>
+</body>
+</html>

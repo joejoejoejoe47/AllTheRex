@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Mores Chess",
+      "hasCanvas": false,
+      "bodyTextLen": 53,
+      "bodyTextHash": "3b4e5a86536a05111038e04f841882f518924c80c0d92037e644da9cbe2c38e0",
+      "bodyTextPrefix": "MORES Opening the club Taking your seat at the board.",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Mores Chess",
+      "hasCanvas": false,
+      "bodyTextLen": 53,
+      "bodyTextHash": "3b4e5a86536a05111038e04f841882f518924c80c0d92037e644da9cbe2c38e0",
+      "bodyTextPrefix": "MORES Opening the club Taking your seat at the board.",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
