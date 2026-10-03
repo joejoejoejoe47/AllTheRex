@@ -3,11 +3,41 @@ declare(strict_types=1);
 
 function config_path(): string
 {
+    $outside = outside_config_path();
+    if (is_file($outside)) {
+        return $outside;
+    }
     return dirname(__DIR__) . '/config.php';
+}
+
+function outside_config_path(): string
+{
+    return dirname(__DIR__, 3) . '/morse-private/config.php';
+}
+
+function env_config(): ?array
+{
+    $name = trim((string) (getenv('MORSE_DB_NAME') ?: ''));
+    if ($name === '') {
+        return null;
+    }
+    return [
+        'driver' => 'mysql',
+        'db' => [
+            'host' => trim((string) (getenv('MORSE_DB_HOST') ?: 'localhost')) ?: 'localhost',
+            'name' => $name,
+            'user' => trim((string) (getenv('MORSE_DB_USER') ?: '')),
+            'pass' => (string) (getenv('MORSE_DB_PASS') ?: ''),
+        ],
+    ];
 }
 
 function app_config(): ?array
 {
+    $fromEnv = env_config();
+    if ($fromEnv !== null) {
+        return $fromEnv;
+    }
     $path = config_path();
     if (!is_file($path)) {
         return null;
@@ -65,8 +95,16 @@ function connect_config(array $cfg): PDO
 function write_config(array $cfg): void
 {
     $php = "<?php\ndeclare(strict_types=1);\nreturn " . var_export($cfg, true) . ";\n";
-    if (file_put_contents(config_path(), $php) === false) {
-        throw new RuntimeException('Could not save the club settings. Make this folder writable, then try again.');
+    $dir = dirname(outside_config_path());
+    $path = outside_config_path();
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    if (!is_dir($dir) || !is_writable($dir)) {
+        $path = dirname(__DIR__) . '/config.php';
+    }
+    if (file_put_contents($path, $php) === false) {
+        throw new RuntimeException('Could not save the club settings. Make the folder writable, then try again.');
     }
 }
 
