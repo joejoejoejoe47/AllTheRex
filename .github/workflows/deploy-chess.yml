@@ -13,15 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show where FTP actually is
-        env:
-          FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
-          FTP_USER: ${{ secrets.PLESK_FTP_USER }}
-          FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq lftp
-          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set cmd:trace no; pwd; echo '=== ROOT ==='; cls -1; echo '=== /alltherex ==='; cls -1 /alltherex || true; echo '=== /alltherex/chess ==='; cls -1 /alltherex/chess || true; echo '=== alltherex/chess ==='; cls -1 alltherex/chess || true; echo '=== httpdocs ==='; cls -1 httpdocs || true; echo '=== httpdocs/alltherex/chess ==='; cls -1 httpdocs/alltherex/chess || true; bye" "$FTP_HOST"
       - name: Upload chess folder
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
