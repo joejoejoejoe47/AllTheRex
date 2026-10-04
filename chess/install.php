@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once __DIR__ . "/lib/Db.php";
+require_once __DIR__ . "/lib/MorseDb.php";
 
 function schema(PDO $pdo): void
 {

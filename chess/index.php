@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . "/lib/Db.php";
+require_once __DIR__ . "/lib/MorseDb.php";
 if (!Db::ready()) {
     header("Location: install.php");
     exit;

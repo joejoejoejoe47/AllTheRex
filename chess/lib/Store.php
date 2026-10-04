@@ -1,7 +1,7 @@
 <?php
 
 require_once __DIR__ . "/Chess.php";
-require_once __DIR__ . "/Db.php";
+require_once __DIR__ . "/MorseDb.php";
 
 const BOT_ID = "bot-mores";
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
