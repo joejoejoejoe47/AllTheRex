@@ -22,7 +22,7 @@ jobs:
           protocol: ftp
           port: 21
           local-dir: ./chess/
-          server-dir: httpdocs/chess/
+          server-dir: alltherex/chess/
           exclude: |
             **/.git*
             **/.git*/**
