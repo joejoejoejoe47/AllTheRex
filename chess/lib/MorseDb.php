@@ -73,7 +73,7 @@ final class Db
                 ],
             ];
         }
-        foreach ([self::outsidePath(), dirname(__DIR__) . "/config.php"] as $file) {
+        foreach ([dirname(__DIR__) . "/data/config.php", self::outsidePath(), dirname(__DIR__) . "/config.php"] as $file) {
             if (!is_file($file)) {
                 continue;
             }
@@ -92,18 +92,22 @@ final class Db
 
     public static function write(array $flat): void
     {
+        $php = self::export($flat);
+        foreach ([dirname(__DIR__) . "/data/config.php", dirname(__DIR__) . "/config.php"] as $path) {
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            if (@file_put_contents($path, $php) !== false) {
+                return;
+            }
+        }
+        throw new RuntimeException("MANUAL\n" . $php);
+    }
+
+    public static function export(array $flat): string
+    {
         $cfg = ["driver" => "mysql", "db" => $flat];
-        $php = "<?php\ndeclare(strict_types=1);\nreturn " . var_export($cfg, true) . ";\n";
-        $path = self::outsidePath();
-        $dir = dirname($path);
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0750, true);
-        }
-        if (!is_dir($dir) || !is_writable($dir)) {
-            $path = dirname(__DIR__) . "/config.php";
-        }
-        if (file_put_contents($path, $php) === false) {
-            throw new RuntimeException("Could not save the database settings. Make the folder writable, then try again.");
-        }
+        return "<?php\ndeclare(strict_types=1);\nreturn " . var_export($cfg, true) . ";\n";
     }
 }

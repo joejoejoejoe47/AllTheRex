@@ -31,6 +31,7 @@ function schema(PDO $pdo): void
 }
 
 $error = "";
+$manual = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $c = [
         "host" => trim($_POST["host"] ?? "localhost"),
@@ -51,7 +52,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         header("Location: index.php");
         exit;
     } catch (Throwable $err) {
-        $error = $err->getMessage();
+        $message = $err->getMessage();
+        if (strncmp($message, "MANUAL\n", 7) === 0) {
+            $manual = substr($message, 7);
+            $error = "The tables were created, but PHP is not allowed to change files here. In File Manager open config.php, replace the whole file with the text below, save, then open the chess page.";
+        } else {
+            $error = $message;
+        }
     }
 }
 ?>
@@ -69,6 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <h1>Install Morse Chess</h1>
     <p class="muted">Create a MySQL database in Plesk first, then enter it here. Settings are saved outside this Git folder.</p>
     <?php if ($error): ?><p class="error"><?= htmlspecialchars($error) ?></p><?php endif; ?>
+    <?php if ($manual): ?><textarea readonly rows="16"><?= htmlspecialchars($manual) ?></textarea><?php endif; ?>
     <form method="post" class="stack">
       <label>Host <input name="host" value="localhost" required /></label>
       <label>Database <input name="name" required /></label>
