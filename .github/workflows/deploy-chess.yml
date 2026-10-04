@@ -13,18 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Upload chess folder
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.PLESK_FTP_HOST }}
-          username: ${{ secrets.PLESK_FTP_USER }}
-          password: ${{ secrets.PLESK_FTP_PASSWORD }}
-          protocol: ftp
-          port: 21
-          local-dir: ./chess/
-          server-dir: /alltherex/chess/
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/config.php
-            **/installed.lock
+      - name: Upload into the chess folder that has config.php
+        env:
+          FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          FTP_USER: ${{ secrets.PLESK_FTP_USER }}
+          FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set cmd:fail-exit no; set net:max-retries 2; echo CHECK-ROOT-CHESS; cls -1 chess/config.php; echo CHECK-SITE-CHESS; cls -1 alltherex/chess/config.php; lcd chess; mirror -R --no-perms --exclude config.php --exclude-glob .git* --exclude-glob ._* --exclude-glob __MACOSX/** . chess; mirror -R --no-perms --exclude config.php --exclude-glob .git* --exclude-glob ._* --exclude-glob __MACOSX/** . alltherex/chess; bye" "$FTP_HOST"
