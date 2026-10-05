@@ -1,0 +1,54 @@
+name: Build Morse Chess site
+
+# Builds the React client from joejoejoejoe47/morse-chess (php-port), assembles the PHP
+# site and commits it into chess/. Run it by hand whenever the source branch changes.
+# It never touches main, so nothing is uploaded to Plesk until you merge.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branch of joejoejoejoe47/morse-chess to build"
+        default: "php-port"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: joejoejoejoe47/morse-chess
+          ref: ${{ inputs.source_ref }}
+          path: mc
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install
+        working-directory: mc
+        run: npm install --no-audit --no-fund
+      - name: Build
+        working-directory: mc
+        run: npm run build
+      - name: Assemble PHP site
+        working-directory: mc
+        run: bash scripts/assemble-php.sh
+      - name: PHP tests
+        working-directory: mc
+        run: for t in php/tests/*Test.php; do php "$t"; done
+      - name: Copy into chess/
+        run: |
+          cp -R mc/site/. chess/
+          rm -f chess/site.zip
+          rm -rf mc
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A chess
+          git diff --cached --quiet && { echo "No changes."; exit 0; }
+          git commit -m "Build Morse Chess front end from morse-chess@${{ inputs.source_ref }}"
+          git push

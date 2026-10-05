@@ -1,90 +1,107 @@
 <?php
-session_start();
-require_once __DIR__ . "/lib/MorseDb.php";
 
-function schema(PDO $pdo): void
+declare(strict_types=1);
+
+/**
+ * One-page installer. Enter the MySQL details Plesk gave you; it tests them,
+ * creates the tables, and saves app/.env. If PHP is not allowed to write that
+ * file (a common Plesk permission setup) it shows the exact text to paste into
+ * app/.env yourself — the tables are still created. DELETE THIS FILE afterwards.
+ */
+
+$appDir = is_dir(__DIR__ . '/app/src') ? __DIR__ . '/app' : dirname(__DIR__);
+require $appDir . '/src/bootstrap.php';
+
+use Morse\Config;
+use Morse\Db;
+
+function h(string $s): string
 {
-    $pdo->exec("create table if not exists mc_users (
-        id varchar(32) primary key,
-        username varchar(20) not null,
-        username_lc varchar(20) not null unique,
-        password_hash varchar(255) not null,
-        score int not null default 1200,
-        coins int not null default 0,
-        equipped_board varchar(40) not null default 'lodge',
-        owned_boards varchar(255) not null default '',
-        created_at timestamp default current_timestamp
-    ) engine=InnoDB default charset=utf8mb4");
-    $pdo->exec("create table if not exists mc_games (
-        id varchar(16) primary key,
-        white_id varchar(32) not null,
-        black_id varchar(32) not null default '',
-        fen text not null,
-        status varchar(20) not null default 'active',
-        last_from varchar(2) null,
-        last_to varchar(2) null,
-        winner_id varchar(32) null,
-        created_at timestamp default current_timestamp
-    ) engine=InnoDB default charset=utf8mb4");
-    $pdo->prepare("insert ignore into mc_users (id, username, username_lc, password_hash, score) values ('bot-mores', 'MorseBot', 'moresbot', '-', 1200)")
-        ->execute();
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
-$error = "";
-$manual = "";
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $c = [
-        "host" => trim($_POST["host"] ?? "localhost"),
-        "name" => trim($_POST["name"] ?? ""),
-        "user" => trim($_POST["user"] ?? ""),
-        "pass" => (string) ($_POST["pass"] ?? ""),
-        "port" => (int) ($_POST["port"] ?? 3306),
-    ];
+$envPath = $appDir . '/.env';
+$error = '';
+$manual = '';
+$done = false;
+
+// Already configured and working? Do not let a stranger re-point the site.
+$already = false;
+if (is_file($envPath) || getenv('DB_NAME') !== false) {
     try {
-        $pdo = new PDO(
-            "mysql:host={$c["host"]};port={$c["port"]};dbname={$c["name"]};charset=utf8mb4",
-            $c["user"],
-            $c["pass"],
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
-        schema($pdo);
-        Db::write($c);
-        header("Location: index.php");
-        exit;
-    } catch (Throwable $err) {
-        $message = $err->getMessage();
-        if (strncmp($message, "MANUAL\n", 7) === 0) {
-            $manual = substr($message, 7);
-            $error = "The tables were created, but PHP is not allowed to change files here. In File Manager open config.php, replace the whole file with the text below, save, then open the chess page.";
-        } else {
-            $error = $message;
-        }
+        Db::pdo();
+        $already = true;
+    } catch (Throwable $e) {
+        $already = false;
     }
 }
-?>
-<!doctype html>
+
+if (!$already && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $v = [
+        'DB_DRIVER' => 'mysql',
+        'DB_HOST' => trim((string) ($_POST['host'] ?? 'localhost')) ?: 'localhost',
+        'DB_PORT' => (string) ((int) ($_POST['port'] ?? 3306) ?: 3306),
+        'DB_NAME' => trim((string) ($_POST['name'] ?? '')),
+        'DB_USER' => trim((string) ($_POST['user'] ?? '')),
+        'DB_PASS' => (string) ($_POST['pass'] ?? ''),
+    ];
+    try {
+        foreach ($v as $k => $val) {
+            putenv("$k=$val");
+        }
+        Db::pdo();
+        Db::ensureSchema(true);
+        $lines = ["# Written by install.php"];
+        foreach ($v as $k => $val) {
+            $lines[] = $k . '=' . (preg_match('/[\s#"\']/', $val) ? '"' . str_replace('"', '\\"', $val) . '"' : $val);
+        }
+        $lines[] = 'APP_DEBUG=0';
+        $text = implode("\n", $lines) . "\n";
+        if (@file_put_contents($envPath, $text) === false) {
+            $manual = $text;
+            $error = 'The tables were created, but PHP is not allowed to write app/.env. In Plesk File Manager open the app folder, create a file named .env, paste the text below into it and save.';
+        } else {
+            @chmod($envPath, 0640);
+            $done = true;
+        }
+    } catch (Throwable $e) {
+        $error = $e->getMessage();
+    }
+}
+?><!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Install Morse Chess</title>
-  <link rel="stylesheet" href="assets/app.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Morse Chess</title>
+<style>
+  body{font:16px/1.5 system-ui,sans-serif;background:#0c0d0b;color:#efe9da;margin:0;display:grid;place-items:center;min-height:100vh}
+  main{width:min(92vw,30rem);background:#171813;border:1px solid #3a3a2c;border-radius:14px;padding:1.6rem}
+  h1{margin:.2rem 0 1rem;font-weight:600} label{display:block;margin:.7rem 0 .2rem;color:#c9bd98;font-size:.9rem}
+  input{width:100%;box-sizing:border-box;padding:.6rem;border-radius:8px;border:1px solid #4a4a38;background:#0c0d0b;color:inherit}
+  button{margin-top:1.1rem;width:100%;padding:.7rem;border:0;border-radius:8px;background:#c9a24b;color:#16140d;font-weight:700;cursor:pointer}
+  .err{background:#3a1b1b;border:1px solid #7a3333;padding:.7rem;border-radius:8px} .ok{background:#1b3a22;border:1px solid #337a44;padding:.7rem;border-radius:8px}
+  textarea{width:100%;box-sizing:border-box;height:11rem;margin-top:.6rem;background:#0c0d0b;color:inherit;border:1px solid #4a4a38;border-radius:8px;padding:.6rem;font:13px/1.4 ui-monospace,monospace}
+  .muted{color:#9c9577;font-size:.9rem}
+</style>
 </head>
-<body>
-  <main class="card">
-    <p class="eyebrow">Plesk</p>
-    <h1>Install Morse Chess</h1>
-    <p class="muted">Create a MySQL database in Plesk first, then enter it here. Settings are saved outside this Git folder.</p>
-    <?php if ($error): ?><p class="error"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-    <?php if ($manual): ?><textarea readonly rows="16"><?= htmlspecialchars($manual) ?></textarea><?php endif; ?>
-    <form method="post" class="stack">
-      <label>Host <input name="host" value="localhost" required /></label>
-      <label>Database <input name="name" required /></label>
-      <label>User <input name="user" required /></label>
-      <label>Password <input name="pass" type="password" /></label>
-      <label>Port <input name="port" value="3306" /></label>
-      <button type="submit">Create tables</button>
-    </form>
-  </main>
-</body>
-</html>
+<body><main>
+<h1>Install Morse Chess</h1>
+<?php if ($already): ?>
+  <p class="ok">Already installed — the database connects. Delete <code>install.php</code> from the server, then open the club.</p>
+<?php elseif ($done): ?>
+  <p class="ok">Done. Tables created and settings saved. Delete <code>install.php</code>, then open the club.</p>
+<?php else: ?>
+  <p class="muted">Create a MySQL database and user in Plesk first (Databases → Add Database), then enter them here. The host is usually <code>localhost</code>.</p>
+  <?php if ($error): ?><p class="err"><?= h($error) ?></p><?php endif; ?>
+  <?php if ($manual): ?><textarea readonly onclick="this.select()"><?= h($manual) ?></textarea><?php endif; ?>
+  <form method="post">
+    <label>Host <input name="host" value="localhost" required></label>
+    <label>Database name <input name="name" required></label>
+    <label>Database user <input name="user" required></label>
+    <label>Password <input name="pass" type="password"></label>
+    <label>Port <input name="port" value="3306"></label>
+    <button type="submit">Create tables &amp; save</button>
+  </form>
+<?php endif; ?>
+</main></body></html>
