@@ -2,9 +2,13 @@ name: Build Morse Chess site
 
 # Builds the React client from joejoejoejoe47/morse-chess (php-port), assembles the PHP
 # site and commits it into chess/. Run it by hand whenever the source branch changes.
+# Push a change to chess/BUILD_TRIGGER (or this file) on the php-chess-site branch to rebuild.
 # It never touches main, so nothing is uploaded to Plesk until you merge.
 
 on:
+  push:
+    branches: [php-chess-site]
+    paths: [".github/workflows/build-chess.yml", "chess/BUILD_TRIGGER"]
   workflow_dispatch:
     inputs:
       source_ref:
@@ -22,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: joejoejoejoe47/morse-chess
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ inputs.source_ref || 'php-port' }}
           path: mc
       - uses: actions/setup-node@v4
         with:
@@ -50,5 +54,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A chess
           git diff --cached --quiet && { echo "No changes."; exit 0; }
-          git commit -m "Build Morse Chess front end from morse-chess@${{ inputs.source_ref }}"
+          git commit -m "Build Morse Chess front end from morse-chess@${{ inputs.source_ref || 'php-port' }}"
           git push
