@@ -1,21 +1,22 @@
-# Morse Chess for Plesk
+# Morse Chess on Plesk (alltherex.com/chess)
 
-This folder is what Plesk serves at `alltherex.com/chess`. The Node app cannot run there.
+The full Morse Chess club — 3D boards, avatar studio, clubs and tournaments, MorseBot,
+Morse coins, Elo, timed games and calls — as a static React build served by a PHP
+backend. Nothing runs on Node at the server.
 
-1. In Plesk, create a MySQL database and a user that can use it.
-2. Pull this repository so `chess/` is on the site.
-3. Open `https://alltherex.com/chess/install.php` once and enter the database.
-4. Settings are saved in `morse-private/config.php`, one folder above the site, so a later pull does not wipe them.
+* `index.php`, `install.php`, `.htaccess` — front controller, one-page installer, rewrites
+* `app/` — PHP code, schema and settings (blocked from the web; `app/.env` holds the database login and is never committed)
+* everything else — the built front end (`index.html`, `assets/`, 3D models, textures)
 
-If that folder cannot be written, set these in Plesk instead:
+## First install
+1. Plesk → Databases → add a MySQL database and user.
+2. Open `https://alltherex.com/chess/install.php`, enter them. It creates the tables and saves `app/.env`.
+   If PHP may not write that file, the page shows the exact text — create `app/.env` in File Manager and paste it.
+3. Delete `install.php` from the server.
 
-```
-MORSE_DB_HOST=localhost
-MORSE_DB_NAME=the database name
-MORSE_DB_USER=the database user
-MORSE_DB_PASS=the database password
-```
+Needs PHP 8.1+ with pdo_mysql, served over HTTPS.
 
-PHP 8 and `pdo_mysql` are required.
-
-Accounts, Morse coins, board colors, MorseBot, and friend games by code work here. The 3D colosseum and avatar studio stay on the Node app.
+## Where the front end comes from
+The React source lives in `joejoejoejoe47/morse-chess` (branch `php-port`). The workflow
+`.github/workflows/build-chess.yml` builds it and commits the result into this folder
+(Actions → "Build Morse Chess site" → Run workflow). The PHP files here are refreshed from the same branch.

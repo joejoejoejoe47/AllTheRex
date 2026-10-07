@@ -1,0 +1,3 @@
+app/.env
+app/storage/*
+!app/storage/.gitignore
