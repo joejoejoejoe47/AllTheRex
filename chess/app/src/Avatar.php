@@ -43,7 +43,8 @@ final class Avatar
      */
     private static function clampLoadout(array $loadout, array $owned): array
     {
-        $keep = static fn (string $id, string $fallback): string => Catalog::isKnownGear($id) ? $id : $fallback;
+        $keep = static fn (string $id, string $fallback): string
+            => (in_array($id, $owned, true) || Catalog::gearPrice($id) === 0) ? $id : $fallback;
         return array_merge($loadout, [
             'anId' => $keep($loadout['anId'], 'knight'),
             'kingId' => $keep($loadout['kingId'], 'piece'),
@@ -96,7 +97,11 @@ final class Avatar
                 throw new RpcError('Claim a username before dressing the king.');
             }
             $next = self::clampLoadout($wanted, $current['owned']);
-            $next['style'] = $wanted['style'];
+            $style = $wanted['style'];
+            if ($style === 'ra' && !in_array('royal', $current['owned'], true)) {
+                $style = $current['loadout']['style'] === 'ra' ? '3d' : $current['loadout']['style'];
+            }
+            $next['style'] = $style;
             Db::run(
                 'UPDATE profiles SET avatar_json = ?, piece_style = ? WHERE user_id = ?',
                 [json_encode($next, JSON_UNESCAPED_SLASHES), $next['style'], $userId]
@@ -110,6 +115,12 @@ final class Avatar
     {
         $style = $data['style'] ?? null;
         $style = in_array($style, ['2d', 'an', 'ra'], true) ? $style : '3d';
+        if ($style === 'ra') {
+            $current = self::readRow($userId);
+            if ($current === null || !in_array('royal', $current['owned'], true)) {
+                throw new RpcError('RA costs 200 Morse coins.');
+            }
+        }
         Db::run('UPDATE profiles SET piece_style = ? WHERE user_id = ?', [$style, $userId]);
         return ['style' => $style];
     }
@@ -127,14 +138,23 @@ final class Avatar
                 throw new RpcError('Claim a username first.');
             }
             $owned = $current['owned'];
-            if (!in_array($id, $owned, true)) {
-                $owned[] = $id;
-                Db::run(
-                    'UPDATE profiles SET owned_gear = ? WHERE user_id = ?',
-                    [implode(',', $owned), $userId]
-                );
+            $price = Catalog::gearPrice($id);
+            if (in_array($id, $owned, true) || $price === 0) {
+                return $current;
             }
-            return array_merge($current, ['owned' => $owned]);
+            if ($current['coins'] < $price) {
+                throw new RpcError("That costs {$price} Morse coins.");
+            }
+            $owned[] = $id;
+            // Conditional update: two parallel purchases cannot both spend the same coins.
+            $changed = Db::run(
+                'UPDATE profiles SET coins = coins - ?, owned_gear = ? WHERE user_id = ? AND coins >= ?',
+                [$price, implode(',', $owned), $userId, $price]
+            );
+            if ($changed === 0) {
+                throw new RpcError("That costs {$price} Morse coins.");
+            }
+            return array_merge($current, ['coins' => $current['coins'] - $price, 'owned' => $owned]);
         });
     }
 }
