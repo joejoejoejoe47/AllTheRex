@@ -43,8 +43,7 @@ final class Avatar
      */
     private static function clampLoadout(array $loadout, array $owned): array
     {
-        $keep = static fn (string $id, string $fallback): string
-            => (in_array($id, $owned, true) || Catalog::gearPrice($id) === 0) ? $id : $fallback;
+        $keep = static fn (string $id, string $fallback): string => Catalog::isKnownGear($id) ? $id : $fallback;
         return array_merge($loadout, [
             'anId' => $keep($loadout['anId'], 'knight'),
             'kingId' => $keep($loadout['kingId'], 'piece'),
@@ -128,23 +127,14 @@ final class Avatar
                 throw new RpcError('Claim a username first.');
             }
             $owned = $current['owned'];
-            $price = Catalog::gearPrice($id);
-            if (in_array($id, $owned, true) || $price === 0) {
-                return $current;
+            if (!in_array($id, $owned, true)) {
+                $owned[] = $id;
+                Db::run(
+                    'UPDATE profiles SET owned_gear = ? WHERE user_id = ?',
+                    [implode(',', $owned), $userId]
+                );
             }
-            if ($current['coins'] < $price) {
-                throw new RpcError("That costs {$price} Morse coins.");
-            }
-            $owned[] = $id;
-            // Conditional update: two parallel purchases cannot both spend the same coins.
-            $changed = Db::run(
-                'UPDATE profiles SET coins = coins - ?, owned_gear = ? WHERE user_id = ? AND coins >= ?',
-                [$price, implode(',', $owned), $userId, $price]
-            );
-            if ($changed === 0) {
-                throw new RpcError("That costs {$price} Morse coins.");
-            }
-            return array_merge($current, ['coins' => $current['coins'] - $price, 'owned' => $owned]);
+            return array_merge($current, ['owned' => $owned]);
         });
     }
 }

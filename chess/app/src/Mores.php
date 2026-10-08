@@ -1383,18 +1383,12 @@ final class Mores
             if (in_array($board['id'], $owned, true)) {
                 return ['ok' => true, 'coins' => $purse, 'owned' => $owned];
             }
-            if ($purse < $price) {
-                return ['ok' => false, 'error' => 'You need ' . number_format($price) . ' coins. You have ' . number_format($purse) . '.'];
-            }
             $next = [...$owned, $board['id']];
-            $changed = Db::run(
-                'UPDATE profiles SET coins = coins - ?, owned_boards = ? WHERE user_id = ? AND coins >= ?',
-                [$price, implode(',', $next), $userId, $price]
+            Db::run(
+                'UPDATE profiles SET owned_boards = ? WHERE user_id = ?',
+                [implode(',', $next), $userId]
             );
-            if ($changed === 0) {
-                return ['ok' => false, 'error' => 'You need ' . number_format($price) . ' coins. You have ' . number_format($purse) . '.'];
-            }
-            return ['ok' => true, 'coins' => $purse - $price, 'owned' => $next];
+            return ['ok' => true, 'coins' => $purse, 'owned' => $next];
         });
     }
 
@@ -1407,10 +1401,13 @@ final class Mores
         }
         $board = Catalog::boardById(self::str($data, 'boardId'));
         $owned = self::ownedList($me['owned_boards']);
-        if (!Catalog::boardUnlocked($me['score'], $board, $owned)) {
-            $coin = (int) ($board['coinCost'] ?? 0);
+        $coin = (int) ($board['coinCost'] ?? 0);
+        if ($coin > 0 && !in_array($board['id'], $owned, true)) {
+            $owned[] = $board['id'];
+            Db::run('UPDATE profiles SET owned_boards = ? WHERE user_id = ?', [implode(',', $owned), $userId]);
+        } elseif (!Catalog::boardUnlocked($me['score'], $board, $owned)) {
             $name = (string) ($board['name'] ?? $board['id']);
-            throw new RpcError($coin > 0 ? "Buy {$name} with {$coin} coins." : "Reach {$board['cost']} Elo to sit at {$name}.");
+            throw new RpcError("Reach {$board['cost']} Elo to sit at {$name}.");
         }
         Db::run('UPDATE profiles SET equipped_board = ? WHERE user_id = ?', [$board['id'], $userId]);
         return ['equippedBoard' => $board['id'], 'score' => $me['score']];
