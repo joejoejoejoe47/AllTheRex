@@ -46,6 +46,7 @@ jobs:
       - name: Copy into chess/
         run: |
           cp -R mc/site/. chess/
+          rm -f chess/index.html
           rm -f chess/site.zip
           rm -rf mc
       - name: Commit
