@@ -136,6 +136,19 @@
         "cost": 0,
         "coinCost": 80,
         "sealed": false
+      },
+      {
+        "id": "rocco",
+        "name": "Rocco's special cool board",
+        "cost": 0,
+        "coinCost": 10,
+        "sealed": false
+      }
+    ],
+    "giftBoards": [
+      {
+        "username": "Rooko2014",
+        "boardId": "rocco"
       }
     ]
   },
@@ -167,7 +180,7 @@
         },
         {
           "id": "royal",
-          "price": 150
+          "price": 200
         },
         {
           "id": "pirate",
@@ -191,7 +204,7 @@
         },
         {
           "id": "hooded",
-          "price": 7
+          "price": 0
         }
       ],
       "swords": [
@@ -206,6 +219,10 @@
         {
           "id": "talwar",
           "price": 4
+        },
+        {
+          "id": "rook",
+          "price": 5
         }
       ],
       "crowns": [
@@ -214,12 +231,12 @@
           "price": 0
         },
         {
-          "id": "arched",
-          "price": 5
+          "id": "halo",
+          "price": 4
         },
         {
-          "id": "laurel",
-          "price": 4
+          "id": "royal-crown",
+          "price": 6
         }
       ],
       "mounts": [
@@ -228,12 +245,8 @@
           "price": 0
         },
         {
-          "id": "horse",
+          "id": "dog",
           "price": 8
-        },
-        {
-          "id": "cow",
-          "price": 6
         }
       ],
       "frames": [
@@ -291,7 +304,9 @@
         "from": [
           "circlet",
           "sun",
-          "poly-arch"
+          "poly-arch",
+          "arched",
+          "laurel"
         ],
         "to": "poly-band"
       },

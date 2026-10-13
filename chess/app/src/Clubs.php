@@ -385,16 +385,21 @@ final class Clubs
             "UPDATE games SET status = ?, winner_user_id = ?, scored = 1 WHERE id = ? AND status = 'active'",
             [$status, $winnerUserId, $gameId]
         );
-        if ($changed === 0 || !$winnerUserId) {
+        if ($changed === 0) {
+            return;
+        }
+        // Every finished game pays both players 2 Morse coins, draws included.
+        foreach ([(string) $game['white_user_id'], (string) $game['black_user_id']] as $uid) {
+            if ($uid !== '' && !Constants::isBotUserId($uid)) {
+                Mores::countFinishedGame($uid);
+            }
+        }
+        if (!$winnerUserId) {
             return;
         }
         $loser = $winnerUserId === $game['white_user_id'] ? $game['black_user_id'] : $game['white_user_id'];
         Db::run('UPDATE profiles SET score = score + 8 WHERE user_id = ?', [$winnerUserId]);
         Db::run('UPDATE profiles SET score = CASE WHEN score - 8 < 100 THEN 100 ELSE score - 8 END WHERE user_id = ?', [$loser]);
-        $style = Db::value('SELECT piece_style FROM profiles WHERE user_id = ? LIMIT 1', [$winnerUserId]);
-        if (($style ?: '3d') === '3d') {
-            Db::run('UPDATE profiles SET coins = coins + 1 WHERE user_id = ?', [$winnerUserId]);
-        }
     }
 
     private static function seatName(array $queue, mixed $id): string
@@ -595,7 +600,7 @@ final class Clubs
         }
         $members = self::seats((string) $club['id'], (string) $club['host_user_id']);
         $messages = Db::all(
-            'SELECT m.id, m.from_user_id, m.to_user_id, m.body, m.created_at, p.username
+            'SELECT m.id, m.from_user_id, m.to_user_id, m.body, m.image, m.created_at, p.username
              FROM chess_club_messages m
              JOIN profiles p ON p.user_id = m.from_user_id
              WHERE m.club_id = ?
@@ -630,6 +635,7 @@ final class Clubs
                 'fromName' => (string) $row['username'],
                 'toId' => $row['to_user_id'] === null ? null : (string) $row['to_user_id'],
                 'body' => (string) $row['body'],
+                'image' => ($row['image'] ?? '') !== '' ? (string) $row['image'] : null,
                 'at' => Db::iso($row['created_at']),
             ], $messages),
             'requests' => array_map(static fn ($row) => [
@@ -718,10 +724,17 @@ final class Clubs
         if (!self::checkPassword($password, $club)) {
             return ['ok' => false, 'sorry' => false, 'error' => 'That password does not open this chess club.'];
         }
-        Db::run('UPDATE profiles SET club_locked = 0 WHERE user_id = ?', [$userId]);
         if (!$member) {
-            return ['ok' => false, 'sorry' => false, 'error' => 'You have not been welcomed into that chess club.'];
+            $asked = Db::one(
+                'SELECT status FROM chess_club_requests WHERE club_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1',
+                [$club['id'], $userId]
+            );
+            if ($asked === null) {
+                return ['ok' => false, 'sorry' => false, 'error' => 'Ask to join this chess club before you can enter it.'];
+            }
+            return ['ok' => false, 'sorry' => false, 'error' => 'The host has not welcomed you yet. You can enter after you are welcomed.'];
         }
+        Db::run('UPDATE profiles SET club_locked = 0 WHERE user_id = ?', [$userId]);
         return ['ok' => true, 'state' => self::pack($userId, (string) $club['id'])];
     }
 
@@ -811,8 +824,9 @@ final class Clubs
         $clubId = self::str($data['clubId'] ?? '');
         $toId = !empty($data['toId']) ? self::str($data['toId']) : null;
         $body = mb_substr(self::trim(self::str($data['body'] ?? '')), 0, 500);
-        if ($body === '') {
-            throw new RpcError('Write something first.');
+        $image = Util::chatImage($data['image'] ?? null);
+        if ($body === '' && $image === null) {
+            throw new RpcError('Write something, or drop a picture.');
         }
         self::ensure();
         if (!self::membership($clubId, $userId)) {
@@ -823,8 +837,8 @@ final class Clubs
         }
         $to = (!$toId || $toId === 'EVERY') ? null : $toId;
         Db::run(
-            'INSERT INTO chess_club_messages (id, club_id, from_user_id, to_user_id, body, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [Util::uuid(), $clubId, $userId, $to, $body, Db::now()]
+            'INSERT INTO chess_club_messages (id, club_id, from_user_id, to_user_id, body, image, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [Util::uuid(), $clubId, $userId, $to, $body, $image, Db::now()]
         );
         return ['ok' => true];
     }
