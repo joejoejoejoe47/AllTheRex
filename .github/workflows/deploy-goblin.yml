@@ -2,6 +2,7 @@ name: Deploy goblin page to Plesk
 
 # Uploads only goblin/index.html (the builder page). It never uploads
 # goblin/saved_apps, so projects people saved on the server are not overwritten.
+# Only the FTP-root goblin/ folder exists (alltherex/goblin/ does not), so only that path is used.
 
 on:
   push:
@@ -24,4 +25,4 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
-          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set cmd:fail-exit no; set net:max-retries 2; echo CHECK-ROOT-GOBLIN; cls -1 goblin/index.html; echo CHECK-SITE-GOBLIN; cls -1 alltherex/goblin/index.html; put goblin/index.html -o goblin/index.html; put goblin/index.html -o alltherex/goblin/index.html; bye" "$FTP_HOST"
+          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set cmd:fail-exit no; set net:max-retries 2; echo CHECK-ROOT-GOBLIN; cls -1 goblin/index.html; put goblin/index.html -o goblin/index.html; bye" "$FTP_HOST"
