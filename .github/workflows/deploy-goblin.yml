@@ -1,0 +1,27 @@
+name: Deploy goblin page to Plesk
+
+# Uploads only goblin/index.html (the builder page). It never uploads
+# goblin/saved_apps, so projects people saved on the server are not overwritten.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "goblin/index.html"
+      - ".github/workflows/deploy-goblin.yml"
+  workflow_dispatch:
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload goblin/index.html
+        env:
+          FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          FTP_USER: ${{ secrets.PLESK_FTP_USER }}
+          FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set cmd:fail-exit no; set net:max-retries 2; echo CHECK-ROOT-GOBLIN; cls -1 goblin/index.html; echo CHECK-SITE-GOBLIN; cls -1 alltherex/goblin/index.html; put goblin/index.html -o goblin/index.html; put goblin/index.html -o alltherex/goblin/index.html; bye" "$FTP_HOST"
