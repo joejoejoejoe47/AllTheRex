@@ -1122,6 +1122,52 @@
             renderTree();
         }
 
+        // ── End: a special child button that ends the sandbox and opens a real
+        // Morse Chess game at the board (morse-chess route /play-now). ───────
+        const END_GAME_URL = 'https://alltherex.com/chess/play-now';
+
+        function addEndChildNode(parentId) {
+            const parentNode = findNode(treeData, parentId);
+            if (!parentNode || parentNode.isEnd) return;
+            if (parentNode.children.some(c => c.isEnd)) {
+                alert('This page already has an End button.');
+                return;
+            }
+            pageCount++;
+            const newPageId = `page_${pageCount}`;
+            parentNode.children.push({
+                id: newPageId,
+                title: 'End',
+                pageNum: pageCount,
+                bgMedia: null,
+                bgType: null,
+                tivElements: [],
+                aftElements: [],
+                isSecret: false,
+                isFunk: false,
+                isEnd: true,
+                children: []
+            });
+            if (!parentNode.buttonConfigs) parentNode.buttonConfigs = {};
+            parentNode.buttonConfigs[newPageId] = {
+                x: 60 + (parentNode.children.length * 15),
+                y: 120 + (parentNode.children.length * 15),
+                w: 200,
+                h: 56,
+                mediaSrc: null,
+                mediaType: null,
+                unlockMediaSrc: null,
+                unlockMediaType: null
+            };
+            saveCurrentProject();
+            renderTree();
+        }
+
+        function goToMorseChessGame() {
+            exitPlayMode();
+            window.location.href = END_GAME_URL;
+        }
+
         function addSecretChildNode(parentId) {
             const parentNode = findNode(treeData, parentId);
             if (!parentNode) return;
@@ -1317,9 +1363,17 @@
             const tv = target && target.transitionVideo;
             if (tv && tv.src && parent && parent.id === fromId) {
                 playTransitionThen(tv.src, () => {
+                    if (target.isEnd) {
+                        goToMorseChessGame();
+                        return;
+                    }
                     playNodeId = targetId;
                     renderPlayScreen();
                 });
+                return;
+            }
+            if (target && target.isEnd) {
+                goToMorseChessGame();
                 return;
             }
             playNodeId = targetId;
@@ -1377,6 +1431,7 @@
             let badge = '';
             if (node.isSecret) badge = '<span class="text-[9px] bg-amber-950 text-amber-300 border border-amber-700 px-1.5 py-0.5 ">SECRET</span>';
             if (node.isFunk) badge = '<span class="text-[9px] bg-purple-950 text-purple-300 border border-purple-700 px-1.5 py-0.5 ">FUNK HTML</span>';
+            if (node.isEnd) badge = '<span class="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-600 px-1.5 py-0.5 ">END</span>';
             if (node.navBar && node.navBar.enabled) badge += '<span class="text-[9px] bg-indigo-950 text-indigo-300 border border-indigo-700 px-1.5 py-0.5 ml-1">NAV BAR</span>';
 
             const deleteBtnHtml = node.id !== 'home'
@@ -1387,16 +1442,17 @@
             card.innerHTML = `
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center gap-2">
-                        <i data-lucide="${node.isFunk ? 'code' : (node.isSecret ? 'lock' : (node.id === 'home' ? 'home' : 'file-text'))}" class="w-4 h-4 ${node.isFunk ? 'text-purple-400' : (node.isSecret ? 'text-amber-400' : 'text-indigo-400')}"></i>
+                        <i data-lucide="${node.isEnd ? 'flag' : (node.isFunk ? 'code' : (node.isSecret ? 'lock' : (node.id === 'home' ? 'home' : 'file-text')))}" class="w-4 h-4 ${node.isEnd ? 'text-emerald-400' : (node.isFunk ? 'text-purple-400' : (node.isSecret ? 'text-amber-400' : 'text-indigo-400'))}"></i>
                         <span class="font-bold text-sm text-gray-100">${node.title}</span>
                     </div>
                     <div>${badge}</div>
                 </div>
-                <p class="text-[10px] text-gray-500 mb-2.5">${node.isFunk ? 'Runs Custom HTML Code' : (node.isSecret ? 'Locked Page' : 'Standard Sub-Page')}</p>
+                <p class="text-[10px] ${node.isEnd ? 'text-emerald-400' : 'text-gray-500'} mb-2.5">${node.isEnd ? 'End of the sandbox: opens a Morse Chess game at the board' : (node.isFunk ? 'Runs Custom HTML Code' : (node.isSecret ? 'Locked Page' : 'Standard Sub-Page'))}</p>
                 <div class="flex gap-1.5">
-                    <button onclick="event.stopPropagation(); addChildNode('${node.id}')" class="flex-1 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Page</button>
+                    ${node.isEnd ? '' : `<button onclick="event.stopPropagation(); addChildNode('${node.id}')" class="flex-1 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Page</button>
+                    <button onclick="event.stopPropagation(); addEndChildNode('${node.id}')" class="flex-1 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition" title="Add an End button: it ends the sandbox and opens a Morse Chess game">End it</button>
                     <button onclick="event.stopPropagation(); addSecretChildNode('${node.id}')" class="flex-1 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Sec</button>
-                    <button onclick="event.stopPropagation(); addFunkChildNode('${node.id}')" class="flex-1 py-1 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Funk</button>
+                    <button onclick="event.stopPropagation(); addFunkChildNode('${node.id}')" class="flex-1 py-1 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Funk</button>`}
                     ${deleteBtnHtml}
                 </div>
             `;
@@ -1777,6 +1833,8 @@
                         }, 0);
                     } else if (cfg.mediaSrc) {
                         btnEl.innerHTML = containerMediaHtml;
+                    } else if (child.isEnd) {
+                        btnEl.innerHTML = `<div class="p-1 text-center pointer-events-none relative z-10"><span class="block text-xs font-bold text-emerald-400">🏁 End: play Morse Chess</span><span class="block text-[8px] text-gray-400">Drag image/video here</span></div>`;
                     } else if (child.isFunk) {
                         btnEl.innerHTML = `<div class="p-1 text-center pointer-events-none relative z-10"><span class="block text-xs font-bold text-purple-400">⚡ To ${child.title}</span><span class="block text-[8px] text-gray-400">Drag image/video here</span></div>`;
                     } else {
@@ -1950,6 +2008,10 @@
         function renderPlayScreen() {
             const currentNode = findNode(treeData, playNodeId);
             if (!currentNode) return;
+            if (currentNode.isEnd) {
+                goToMorseChessGame();
+                return;
+            }
             const canvas = document.getElementById('playCanvas');
             canvas.innerHTML = '';
 
@@ -2200,6 +2262,8 @@
                             container.style.backgroundSize = 'cover';
                             container.style.backgroundPosition = 'center';
                         }
+                    } else if (child.isEnd) {
+                        container.className += ' bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm border border-white/20';
                     } else if (!child.isSecret) {
                         container.className += child.isFunk
                             ? ' bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm border border-white/20'
@@ -2252,7 +2316,7 @@
                     } else {
                         container.className += ' cursor-pointer transition transform hover:scale-[1.02]';
                         if (!cfg.mediaSrc) {
-                            container.innerText = child.isFunk ? `⚡ To ${child.title}` : `To ${child.title}`;
+                            container.innerText = child.isEnd ? `🏁 ${child.title}` : (child.isFunk ? `⚡ To ${child.title}` : `To ${child.title}`);
                         }
                         container.onclick = () => {
                             goToPlayNode(child.id);
