@@ -1982,6 +1982,55 @@
             }
         }
 
+        // ── Optional fixed play stage ─────────────────────────────────────────
+        // A project whose home page sets playStage (e.g. "16:9") is shown in play
+        // mode as a centred box of that shape, so painted backgrounds and the
+        // buttons drawn on top of them line up on every screen (phones too).
+        // Projects without playStage keep the old full-screen behaviour.
+        function applyPlayStage() {
+            const canvas = document.getElementById('playCanvas');
+            if (!canvas) return;
+            const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec((treeData && treeData.playStage) || '');
+            if (!m) {
+                canvas.style.width = canvas.style.height = canvas.style.margin = canvas.style.flex = '';
+                return;
+            }
+            const ratio = parseFloat(m[1]) / parseFloat(m[2]);
+            let w = window.innerWidth, h = w / ratio;
+            if (h > window.innerHeight) { h = window.innerHeight; w = h * ratio; }
+            canvas.style.width = `${Math.floor(w)}px`;
+            canvas.style.height = `${Math.floor(h)}px`;
+            canvas.style.margin = 'auto';
+            canvas.style.flex = 'none';
+        }
+        // For staged projects, warm up what the next click can show (child page
+        // backgrounds, their button skins and the transition video) so a page never
+        // appears half-loaded after its transition.
+        const _warmed = new Set();
+        function warmUpChildren(node) {
+            if (!treeData || !treeData.playStage || !node || !node.children) return;
+            const warm = (url, video) => {
+                if (!url || _warmed.has(url) || url.startsWith('data:')) return;
+                _warmed.add(url);
+                if (video) fetch(url).catch(() => {}); else { const i = new Image(); i.src = url; }
+            };
+            const pageMedia = (n) => {
+                if (!n) return;
+                if (n.bgType !== 'video') warm(n.bgMedia);
+                Object.values(n.buttonConfigs || {}).forEach(c => { if (c.mediaType === 'image') warm(c.mediaSrc); });
+            };
+            node.children.forEach(c => {
+                if (c.transitionVideo) warm(c.transitionVideo.src, true);
+                pageMedia(c);
+                const jump = c.isFunk && (c.funkHtml || '').match(/goToPlayNode\('([^']+)'\)/);
+                if (jump) pageMedia(findNode(treeData, jump[1]));
+            });
+        }
+        window.addEventListener('resize', () => {
+            const ov = document.getElementById('playModeOverlay');
+            if (ov && !ov.classList.contains('hidden')) applyPlayStage();
+        });
+
         function enterPlayMode() {
             playNodeId = "home";
             sessionData = {};
@@ -2014,6 +2063,8 @@
             }
             const canvas = document.getElementById('playCanvas');
             canvas.innerHTML = '';
+            applyPlayStage();
+            warmUpChildren(currentNode);
 
             const BASE_W = 896;
             const BASE_H = 560;
