@@ -85,6 +85,10 @@
 
         /* Sharp square corners everywhere */
         *, *::before, *::after { border-radius: 0 !important; }
+        /* Square range sliders (music volume) */
+        input[type="range"] { height: 6px; background: #374151; border: 1px solid #4b5563; cursor: pointer; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 10px; height: 14px; background: #f59e0b; border: 1px solid #111827; border-radius: 0 !important; }
+        input[type="range"]::-moz-range-thumb { width: 10px; height: 14px; background: #f59e0b; border: 1px solid #111827; border-radius: 0 !important; }
         input:not([type="file"]), select, textarea, button {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -259,6 +263,35 @@
         </div>
     </div>
 
+    <!-- MUSIC MODAL: songs that keep playing across the pages you tick -->
+    <div id="musicModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-amber-500/30 w-full max-w-2xl p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-hidden">
+            <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="music" class="w-5 h-5 text-amber-400"></i> Music
+                </h3>
+                <button onclick="closeMusicModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-[11px] text-gray-400 leading-relaxed">A song starts when play mode enters one of its ticked pages and keeps playing, looped and without restarting, while you move between its pages (transition videos included). It fades out on any page that is not ticked. A page can belong to only one song.</p>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="document.getElementById('musicFileInput').click()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload song
+                </button>
+                <button onclick="addMusicFromUrl()" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="link" class="w-3.5 h-3.5 text-purple-400"></i> Song URL
+                </button>
+                <span class="text-[10px] text-gray-500">Hosted URL recommended (.mp3 / .m4a / .ogg). Uploads are stored inside the project.</span>
+                <input type="file" id="musicFileInput" class="hidden" accept="audio/*" onchange="handleMusicFile(event)">
+            </div>
+            <div id="musicTrackList" class="flex flex-col gap-3 overflow-y-auto pr-1 min-h-[80px]"></div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-gray-800">
+                <button onclick="closeMusicModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow transition">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TIV SELECTION MODAL -->
     <div id="tivSelectModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-gray-900 border border-cyan-500/30 w-full max-w-sm p-6 shadow-2xl flex flex-col gap-5">
@@ -398,6 +431,9 @@
                     <button id="aftBtn" onclick="addAftElement()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-medium shadow-sm transition">
                         <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i> AFT
                     </button>
+                    <button id="musicBtn" onclick="openMusicModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-medium shadow-sm transition" title="Song that plays across pages">
+                        <i data-lucide="music" class="w-3.5 h-3.5 text-amber-400"></i> Music
+                    </button>
                     <button onclick="document.getElementById('bgFileInput').click()" class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-medium shadow-sm transition">
                         <i data-lucide="image" class="w-3.5 h-3.5 text-indigo-400"></i> Upload Image/Video
                     </button>
@@ -439,6 +475,10 @@
             </button>
         </div>
         <div id="playCanvas" class="w-full h-full relative overflow-hidden bg-gray-950"></div>
+        <!-- Music mute toggle (only shown when the project has music) -->
+        <button id="musicMuteBtn" onclick="event.stopPropagation(); toggleMusicMute()" class="hidden absolute bottom-3 left-3 z-[80] w-9 h-9 items-center justify-center bg-gray-950/70 hover:bg-gray-800 text-gray-100 border border-gray-600 shadow-xl backdrop-blur transition" title="Mute music" aria-label="Mute music">
+            <i data-lucide="volume-2" class="w-4 h-4"></i>
+        </button>
         <!-- Transition video (plays full screen when a page button leads to a child that has one) -->
         <div id="transitionOverlay" class="absolute inset-0 bg-black z-[70] hidden items-center justify-center">
             <video id="transitionVideo" class="w-full h-full object-contain" playsinline></video>
@@ -1039,6 +1079,7 @@
             document.getElementById('projectsDashboard').classList.add('hidden');
             renderTree();
             switchBuildTab('tree');
+            updateMusicBtnBadge();
         }
 
         function returnToProjects() {
@@ -1365,6 +1406,7 @@
         function goToPlayNode(targetId) {
             const fromId = playNodeId;
             const target = findNode(treeData, targetId);
+            musicBeforeJump(target);
             const parent = findParentNode(treeData, targetId);
             const tv = target && target.transitionVideo;
             if (tv && tv.src && parent && parent.id === fromId) {
@@ -1993,6 +2035,310 @@
         // mode as a centred box of that shape, so painted backgrounds and the
         // buttons drawn on top of them line up on every screen (phones too).
         // Projects without playStage keep the old full-screen behaviour.
+        // ── Music: project.music = [{ id, name, src, pages: [pageIds], volume }] ──
+        // One <audio> per song. Pages never touch it, so it keeps playing (looped)
+        // across its pages and through transition videos. Leaving its pages fades it out.
+        const MUSIC_WARN_BYTES = 1 * 1024 * 1024;
+        const MUSIC_MAX_INLINE_BYTES = 4 * 1024 * 1024;
+        const MUSIC_FADE_MS = 700;
+        const musicPlayers = {};          // trackId -> { audio, timer, want }
+        let musicActiveId = null;          // song that should be audible now
+        let musicMuted = false;
+        let musicNeedsGesture = false;
+        try { musicMuted = localStorage.getItem('goblin_music_muted') === '1'; } catch (e) {}
+
+        function getMusic() {
+            const proj = activeProjectId && projects[activeProjectId];
+            if (!proj) return [];
+            if (!Array.isArray(proj.music)) return [];
+            return proj.music;
+        }
+        function ensureMusicArray() {
+            const proj = projects[activeProjectId];
+            if (!Array.isArray(proj.music)) proj.music = [];
+            return proj.music;
+        }
+        // Funk pages that only jump somewhere count as the page they jump to.
+        function musicPageId(node) {
+            if (!node) return null;
+            const jump = node.isFunk && (node.funkHtml || '').match(/goToPlayNode\('([^']+)'\)/);
+            return jump ? jump[1] : node.id;
+        }
+        function trackForPage(node) {
+            if (!node) return null;
+            const find = (id) => getMusic().find(t => t.src && Array.isArray(t.pages) && t.pages.includes(id)) || null;
+            // A page's own tick wins; an unticked jump-only Funk page follows its destination.
+            return find(node.id) || (node.isFunk ? find(musicPageId(node)) : null);
+        }
+        function musicVol(t) {
+            const v = typeof t.volume === 'number' ? t.volume : 0.8;
+            return Math.max(0, Math.min(1, v));
+        }
+        function musicPlayer(t) {
+            let p = musicPlayers[t.id];
+            if (!p || p.src !== t.src) {
+                if (p) { clearInterval(p.timer); p.audio.pause(); }
+                const audio = new Audio();
+                audio.preload = 'auto';
+                audio.loop = true;
+                audio.src = t.src;
+                audio.volume = 0;
+                audio.muted = musicMuted;
+                p = musicPlayers[t.id] = { audio, timer: null, src: t.src };
+            }
+            return p;
+        }
+        function musicFade(p, to, ms, then) {
+            clearInterval(p.timer);
+            const from = p.audio.volume;
+            const steps = Math.max(1, Math.round(ms / 40));
+            let i = 0;
+            p.timer = setInterval(() => {
+                i++;
+                const v = from + (to - from) * (i / steps);
+                try { p.audio.volume = Math.max(0, Math.min(1, v)); } catch (e) {}
+                if (i >= steps) { clearInterval(p.timer); p.timer = null; if (then) then(); }
+            }, 40);
+        }
+        function musicStart(t) {
+            const p = musicPlayer(t);
+            p.audio.muted = musicMuted;
+            const go = () => musicFade(p, musicVol(t), p.audio.currentTime > 0 ? MUSIC_FADE_MS / 2 : 250);
+            if (p.audio.paused) {
+                const pr = p.audio.play();
+                if (pr && pr.then) {
+                    pr.then(() => { musicNeedsGesture = false; go(); })
+                      .catch(() => { musicNeedsGesture = true; });
+                } else go();
+            } else go();
+        }
+        function musicStop(id, ms) {
+            const p = musicPlayers[id];
+            if (!p) return;
+            musicFade(p, 0, ms, () => {
+                if (musicActiveId === id) return; // came back while fading
+                p.audio.pause();
+                try { p.audio.currentTime = 0; } catch (e) {}
+            });
+        }
+        // Make the right song audible for this page (no-op when it is already playing).
+        function syncMusic(node) {
+            const music = getMusic();
+            if (!music.length && !musicActiveId) return;
+            const t = trackForPage(node);
+            const want = t ? t.id : null;
+            Object.keys(musicPlayers).forEach(id => { if (id !== want) musicStop(id, MUSIC_FADE_MS); });
+            musicActiveId = want;
+            if (t) {
+                const p = musicPlayers[t.id];
+                if (!p || p.audio.paused || p.timer || p.audio.volume < musicVol(t)) musicStart(t);
+            }
+        }
+        // Called as a jump starts, so a song that is not on the next page fades
+        // during the transition video instead of after it.
+        function musicBeforeJump(target) {
+            if (!musicActiveId) return;
+            const t = target && !target.isEnd ? trackForPage(target) : null;
+            if (!t || t.id !== musicActiveId) {
+                const leaving = musicActiveId;
+                musicActiveId = null;
+                musicStop(leaving, MUSIC_FADE_MS);
+            }
+        }
+        function musicGestureRetry() {
+            if (!musicNeedsGesture || !musicActiveId) return;
+            const t = getMusic().find(x => x.id === musicActiveId);
+            if (t) musicStart(t);
+        }
+        function updateMusicMuteBtn() {
+            const btn = document.getElementById('musicMuteBtn');
+            if (!btn) return;
+            const has = getMusic().some(t => t.src && t.pages && t.pages.length);
+            btn.classList.toggle('hidden', !has);
+            btn.classList.toggle('flex', has);
+            btn.title = musicMuted ? 'Unmute music' : 'Mute music';
+            btn.setAttribute('aria-label', btn.title);
+            btn.setAttribute('aria-pressed', musicMuted ? 'true' : 'false');
+            btn.innerHTML = `<i data-lucide="${musicMuted ? 'volume-x' : 'volume-2'}" class="w-4 h-4"></i>`;
+            if (window.lucide) lucide.createIcons();
+        }
+        function toggleMusicMute() {
+            musicMuted = !musicMuted;
+            try { localStorage.setItem('goblin_music_muted', musicMuted ? '1' : '0'); } catch (e) {}
+            Object.values(musicPlayers).forEach(p => { p.audio.muted = musicMuted; });
+            updateMusicMuteBtn();
+            musicGestureRetry();
+        }
+        function musicEnterPlay() {
+            musicExitPlay(); // stop any build-mode preview
+            musicActiveId = null;
+            getMusic().forEach(t => { if (t.src && !t.src.startsWith('data:')) musicPlayer(t); });
+            updateMusicMuteBtn();
+        }
+        function musicExitPlay() {
+            musicActiveId = null;
+            musicNeedsGesture = false;
+            Object.values(musicPlayers).forEach(p => {
+                clearInterval(p.timer); p.timer = null;
+                p.audio.pause();
+                try { p.audio.currentTime = 0; p.audio.volume = 0; } catch (e) {}
+            });
+        }
+        // Browsers block sound until the first click/tap/key: retry then
+        // (capture phase, so the Title "Click to Start" click counts).
+        ['pointerdown', 'keydown', 'touchend'].forEach(ev =>
+            document.addEventListener(ev, () => musicGestureRetry(), true));
+
+        // ── Music: build-mode panel ──
+        function openMusicModal() {
+            renderMusicTrackList();
+            const m = document.getElementById('musicModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            lucide.createIcons();
+        }
+        function closeMusicModal() {
+            const m = document.getElementById('musicModal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+            musicExitPlay(); // stop previews
+            saveCurrentProject();
+        }
+        function musicEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function musicPages() {
+            return getAllNodesList(treeData).filter(n => !n.isEnd);
+        }
+        function addMusicTrack(name, src, size) {
+            const music = ensureMusicArray();
+            const t = { id: 'music_' + Date.now().toString(36), name: name || 'Song', src, size: size || null, pages: [], volume: 0.8 };
+            // A new song starts on the page being edited (if no other song has it).
+            const here = selectedNodeId && findNode(treeData, selectedNodeId);
+            if (here && !here.isEnd && !music.some(x => (x.pages || []).includes(here.id))) t.pages.push(here.id);
+            music.push(t);
+            saveCurrentProject();
+            renderMusicTrackList();
+            updateMusicBtnBadge();
+        }
+        function handleMusicFile(e) {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            if (!file.type.startsWith('audio/') && !/\.(mp3|m4a|aac|ogg|oga|wav|webm|flac)$/i.test(file.name)) {
+                alert('Please choose an audio file (.mp3, .m4a, .ogg, .wav).');
+                return;
+            }
+            const mb = (file.size / 1048576).toFixed(1);
+            if (file.size > MUSIC_MAX_INLINE_BYTES) {
+                alert(`That song is ${mb} MB. Uploaded songs are stored inside the project, so they can be up to ${MUSIC_MAX_INLINE_BYTES / 1048576} MB. Host the file somewhere public and use "Song URL" instead.`);
+                return;
+            }
+            if (file.size > MUSIC_WARN_BYTES && !confirm(`That song is ${mb} MB. It will be stored inside the project, which makes saving, sharing and loading slower (and can fill this browser's storage). It is better to host it and use "Song URL".\n\nStore it inside the project anyway?`)) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => addMusicTrack(file.name.replace(/\.[^.]+$/, ''), ev.target.result, file.size);
+            reader.readAsDataURL(file);
+        }
+        function addMusicFromUrl() {
+            const url = prompt('Paste a direct link to the song (.mp3 / .m4a / .ogg):');
+            if (!url || !url.trim()) return;
+            const clean = url.trim();
+            if (clean.startsWith('blob:')) { alert('blob: links only work on this computer. Paste a public link instead.'); return; }
+            const name = decodeURIComponent(clean.split('/').pop().split('?')[0] || 'Song').replace(/\.[^.]+$/, '');
+            addMusicTrack(name, clean, null);
+        }
+        function musicTrack(id) { return getMusic().find(t => t.id === id); }
+        function removeMusicTrack(id) {
+            const proj = projects[activeProjectId];
+            proj.music = getMusic().filter(t => t.id !== id);
+            if (musicPlayers[id]) { musicPlayers[id].audio.pause(); delete musicPlayers[id]; }
+            saveCurrentProject(); renderMusicTrackList(); updateMusicBtnBadge();
+        }
+        function renameMusicTrack(id, name) { const t = musicTrack(id); if (t) { t.name = name; saveCurrentProject(); } }
+        function setMusicVolume(id, v) {
+            const t = musicTrack(id); if (!t) return;
+            t.volume = Math.max(0, Math.min(1, Number(v) / 100));
+            const lab = document.getElementById(`musicVolLabel_${id}`); if (lab) lab.innerText = `${Math.round(t.volume * 100)}%`;
+            saveCurrentProject();
+        }
+        function previewMusicTrack(id) {
+            const t = musicTrack(id); if (!t) return;
+            const p = musicPlayer(t);
+            if (!p.audio.paused) { p.audio.pause(); p.audio.currentTime = 0; }
+            else { p.audio.muted = false; p.audio.volume = musicVol(t); p.audio.play().catch(() => alert('This song could not be played. Check the link.')); }
+            setTimeout(renderMusicTrackList, 50);
+        }
+        function toggleMusicPage(id, pageId, on) {
+            const t = musicTrack(id); if (!t) return;
+            t.pages = (t.pages || []).filter(x => x !== pageId);
+            if (on) {
+                getMusic().forEach(o => { if (o.id !== id) o.pages = (o.pages || []).filter(x => x !== pageId); });
+                t.pages.push(pageId);
+            }
+            saveCurrentProject(); renderMusicTrackList(); updateMusicBtnBadge();
+        }
+        function selectAllMusicPages(id, on) {
+            const t = musicTrack(id); if (!t) return;
+            if (on) {
+                const all = musicPages().map(n => n.id);
+                getMusic().forEach(o => { if (o.id !== id) o.pages = []; });
+                t.pages = all;
+            } else t.pages = [];
+            saveCurrentProject(); renderMusicTrackList(); updateMusicBtnBadge();
+        }
+        function renderMusicTrackList() {
+            const list = document.getElementById('musicTrackList');
+            if (!list) return;
+            const music = getMusic();
+            const pages = musicPages();
+            if (!music.length) {
+                list.innerHTML = `<div class="text-xs text-gray-500 border border-dashed border-gray-700 p-4 text-center">No songs yet. Upload one or paste a song URL.</div>`;
+                return;
+            }
+            list.innerHTML = music.map(t => {
+                const owned = new Set(t.pages || []);
+                const allOn = pages.length > 0 && pages.every(n => owned.has(n.id));
+                const inline = (t.src || '').startsWith('data:');
+                const playing = musicPlayers[t.id] && !musicPlayers[t.id].audio.paused;
+                const sizeNote = inline ? `stored in project${t.size ? ` · ${(t.size / 1048576).toFixed(1)} MB` : ''}` : musicEsc(t.src);
+                const rows = pages.map(n => {
+                    const other = !owned.has(n.id) && music.find(o => o.id !== t.id && (o.pages || []).includes(n.id));
+                    return `<label class="flex items-center gap-2 px-2 py-1 hover:bg-gray-800/70 cursor-pointer text-[11px] text-gray-200">
+                        <input type="checkbox" class="w-3.5 h-3.5 accent-amber-500" ${owned.has(n.id) ? 'checked' : ''} onchange="toggleMusicPage('${t.id}','${n.id}',this.checked)">
+                        <span class="truncate">${musicEsc(n.title || n.id)}</span>
+                        ${n.isFunk ? '<span class="text-[9px] text-purple-300 border border-purple-500/40 px-1">FUNK</span>' : ''}
+                        ${n.isSecret ? '<span class="text-[9px] text-pink-300 border border-pink-500/40 px-1">SEC</span>' : ''}
+                        ${other ? `<span class="ml-auto text-[9px] text-gray-500 truncate">on ${musicEsc(other.name)}</span>` : ''}
+                    </label>`;
+                }).join('');
+                return `<div class="bg-gray-950 border border-gray-800 p-3 flex flex-col gap-2" data-track="${t.id}">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="music-2" class="w-4 h-4 text-amber-400 shrink-0"></i>
+                        <input type="text" value="${musicEsc(t.name)}" oninput="renameMusicTrack('${t.id}', this.value)" class="flex-1 min-w-0 bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text">
+                        <button onclick="previewMusicTrack('${t.id}')" class="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-[11px] font-semibold flex items-center gap-1"><i data-lucide="${playing ? 'square' : 'play'}" class="w-3 h-3"></i>${playing ? 'Stop' : 'Preview'}</button>
+                        <button onclick="removeMusicTrack('${t.id}')" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 text-[11px] font-semibold">Remove</button>
+                    </div>
+                    <div class="flex items-center gap-2 text-[10px] text-gray-500">
+                        <span class="truncate flex-1 ${inline && t.size > MUSIC_WARN_BYTES ? 'text-amber-400' : ''}" title="${musicEsc(inline ? 'Stored inside the project' : t.src)}">${sizeNote}</span>
+                        <i data-lucide="volume-2" class="w-3 h-3"></i>
+                        <input type="range" min="0" max="100" value="${Math.round(musicVol(t) * 100)}" oninput="setMusicVolume('${t.id}', this.value)" class="w-24 accent-amber-500">
+                        <span id="musicVolLabel_${t.id}" class="w-8 text-right text-gray-400">${Math.round(musicVol(t) * 100)}%</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold text-gray-300">Plays on ${owned.size} of ${pages.length} pages</span>
+                        <label class="flex items-center gap-1.5 text-[11px] text-amber-300 cursor-pointer">
+                            <input type="checkbox" class="w-3.5 h-3.5 accent-amber-500" ${allOn ? 'checked' : ''} onchange="selectAllMusicPages('${t.id}', this.checked)"> Select all
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-2 max-h-44 overflow-y-auto border border-gray-800 bg-gray-900/60 py-1">${rows}</div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+        function updateMusicBtnBadge() {
+            const btn = document.getElementById('musicBtn');
+            if (!btn) return;
+            const n = getMusic().length;
+            btn.innerHTML = `<i data-lucide="music" class="w-3.5 h-3.5 text-amber-400"></i> Music${n ? ` <span class="text-[10px] text-amber-300">(${n})</span>` : ''}`;
+            if (window.lucide) lucide.createIcons();
+        }
+
         function applyPlayStage() {
             const canvas = document.getElementById('playCanvas');
             if (!canvas) return;
@@ -2040,12 +2386,14 @@
         function enterPlayMode() {
             playNodeId = "home";
             sessionData = {};
+            musicEnterPlay();
             document.getElementById('playModeOverlay').classList.remove('hidden');
             document.getElementById('playModeOverlay').classList.add('flex');
             renderPlayScreen();
         }
 
         function exitPlayMode() {
+            musicExitPlay();
             const tvo = document.getElementById('transitionOverlay');
             const tvv = document.getElementById('transitionVideo');
             if (tvo && tvv) {
@@ -2067,6 +2415,7 @@
                 goToMorseChessGame();
                 return;
             }
+            syncMusic(currentNode);
             const canvas = document.getElementById('playCanvas');
             canvas.innerHTML = '';
             applyPlayStage();
