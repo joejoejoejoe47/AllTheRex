@@ -597,9 +597,15 @@
                     if (res.ok) {
                         const loadedProject = await res.json();
                         if (loadedProject && loadedProject.id) {
-                            const localProjects = JSON.parse(localStorage.getItem('treeApp_projects') || '{}');
-                            localProjects[loadedProject.id] = loadedProject;
-                            localStorage.setItem('treeApp_projects', JSON.stringify(localProjects));
+                            // Keep a local copy, but never let a full localStorage (old projects with
+                            // inline videos fill the ~5 MB quota) stop the shared app from opening.
+                            try {
+                                const localProjects = JSON.parse(localStorage.getItem('treeApp_projects') || '{}');
+                                localProjects[loadedProject.id] = loadedProject;
+                                localStorage.setItem('treeApp_projects', JSON.stringify(localProjects));
+                            } catch (storageErr) {
+                                console.warn('Could not cache the shared app in localStorage', storageErr);
+                            }
                             activeProjectId = loadedProject.id;
                             // Fix: openProject() reads the in-memory list, so put the loaded project there too.
                             projects[loadedProject.id] = loadedProject;
