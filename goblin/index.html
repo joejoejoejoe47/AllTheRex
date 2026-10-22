@@ -292,6 +292,65 @@
         </div>
     </div>
 
+    <!-- POP-UP MESSAGES MODAL -->
+    <div id="popupsModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="bg-gray-900 border border-amber-500/30 w-full max-w-2xl p-6 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-hidden">
+            <div class="flex justify-between items-center pb-2 border-b border-gray-800">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="message-square-text" class="w-5 h-5 text-amber-400"></i> Pop-up messages
+                </h3>
+                <button onclick="closePopupsModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p id="popupsIntro" class="text-[11px] text-gray-400 leading-relaxed"></p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-950 border border-gray-800 p-3">
+                <label class="col-span-2 sm:col-span-4 flex items-center gap-2 text-xs font-bold text-gray-200 cursor-pointer">
+                    <input type="checkbox" id="popupsEnabled" class="w-4 h-4 accent-amber-500" onchange="savePopupSettingsFromForm()"> Show pop-ups to players
+                </label>
+                <label class="text-[11px] text-gray-400 flex flex-col gap-1 col-span-2 sm:col-span-1">Name shown
+                    <input type="text" id="popupsName" maxlength="40" oninput="savePopupSettingsFromForm()" class="bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text">
+                </label>
+                <label class="text-[11px] text-gray-400 flex flex-col gap-1">Every (min sec)
+                    <input type="number" id="popupsMin" min="15" max="3600" oninput="savePopupSettingsFromForm()" class="bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text">
+                </label>
+                <label class="text-[11px] text-gray-400 flex flex-col gap-1">to (max sec)
+                    <input type="number" id="popupsMax" min="15" max="3600" oninput="savePopupSettingsFromForm()" class="bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text">
+                </label>
+                <label class="text-[11px] text-gray-400 flex flex-col gap-1">Shown for (sec)
+                    <input type="number" id="popupsShow" min="3" max="30" oninput="savePopupSettingsFromForm()" class="bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text">
+                </label>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-300">Messages <span id="popupsCount" class="text-gray-500 font-normal"></span></span>
+                <button onclick="addPopupMessage()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add message
+                </button>
+            </div>
+            <div id="popupsList" class="flex flex-col gap-2 overflow-y-auto pr-1 min-h-[80px]"></div>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-800">
+                <span id="popupsStatus" class="text-[11px] text-gray-400"></span>
+                <div class="flex gap-2">
+                    <button onclick="previewPopup()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-semibold transition">Preview one</button>
+                    <button id="popupsPublishBtn" onclick="publishPopups()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow transition flex items-center gap-1.5">
+                        <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Save &amp; publish
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- On-screen pop-up message ("MasterGus says: ...") -->
+    <div id="popupToast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[95] w-[min(92vw,420px)] bg-gray-950/95 border border-amber-500/60 shadow-2xl backdrop-blur p-3 pr-9 text-left" role="status" aria-live="polite">
+        <div class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+            <i data-lucide="message-square-text" class="w-3.5 h-3.5"></i><span id="popupToastName">MasterGus</span> says:
+        </div>
+        <div id="popupToastText" class="mt-1 text-sm text-gray-100 leading-snug break-words"></div>
+        <button onclick="hidePopupToast()" class="absolute top-2 right-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800" aria-label="Close">
+            <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+    </div>
+
     <!-- TIV SELECTION MODAL -->
     <div id="tivSelectModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
         <div class="bg-gray-900 border border-cyan-500/30 w-full max-w-sm p-6 shadow-2xl flex flex-col gap-5">
@@ -377,6 +436,10 @@
 
         <!-- RIGHT ACTION TOOLBAR -->
         <div class="flex items-center gap-2">
+            <button onclick="openPopupsModal()" class="p-1.5 sm:px-3 sm:py-1.5 text-xs bg-amber-600/15 text-amber-300 hover:bg-amber-600/30 border border-amber-500/30 transition flex items-center gap-1.5" title="Pop-up messages players see at random">
+                <i data-lucide="message-square-text" class="w-3.5 h-3.5"></i>
+                <span class="hidden md:inline">Pop-ups</span>
+            </button>
             <button onclick="shareAppURL()" class="p-1.5 sm:px-3 sm:py-1.5 text-xs bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/30 transition flex items-center gap-1.5" title="Share App">
                 <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
                 <span class="hidden md:inline">Share</span>
@@ -2339,6 +2402,189 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        // ── Pop-up messages: project.popups = [{ id, text, enabled, example }],
+        // project.popupSettings = { enabled, name, minSec, maxSec, showSec }.
+        // In play mode a random enabled message pops up every minSec..maxSec seconds
+        // ("<name> says: ..."), never while the player is mid-click, and closes itself.
+        // Morse Chess reads the same list from MasterGus's project via get.php.
+        const MASTER_PROJECT_ID = 'proj_mastergus_sandbox_setup';
+        const POPUP_DEFAULTS = { enabled: true, name: 'MasterGus', minSec: 60, maxSec: 180, showSec: 8 };
+        let popupTimer = null, popupHideTimer = null, popupLastText = null;
+        let popupPointerDown = false, popupLastPointer = 0;
+        ['pointerdown', 'touchstart'].forEach(ev => document.addEventListener(ev, () => { popupPointerDown = true; popupLastPointer = Date.now(); }, true));
+        ['pointerup', 'pointercancel', 'touchend'].forEach(ev => document.addEventListener(ev, () => { popupPointerDown = false; popupLastPointer = Date.now(); }, true));
+
+        function popupProject() { return activeProjectId && projects[activeProjectId]; }
+        function popupSettings() {
+            const proj = popupProject();
+            const st = Object.assign({}, POPUP_DEFAULTS, (proj && proj.popupSettings) || {});
+            st.minSec = Math.max(15, Number(st.minSec) || POPUP_DEFAULTS.minSec);
+            st.maxSec = Math.max(st.minSec, Number(st.maxSec) || POPUP_DEFAULTS.maxSec);
+            st.showSec = Math.min(30, Math.max(3, Number(st.showSec) || POPUP_DEFAULTS.showSec));
+            return st;
+        }
+        function popupMessages() {
+            const proj = popupProject();
+            return (proj && Array.isArray(proj.popups) ? proj.popups : []).filter(m => m && m.enabled !== false && String(m.text || '').trim());
+        }
+        function showPopupToast(name, text) {
+            const box = document.getElementById('popupToast');
+            document.getElementById('popupToastName').innerText = name || 'MasterGus';
+            document.getElementById('popupToastText').innerText = text;
+            box.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+            clearTimeout(popupHideTimer);
+            popupHideTimer = setTimeout(hidePopupToast, popupSettings().showSec * 1000);
+        }
+        function hidePopupToast() {
+            clearTimeout(popupHideTimer);
+            document.getElementById('popupToast').classList.add('hidden');
+        }
+        function pickPopup() {
+            const list = popupMessages();
+            if (!list.length) return null;
+            const pool = list.length > 1 ? list.filter(m => m.text !== popupLastText) : list;
+            const m = pool[Math.floor(Math.random() * pool.length)];
+            popupLastText = m.text;
+            return m;
+        }
+        function popupsSchedule(ms) {
+            clearTimeout(popupTimer);
+            popupTimer = setTimeout(popupsTick, ms);
+        }
+        function popupsTick() {
+            const st = popupSettings();
+            if (!st.enabled || !popupMessages().length) return;
+            const transitioning = !document.getElementById('transitionOverlay').classList.contains('hidden');
+            // Never mid-click (or right after one), never during a transition clip.
+            if (popupPointerDown || Date.now() - popupLastPointer < 1500 || transitioning || document.hidden) {
+                popupsSchedule(2500);
+                return;
+            }
+            const m = pickPopup();
+            if (m) showPopupToast(st.name, m.text);
+            popupsSchedule((st.minSec + Math.random() * (st.maxSec - st.minSec)) * 1000);
+        }
+        function popupsStart() {
+            popupsStop();
+            const st = popupSettings();
+            if (!st.enabled || !popupMessages().length) return;
+            const demo = /[?&]popupdemo=1\b/.test(window.location.search); // quick check: first one after ~3 s
+            popupsSchedule(demo ? 3000 : (st.minSec + Math.random() * (st.maxSec - st.minSec)) * 1000);
+        }
+        function popupsStop() {
+            clearTimeout(popupTimer); popupTimer = null;
+            hidePopupToast();
+        }
+
+        // ── Pop-up messages: editor panel ──
+        function popupEsc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function ensurePopups() {
+            const proj = popupProject();
+            if (!Array.isArray(proj.popups)) proj.popups = [];
+            if (!proj.popupSettings) proj.popupSettings = Object.assign({}, POPUP_DEFAULTS);
+            return proj;
+        }
+        function openPopupsModal() {
+            if (!popupProject()) return;
+            const proj = ensurePopups();
+            const st = popupSettings();
+            document.getElementById('popupsIntro').innerText = proj.id === MASTER_PROJECT_ID
+                ? 'Players see one of these at random as "' + st.name + ' says: ..." every so often, in the Sandbox and on every Morse Chess page and game. Write anything, untick a message to pause it, then press Save & publish.'
+                : 'Players of this app see one of these at random as "' + st.name + ' says: ..." while they play it. Write anything, untick a message to pause it, then press Save & publish.';
+            document.getElementById('popupsEnabled').checked = st.enabled;
+            document.getElementById('popupsName').value = st.name;
+            document.getElementById('popupsMin').value = st.minSec;
+            document.getElementById('popupsMax').value = st.maxSec;
+            document.getElementById('popupsShow').value = st.showSec;
+            document.getElementById('popupsStatus').innerText = 'Changes save in this browser as you type. Players get them after Save & publish.';
+            renderPopupsList();
+            const m = document.getElementById('popupsModal');
+            m.classList.remove('hidden'); m.classList.add('flex');
+            lucide.createIcons();
+        }
+        function closePopupsModal() {
+            const m = document.getElementById('popupsModal');
+            m.classList.add('hidden'); m.classList.remove('flex');
+            saveCurrentProject();
+        }
+        function savePopupSettingsFromForm() {
+            const proj = ensurePopups();
+            proj.popupSettings = {
+                enabled: document.getElementById('popupsEnabled').checked,
+                name: document.getElementById('popupsName').value.trim() || POPUP_DEFAULTS.name,
+                minSec: Number(document.getElementById('popupsMin').value) || POPUP_DEFAULTS.minSec,
+                maxSec: Number(document.getElementById('popupsMax').value) || POPUP_DEFAULTS.maxSec,
+                showSec: Number(document.getElementById('popupsShow').value) || POPUP_DEFAULTS.showSec
+            };
+            saveCurrentProject();
+            popupDirty();
+        }
+        function popupDirty() {
+            document.getElementById('popupsStatus').innerText = 'Saved in this browser. Press Save & publish so players see it.';
+        }
+        function renderPopupsList() {
+            const proj = ensurePopups();
+            const list = document.getElementById('popupsList');
+            const on = proj.popups.filter(m => m.enabled !== false && String(m.text || '').trim()).length;
+            document.getElementById('popupsCount').innerText = `(${on} on, ${proj.popups.length} total)`;
+            if (!proj.popups.length) {
+                list.innerHTML = '<div class="text-xs text-gray-500 border border-dashed border-gray-700 p-4 text-center">No messages yet. Press "Add message".</div>';
+                return;
+            }
+            list.innerHTML = proj.popups.map(m => `
+                <div class="bg-gray-950 border ${m.example ? 'border-amber-500/40' : 'border-gray-800'} p-2 flex items-start gap-2" data-popup="${m.id}">
+                    <input type="checkbox" title="On / off" class="mt-2 w-4 h-4 accent-amber-500 shrink-0" ${m.enabled !== false ? 'checked' : ''} onchange="togglePopupMessage('${m.id}', this.checked)">
+                    <div class="flex-1 min-w-0 flex flex-col gap-1">
+                        ${m.example ? '<span class="self-start text-[9px] font-bold tracking-wider text-amber-300 border border-amber-500/50 px-1">EXAMPLE - REPLACE ME</span>' : ''}
+                        <textarea rows="2" maxlength="200" oninput="editPopupMessage('${m.id}', this.value)" placeholder="Type what players should see..." class="w-full bg-gray-900 border border-gray-700 px-2 py-1 text-xs text-white outline-none focus:border-amber-500 select-text resize-y">${popupEsc(m.text)}</textarea>
+                    </div>
+                    <button onclick="deletePopupMessage('${m.id}')" title="Delete" class="mt-1 p-1.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </div>`).join('');
+            lucide.createIcons();
+        }
+        function popupById(id) { return (ensurePopups().popups || []).find(m => m.id === id); }
+        function addPopupMessage() {
+            const proj = ensurePopups();
+            proj.popups.unshift({ id: 'pop_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), text: '', enabled: true });
+            saveCurrentProject(); renderPopupsList(); popupDirty();
+            const first = document.querySelector('#popupsList textarea'); if (first) first.focus();
+        }
+        function editPopupMessage(id, text) {
+            const m = popupById(id); if (!m) return;
+            m.text = text;
+            if (m.example) { delete m.example; renderPopupsList(); const ta = document.querySelector(`[data-popup="${id}"] textarea`); if (ta) { ta.focus(); ta.setSelectionRange(text.length, text.length); } }
+            saveCurrentProject(); popupDirty();
+            const proj = ensurePopups();
+            const on = proj.popups.filter(x => x.enabled !== false && String(x.text || '').trim()).length;
+            document.getElementById('popupsCount').innerText = `(${on} on, ${proj.popups.length} total)`;
+        }
+        function togglePopupMessage(id, on) { const m = popupById(id); if (!m) return; m.enabled = !!on; saveCurrentProject(); renderPopupsList(); popupDirty(); }
+        function deletePopupMessage(id) {
+            const proj = ensurePopups();
+            proj.popups = proj.popups.filter(m => m.id !== id);
+            saveCurrentProject(); renderPopupsList(); popupDirty();
+        }
+        function previewPopup() {
+            const m = pickPopup();
+            if (!m) { alert('Turn on at least one message with some text first.'); return; }
+            showPopupToast(popupSettings().name, m.text);
+        }
+        async function publishPopups() {
+            saveCurrentProject();
+            const btn = document.getElementById('popupsPublishBtn');
+            const status = document.getElementById('popupsStatus');
+            btn.disabled = true; status.innerText = 'Publishing...';
+            try {
+                const res = await fetch('save.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(projects[activeProjectId]) });
+                const out = await res.json();
+                if (out.status !== 'success') throw new Error(out.message || 'save failed');
+                status.innerText = 'Published. Players see the new messages from their next pop-up.';
+            } catch (e) {
+                status.innerText = 'Could not publish (' + e.message + '). Your changes are still saved in this browser; try again.';
+            } finally { btn.disabled = false; }
+        }
+
         function applyPlayStage() {
             const canvas = document.getElementById('playCanvas');
             if (!canvas) return;
@@ -2387,6 +2633,7 @@
             playNodeId = "home";
             sessionData = {};
             musicEnterPlay();
+            popupsStart();
             document.getElementById('playModeOverlay').classList.remove('hidden');
             document.getElementById('playModeOverlay').classList.add('flex');
             renderPlayScreen();
@@ -2394,6 +2641,7 @@
 
         function exitPlayMode() {
             musicExitPlay();
+            popupsStop();
             const tvo = document.getElementById('transitionOverlay');
             const tvv = document.getElementById('transitionVideo');
             if (tvo && tvv) {
