@@ -1273,9 +1273,39 @@
             renderTree();
         }
 
-        function goToMorseChessGame() {
+        // An End can instead go to the Morse Chess home (node.endTarget === 'home'),
+        // e.g. an Exit button that leaves the sandbox entirely.
+        const END_HOME_URL = 'https://alltherex.com/chess/';
+
+        function endUrlFor(node) {
+            return node && node.endTarget === 'home' ? END_HOME_URL : END_GAME_URL;
+        }
+
+        // Leave in the top window, so it also works when goblin is embedded in a frame.
+        function navigateTop(url) {
+            try {
+                if (window.top && window.top !== window) {
+                    window.top.location.href = url;
+                    return;
+                }
+            } catch (e) {
+                try { if (window.open(url, '_top')) return; } catch (e2) {}
+            }
+            window.location.href = url;
+        }
+
+        function goToMorseChessGame(node) {
             exitPlayMode();
-            window.location.href = END_GAME_URL;
+            navigateTop(endUrlFor(node));
+        }
+
+        function toggleEndTarget(nodeId) {
+            const node = findNode(treeData, nodeId);
+            if (!node || !node.isEnd) return;
+            if (node.endTarget === 'home') delete node.endTarget;
+            else node.endTarget = 'home';
+            saveCurrentProject();
+            renderTree();
         }
 
         function addSecretChildNode(parentId) {
@@ -1475,7 +1505,7 @@
             if (tv && tv.src && parent && parent.id === fromId) {
                 playTransitionThen(tv.src, () => {
                     if (target.isEnd) {
-                        goToMorseChessGame();
+                        goToMorseChessGame(target);
                         return;
                     }
                     playNodeId = targetId;
@@ -1484,7 +1514,7 @@
                 return;
             }
             if (target && target.isEnd) {
-                goToMorseChessGame();
+                goToMorseChessGame(target);
                 return;
             }
             playNodeId = targetId;
@@ -1558,9 +1588,9 @@
                     </div>
                     <div>${badge}</div>
                 </div>
-                <p class="text-[10px] ${node.isEnd ? 'text-emerald-400' : 'text-gray-500'} mb-2.5">${node.isEnd ? 'End of the sandbox: opens a Morse Chess game at the board' : (node.isFunk ? 'Runs Custom HTML Code' : (node.isSecret ? 'Locked Page' : 'Standard Sub-Page'))}</p>
+                <p class="text-[10px] ${node.isEnd ? 'text-emerald-400' : 'text-gray-500'} mb-2.5">${node.isEnd ? (node.endTarget === 'home' ? 'End of the sandbox: goes to the Morse Chess home' : 'End of the sandbox: opens a Morse Chess game at the board') : (node.isFunk ? 'Runs Custom HTML Code' : (node.isSecret ? 'Locked Page' : 'Standard Sub-Page'))}</p>
                 <div class="flex gap-1.5">
-                    ${node.isEnd ? '' : `<button onclick="event.stopPropagation(); addChildNode('${node.id}')" class="flex-1 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Page</button>
+                    ${node.isEnd ? `<button onclick="event.stopPropagation(); toggleEndTarget('${node.id}')" class="flex-1 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition" title="Choose where this End goes: a Morse Chess game, or the Morse Chess home">Goes to: ${node.endTarget === 'home' ? 'Chess home' : 'Chess game'}</button>` : `<button onclick="event.stopPropagation(); addChildNode('${node.id}')" class="flex-1 py-1 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Page</button>
                     <button onclick="event.stopPropagation(); addEndChildNode('${node.id}')" class="flex-1 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition" title="Add an End button: it ends the sandbox and opens a Morse Chess game">End it</button>
                     <button onclick="event.stopPropagation(); addSecretChildNode('${node.id}')" class="flex-1 py-1 bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Sec</button>
                     <button onclick="event.stopPropagation(); addFunkChildNode('${node.id}')" class="flex-1 py-1 bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white border border-purple-500/30 text-[11px] font-semibold flex items-center justify-center gap-1 transition">+ Funk</button>`}
@@ -2660,7 +2690,7 @@
             const currentNode = findNode(treeData, playNodeId);
             if (!currentNode) return;
             if (currentNode.isEnd) {
-                goToMorseChessGame();
+                goToMorseChessGame(currentNode);
                 return;
             }
             syncMusic(currentNode);
