@@ -47,6 +47,7 @@ jobs:
           last=$(gh run list -R "$GITHUB_REPOSITORY" -w deploy-chess.yml -s success -L 1 --json headSha -q '.[0].headSha' || true)
           if [ -n "$last" ] && git cat-file -e "$last^{commit}" 2>/dev/null; then
             echo "last good deploy: $last"
+            echo "$last" > /tmp/last-good.txt
             git diff --name-only --diff-filter=AMRT "$last" HEAD -- chess > /tmp/changed.txt
           else
             echo "no earlier good deploy found: sending everything"
@@ -105,6 +106,12 @@ jobs:
             got=$(curl -sI -m 60 --retry 2 "$SITE/$rel?smoke=$GITHUB_RUN_ID" | tr -d '\r' | awk 'NR==1{c=$2} tolower($1)=="content-length:"{l=$2} END{print c" "l}')
             [ "$got" = "200 $want_size" ] || { echo "::error::$rel -> $got (want 200 $want_size)"; bad=1; }
           done < <(find chess -name '*.glb' | sort)
+          # Versioned models should be served with long-lived caching (web.config outbound rule).
+          # Only a warning: a missing header is slower, not broken.
+          g=$(find chess -name '*.glb' | sort | head -1 || true); g=${g#chess/}
+          cc=$(curl -sI -m 60 "$SITE/$g?v=5a0e5a0e" | tr -d '\r' | awk 'tolower($1)=="cache-control:"{$1="";print}' || true)
+          echo "cache-control on versioned $g:$cc"
+          case "$cc" in *immutable*) ;; *) echo "::warning::versioned $g has no immutable Cache-Control";; esac
           echo "bad=$bad" >> "$GITHUB_OUTPUT"
           [ "$bad" = 0 ]
 
@@ -113,7 +120,16 @@ jobs:
         run: |
           prev=$(git log -2 --format=%H -- chess/app.html | tail -1)
           git show "$prev:chess/app.html" > /tmp/app-prev.html
-          for dest in chess alltherex/chess; do
-            lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 4; put /tmp/app-prev.html -o $dest/app.html; bye" "$FTP_HOST"
+          # Server config is not hashed like assets, so a bad web.config would stay live:
+          # put back the copies from the last good deploy (or the previous commit) as well.
+          good=$(cat /tmp/last-good.txt 2>/dev/null || git rev-parse HEAD~1)
+          extra=""
+          for c in web.config app/web.config; do
+            if git show "$good:chess/$c" > "/tmp/prev-$(echo $c | tr / _)" 2>/dev/null; then
+              extra="$extra put /tmp/prev-$(echo $c | tr / _) -o DEST/$c;"
+            fi
           done
-          echo "::error::Smoke test failed; the page was rolled back to $prev"
+          for dest in chess alltherex/chess; do
+            lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 4; ${extra//DEST/$dest} put /tmp/app-prev.html -o $dest/app.html; bye" "$FTP_HOST"
+          done
+          echo "::error::Smoke test failed; the page was rolled back to $prev and web.config to $good"
