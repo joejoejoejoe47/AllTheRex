@@ -1277,8 +1277,25 @@
         // e.g. an Exit button that leaves the sandbox entirely.
         const END_HOME_URL = 'https://alltherex.com/chess/';
 
+        // Go back to Morse Chess on the same host the player came from (alltherex.com or
+        // www.alltherex.com), over https and with the trailing slash. The chess session
+        // cookie is host-only and Secure, so switching host or landing on http (or on
+        // /chess without the slash, which the server 301s to http) shows the sign-in page.
+        function chessUrl(fixedUrl) {
+            const path = new URL(fixedUrl).pathname;
+            const ours = h => /(^|\.)alltherex\.com$/i.test(h);
+            try {
+                if (document.referrer) {
+                    const r = new URL(document.referrer);
+                    if (ours(r.hostname) && r.pathname.startsWith('/chess')) return 'https://' + r.host + path;
+                }
+            } catch (e) {}
+            if (ours(location.hostname)) return 'https://' + location.host + path;
+            return fixedUrl;
+        }
+
         function endUrlFor(node) {
-            return node && node.endTarget === 'home' ? END_HOME_URL : END_GAME_URL;
+            return chessUrl(node && node.endTarget === 'home' ? END_HOME_URL : END_GAME_URL);
         }
 
         // Leave in the top window, so it also works when goblin is embedded in a frame.
