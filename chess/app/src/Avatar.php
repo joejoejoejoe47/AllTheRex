@@ -53,6 +53,7 @@ final class Avatar
             'mountId' => $keep($loadout['mountId'], 'none'),
             'frameId' => $keep($loadout['frameId'], 'plain'),
             'attackId' => $keep($loadout['attackId'], 'march'),
+            'finishId' => $keep($loadout['finishId'] ?? 'king-onyx', 'king-onyx'),
         ]);
     }
 
@@ -70,7 +71,7 @@ final class Avatar
         $json = (string) ($row['avatar_json'] ?? '');
         $decoded = $json !== '' ? json_decode($json, true) : [];
         $parsed = Catalog::parseLoadout(is_array($decoded) ? $decoded : []);
-        $style = in_array($row['piece_style'], ['2d', 'an', 'ra', '3d'], true) ? (string) $row['piece_style'] : '3d';
+        $style = in_array($row['piece_style'], ['2d', 'an', 'ra', 'lg', 'cl', 'pa', '3d'], true) ? (string) $row['piece_style'] : '3d';
         $loadout = self::clampLoadout($parsed, $owned);
         $loadout['style'] = $style;
         return [
@@ -103,6 +104,9 @@ final class Avatar
             if ($style === 'ra' && !in_array('royal', $current['owned'], true) && !$current['raTrial']) {
                 $style = $current['loadout']['style'] === 'ra' ? '3d' : $current['loadout']['style'];
             }
+            if ($style === 'lg' && !self::ownsLegoBoard($userId)) {
+                $style = $current['loadout']['style'] === 'lg' ? '3d' : $current['loadout']['style'];
+            }
             $next['style'] = $style;
             Db::run(
                 'UPDATE profiles SET avatar_json = ?, piece_style = ? WHERE user_id = ?',
@@ -112,11 +116,27 @@ final class Avatar
         });
     }
 
+    /** LG (LEGO Marvel figures) needs the Lego Universe board: bought, or gifted to the account. */
+    private static function ownsLegoBoard(string $userId): bool
+    {
+        $row = Db::one('SELECT owned_boards, username FROM profiles WHERE user_id = ? LIMIT 1', [$userId]);
+        if ($row === null) {
+            return false;
+        }
+        $owned = array_filter(array_map('trim', explode(',', (string) ($row['owned_boards'] ?? ''))));
+        return in_array(Catalog::LEGO_BOARD_ID, $owned, true)
+            || in_array(Catalog::LEGO_BOARD_ID, Catalog::giftBoardsFor((string) ($row['username'] ?? '')), true);
+    }
+
     /** @param array<string,mixed> $data */
     public static function setPieceStyle(string $userId, array $data): mixed
     {
         $style = $data['style'] ?? null;
-        $style = in_array($style, ['2d', 'an', 'ra'], true) ? $style : '3d';
+        // 'cl' (Classic) and 'pa' (Parlor) are free 3D sets.
+        $style = in_array($style, ['2d', 'an', 'ra', 'lg', 'cl', 'pa'], true) ? $style : '3d';
+        if ($style === 'lg' && !self::ownsLegoBoard($userId)) {
+            throw new RpcError('LG comes with the Brick Verse board (60 Morse coins).');
+        }
         if ($style === 'ra') {
             $current = self::readRow($userId);
             if ($current === null || (!in_array('royal', $current['owned'], true) && !$current['raTrial'])) {

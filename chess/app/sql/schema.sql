@@ -215,6 +215,14 @@ ALTER TABLE `game_chat` ADD COLUMN `image` MEDIUMTEXT NULL;
 ALTER TABLE `chess_club_messages` ADD COLUMN `image` MEDIUMTEXT NULL;
 ALTER TABLE `profiles` ADD COLUMN `sandbox_owned` TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE `profiles` ADD COLUMN `games_played` INT NOT NULL DEFAULT 0;
+-- Game history: the starting clock (time control), each player's board and piece style
+-- when the game began, and where it was started from ('sandbox' games stay out of History).
+ALTER TABLE `games` ADD COLUMN `clock_ms` INT NOT NULL DEFAULT 60000;
+ALTER TABLE `games` ADD COLUMN `white_board` VARCHAR(64) NULL;
+ALTER TABLE `games` ADD COLUMN `black_board` VARCHAR(64) NULL;
+ALTER TABLE `games` ADD COLUMN `white_style` VARCHAR(16) NULL;
+ALTER TABLE `games` ADD COLUMN `black_style` VARCHAR(16) NULL;
+ALTER TABLE `games` ADD COLUMN `source` VARCHAR(16) NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS `sandbox_queue` (
   `user_id` VARCHAR(64) NOT NULL,
@@ -298,3 +306,25 @@ VALUES ('bot-mores', 'MorseBot', 'morsebot', 1840, '2026-01-01 00:00:00.000', '2
 
 INSERT IGNORE INTO `profiles` (`user_id`, `username`, `username_lc`, `score`, `last_seen`, `created_at`)
 VALUES ('bot-mores-v2', 'MorseBotv2', 'morsebotv2', 2200, '2026-01-01 00:00:00.000', '2026-01-01 00:00:00.000');
+
+-- ── Lego board builder: bought palette pieces and saved builds ─────────────
+
+CREATE TABLE IF NOT EXISTS `lego_parts_owned` (
+  `user_id` VARCHAR(64) NOT NULL,
+  `part_id` VARCHAR(64) NOT NULL,
+  `bought_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`user_id`, `part_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `lego_builds` (
+  `id` VARCHAR(64) NOT NULL,
+  `user_id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(64) NOT NULL,
+  `pieces` MEDIUMTEXT NOT NULL,
+  `piece_count` INT NOT NULL DEFAULT 0,
+  `active` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` DATETIME(3) NOT NULL,
+  `updated_at` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `lego_builds_user_idx` (`user_id`, `updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
