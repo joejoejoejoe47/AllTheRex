@@ -1,0 +1,6 @@
+# Secrets: never commit database credentials
+rex/config.php
+
+# macOS resource-fork junk
+._*
+.DS_Store
