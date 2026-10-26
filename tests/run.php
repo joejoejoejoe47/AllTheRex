@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * Offline test suite (uses SQLite in memory, no MySQL needed):  php rex/tests/run.php
+ * Offline test suite (uses SQLite in memory, no MySQL needed):  php tests/run.php
  * Not needed on the server; safe to leave out of deployment.
  */
 define('REX_ROOT', dirname(__DIR__));

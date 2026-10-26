@@ -1,5 +1,5 @@
 # Secrets: never commit database credentials
-rex/config.php
+config.php
 
 # macOS resource-fork junk
 ._*

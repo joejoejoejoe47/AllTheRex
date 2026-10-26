@@ -10,7 +10,7 @@ function e(?string $s): string
     return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
-/** Base URL of this app, so it works at /rex/ now and at the site root later. */
+/** Base URL of this app, so it works at the site root or in any subfolder. */
 function base_url(): string
 {
     $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));

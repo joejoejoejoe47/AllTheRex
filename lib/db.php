@@ -48,7 +48,7 @@ function db(): PDO
     }
     $c = rex_config();
     if ($c['db_name'] === '' || $c['db_user'] === '') {
-        rex_fatal('The site is not configured yet. Create rex/config.php from config.sample.php.');
+        rex_fatal('The site is not configured yet. Create config.php from config.sample.php.');
     }
     try {
         $pdo = new PDO(
