@@ -34,6 +34,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if (!empty($_POST['seed'])) {
                 $log[] = 'Added ' . rex_seed() . ' starter titles.';
             }
+            if (!empty($_POST['images'])) {
+                [$n, $left] = rex_backfill_images(18.0);
+                $log[] = "Looked up images for $n titles" . ($left ? ", $left still to do. Run Create tables again with the images box ticked to continue (it's safe to repeat)." : '. All done.');
+            }
             if (!empty($_POST['rebuild'])) {
                 $log[] = 'Rebuilt ' . rec_rebuild_all() . ' similarity pairs.';
             }
@@ -61,6 +65,7 @@ if ($done) {
         <input type="password" name="token" required autocomplete="off">
       </label>
       <label class="check"><input type="checkbox" name="seed" value="1" checked> Add ~48 starter titles (movies, albums, books)</label>
+      <label class="check"><input type="checkbox" name="images" value="1" checked> Fetch cover images (takes up to 20 seconds)</label>
       <label class="check"><input type="checkbox" name="rebuild" value="1"> Rebuild similarity table</label>
       <button class="btn">Create tables</button>
     </form>

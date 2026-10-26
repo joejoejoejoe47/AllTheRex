@@ -23,6 +23,8 @@ function rex_schema(string $driver): array
                 title TEXT NOT NULL,
                 creator TEXT NOT NULL DEFAULT \'\',
                 year INTEGER NULL,
+                image_url TEXT NULL,
+                image_tried INTEGER NOT NULL DEFAULT 0,
                 dedupe_key TEXT NOT NULL UNIQUE,
                 created_by INTEGER NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -70,6 +72,8 @@ function rex_schema(string $driver): array
             title VARCHAR(190) NOT NULL,
             creator VARCHAR(190) NOT NULL DEFAULT '',
             year SMALLINT UNSIGNED NULL,
+            image_url VARCHAR(500) NULL,
+            image_tried TINYINT UNSIGNED NOT NULL DEFAULT 0,
             dedupe_key CHAR(40) NOT NULL,
             created_by INT UNSIGNED NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -107,7 +111,30 @@ function rex_schema(string $driver): array
 
 function rex_install(PDO $pdo): void
 {
-    foreach (rex_schema($pdo->getAttribute(PDO::ATTR_DRIVER_NAME)) as $sql) {
+    $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    foreach (rex_schema($driver) as $sql) {
         $pdo->exec($sql);
+    }
+    rex_migrate($pdo, $driver);
+}
+
+/** Bring an older install up to date (safe to run repeatedly). */
+function rex_migrate(PDO $pdo, string $driver): void
+{
+    $cols = [];
+    if ($driver === 'sqlite') {
+        foreach ($pdo->query('PRAGMA table_info(items)') as $r) {
+            $cols[] = $r['name'];
+        }
+    } else {
+        foreach ($pdo->query('SHOW COLUMNS FROM items') as $r) {
+            $cols[] = $r['Field'];
+        }
+    }
+    if (!in_array('image_url', $cols, true)) {
+        $pdo->exec($driver === 'sqlite' ? 'ALTER TABLE items ADD COLUMN image_url TEXT NULL' : 'ALTER TABLE items ADD COLUMN image_url VARCHAR(500) NULL');
+    }
+    if (!in_array('image_tried', $cols, true)) {
+        $pdo->exec($driver === 'sqlite' ? 'ALTER TABLE items ADD COLUMN image_tried INTEGER NOT NULL DEFAULT 0' : 'ALTER TABLE items ADD COLUMN image_tried TINYINT UNSIGNED NOT NULL DEFAULT 0');
     }
 }

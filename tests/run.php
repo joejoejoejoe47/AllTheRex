@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Not needed on the server; safe to leave out of deployment.
  */
 define('REX_ROOT', dirname(__DIR__));
-foreach (['db', 'schema', 'helpers', 'auth', 'catalog', 'recommender', 'seed'] as $f) {
+foreach (['db', 'schema', 'helpers', 'auth', 'images', 'catalog', 'recommender', 'seed'] as $f) {
     require REX_ROOT . "/lib/$f.php";
 }
 mb_internal_encoding('UTF-8');
@@ -137,6 +137,55 @@ check('LIKE wildcards are escaped', count($rows) === 0);
 [$rows] = catalog_list(null, 'nolan', 'az', 1, null);
 check('search matches creator', count($rows) === 2);
 check('invalid rating rejected', (function () { try { set_rating(1, 1, 9); } catch (InvalidArgumentException $e) { return true; } return false; })());
+
+echo "Cover images (sample API responses; live services can't be reached from the build sandbox)\n";
+$itunes = json_encode(['results' => [
+    ['trackName' => 'Inception: The Making Of', 'artistName' => 'Someone Else', 'artworkUrl100' => 'https://is1-ssl.mzstatic.com/image/thumb/Video/aa/bad.jpg/100x100bb.jpg'],
+    ['trackName' => 'Inception', 'artistName' => 'Christopher Nolan', 'artworkUrl100' => 'https://is1-ssl.mzstatic.com/image/thumb/Video/bb/good.jpg/100x100bb.jpg'],
+]]);
+$deezer = json_encode(['data' => [
+    ['title' => 'Abbey Road (Remastered)', 'artist' => ['name' => 'The Beatles'], 'cover_big' => 'https://cdn-images.dzcdn.net/images/cover/abc/500x500-000000-80-0-0.jpg'],
+]]);
+$ol = json_encode(['docs' => [
+    ['title' => 'Dune Messiah', 'author_name' => ['Frank Herbert'], 'cover_i' => 111],
+    ['title' => 'Dune', 'author_name' => ['Frank Herbert'], 'cover_i' => 222],
+    ['title' => 'Dune', 'author_name' => ['Frank Herbert']],
+]]);
+$GLOBALS['REX_HTTP'] = function (string $url) use ($itunes, $deezer, $ol) {
+    return match (true) { str_contains($url, 'itunes') => $itunes, str_contains($url, 'deezer') => $deezer, str_contains($url, 'openlibrary') => $ol, default => null };
+};
+$m = rex_find_image('movie', 'Inception', 'Christopher Nolan', 2010);
+check('movie: picks the exact title, upsizes artwork', $m === 'https://is1-ssl.mzstatic.com/image/thumb/Video/bb/good.jpg/400x600bb.jpg', (string)$m);
+$a = rex_find_image('album', 'Abbey Road', 'The Beatles', 1969);
+check('album: matches despite "(Remastered)"', $a !== null && str_contains($a, 'dzcdn.net'), (string)$a);
+$b = rex_find_image('book', 'Dune', 'Frank Herbert', 1965);
+check('book: exact title with a cover beats longer title', $b === 'https://covers.openlibrary.org/b/id/222-L.jpg', (string)$b);
+check('no match => null (falls back to generated cover)', rex_find_image('movie', 'Zzyzx Unknown Film', 'Nobody', null) === null);
+check('same title by a different artist still accepted at lower rank (no crash)', is_string(rex_find_image('album', 'Abbey Road', 'Completely Different Band', null)));
+$GLOBALS['REX_HTTP'] = fn($u) => null;
+check('network failure => null, no exception', rex_find_image('movie', 'Inception', '', null) === null);
+$GLOBALS['REX_HTTP'] = fn($u) => 'not json {{{';
+check('garbage response => null', rex_find_image('book', 'Dune', '', null) === null);
+check('host allowlist rejects other hosts', rex_clean_image_url('https://evil.example/x.jpg') === null && rex_clean_image_url('http://is1-ssl.mzstatic.com/x.jpg') === null);
+check('host allowlist accepts known hosts', rex_clean_image_url('https://is1-ssl.mzstatic.com/x.jpg') !== null);
+check('pasted URL: https only, no quotes/scripts', rex_user_image_url('javascript:alert(1)') === null && rex_user_image_url('https://a.com/x"onerror="y') === null && rex_user_image_url('https://a.com/x.jpg') !== null);
+
+$GLOBALS['REX_HTTP'] = fn(string $url) => str_contains($url, 'itunes')
+    ? json_encode(['results' => [['trackName' => 'Heat', 'artistName' => 'Michael Mann', 'artworkUrl100' => 'https://is1-ssl.mzstatic.com/image/thumb/Video/cc/good.jpg/100x100bb.jpg']]]) : null;
+[$newId] = add_item('movie', 'Heat', 'Michael Mann', '1995', null, true);
+check('add_item saves the image URL', str_contains((string)q1('SELECT image_url FROM items WHERE id=?', [$newId])['image_url'], 'good.jpg'));
+$tried = (int)q1("SELECT COUNT(*) c FROM items WHERE image_tried = 0")['c'];
+[$done, $left] = rex_backfill_images(30.0);
+check('backfill processes every untried title once', $done === $tried && $left === 0, "done=$done left=$left");
+check('titles with no match are marked tried (no endless retries)', rex_backfill_images(5.0) === [0, 0]);
+unset($GLOBALS['REX_HTTP']);
+
+echo "Upgrading an older database\n";
+$old = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+$old->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, category TEXT, title TEXT, creator TEXT, year INTEGER, dedupe_key TEXT, created_by INTEGER, created_at TEXT)');
+rex_migrate($old, 'sqlite'); rex_migrate($old, 'sqlite');
+$cols = array_column($old->query('PRAGMA table_info(items)')->fetchAll(), 'name');
+check('migration adds image columns, and is repeatable', in_array('image_url', $cols) && in_array('image_tried', $cols));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail ? 1 : 0);

@@ -9,6 +9,7 @@ require __DIR__ . '/db.php';
 require __DIR__ . '/schema.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/auth.php';
+require __DIR__ . '/images.php';
 require __DIR__ . '/catalog.php';
 require __DIR__ . '/recommender.php';
 require __DIR__ . '/view.php';

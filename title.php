@@ -24,10 +24,7 @@ $back = current_back();
 page_head($it['title'], $it['category']);
 ?>
 <section class="detail">
-  <div class="cover big" style="<?= e(cover_style($it['title'], $it['category'])) ?>">
-    <span class="cat"><?= e(REX_SINGULAR[$it['category']]) ?></span>
-    <span class="ini"><?= e(initials($it['title'])) ?></span>
-  </div>
+  <div class="cover big<?= !empty($it['image_url']) ? ' has-img' : '' ?>" style="<?= e(cover_style($it['title'], $it['category'])) ?>"><?= cover_inner($it) ?></div>
   <div>
     <p class="crumb"><a href="<?= e(url('browse.php?cat=' . $it['category'])) ?>"><?= e(REX_CATEGORIES[$it['category']]) ?></a></p>
     <h1><?= e($it['title']) ?></h1>
@@ -50,6 +47,20 @@ page_head($it['title'], $it['category']);
     </div>
   </div>
 </section>
+
+<?php if ($u): ?>
+<details class="imgfix">
+  <summary>Wrong or missing image?</summary>
+  <form method="post" action="<?= e(url('set_image.php')) ?>" class="form">
+    <?= csrf_field() ?>
+    <input type="hidden" name="item_id" value="<?= (int)$it['id'] ?>">
+    <label>Image link (https) <small>Leave blank to search again automatically.</small>
+      <input name="image_url" type="url" maxlength="500" placeholder="https://…/cover.jpg">
+    </label>
+    <button class="btn small">Update image</button>
+  </form>
+</details>
+<?php endif; ?>
 
 <h2 class="sec">People who liked this also liked</h2>
 <?php if ($similar): ?>

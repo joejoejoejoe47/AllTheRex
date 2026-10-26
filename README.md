@@ -31,3 +31,11 @@ Cross-category on purpose: a book can be recommended from a movie you loved. Use
 ## Tests
 
 `php tests/run.php` (SQLite in memory, no database needed).
+
+## Cover images
+
+Only the image URL is stored (`items.image_url`); the picture is loaded from the source by the visitor's browser.
+Movies: Apple iTunes Search. Albums: Deezer. Books: Open Library. No API keys. Titles with no match, or whose image
+later breaks, show the generated colour cover. Images are fetched when a title is added, in `setup.php`
+("Fetch cover images"), or by `php cli/fetch_images.php` (also usable as a Plesk Scheduled Task). Anyone logged in can
+fix a wrong image from the title's page ("Wrong or missing image?").

@@ -10,7 +10,7 @@ function item_dedupe_key(string $category, string $title, string $creator): stri
 }
 
 /** @return array{0:?int,1:array<string,string>} [item id, errors]. On a duplicate, returns the existing id. */
-function add_item(string $category, string $title, string $creator, ?string $year, ?int $userId): array
+function add_item(string $category, string $title, string $creator, ?string $year, ?int $userId, bool $fetchImage = true): array
 {
     $errors = [];
     $category = valid_category($category);
@@ -42,13 +42,17 @@ function add_item(string $category, string $title, string $creator, ?string $yea
     }
     qx('INSERT INTO items (category, title, creator, year, dedupe_key, created_by) VALUES (?, ?, ?, ?, ?, ?)',
         [$category, $title, $creator, $y, $key, $userId]);
-    return [(int)db()->lastInsertId(), []];
+    $newId = (int)db()->lastInsertId();
+    if ($fetchImage) {
+        rex_fetch_image_for($newId);   // best effort; never blocks adding the title
+    }
+    return [$newId, []];
 }
 
 /** Stats SELECT shared by every listing. $uid = viewer, adds my_rating. */
 function item_select_sql(): string
 {
-    return 'SELECT i.id, i.category, i.title, i.creator, i.year, i.created_at,
+    return 'SELECT i.id, i.category, i.title, i.creator, i.year, i.image_url, i.created_at,
                    COUNT(r.id) AS n, COALESCE(AVG(r.rating), 0) AS avg, COALESCE(SUM(r.rating), 0) AS total,
                    MAX(m.rating) AS my_rating
             FROM items i
@@ -138,7 +142,7 @@ function catalog_list(?string $category, string $search, string $sort, int $page
 
 function user_ratings_list(int $userId, ?string $category = null): array
 {
-    $sql = 'SELECT i.id, i.category, i.title, i.creator, i.year, mine.rating AS my_rating, mine.rated_at,
+    $sql = 'SELECT i.id, i.category, i.title, i.creator, i.year, i.image_url, mine.rating AS my_rating, mine.rated_at,
                    (SELECT COUNT(*) FROM ratings x WHERE x.item_id = i.id) AS n,
                    (SELECT COALESCE(AVG(x.rating), 0) FROM ratings x WHERE x.item_id = i.id) AS avg
             FROM ratings mine JOIN items i ON i.id = mine.item_id

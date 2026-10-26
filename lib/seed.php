@@ -47,7 +47,7 @@ function rex_seed(): int
     $added = 0;
     foreach (rex_seed_titles() as $cat => $rows) {
         foreach ($rows as [$title, $creator, $year]) {
-            [$id, $err] = add_item($cat, $title, $creator, (string)$year, null);
+            [$id, $err] = add_item($cat, $title, $creator, (string)$year, null, false);
             if ($id && !$err) {
                 $added++;
             }

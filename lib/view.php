@@ -69,16 +69,20 @@ function star_widget(int $itemId, ?int $mine, string $back = 'index.php'): void
 <?php
 }
 
+/** The cover block: real image if we have one, otherwise (or if it fails to load) the generated cover. */
+function cover_inner(array $it): string
+{
+    $img = !empty($it['image_url']) ? '<img src="' . e($it['image_url']) . '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="var c=this.parentNode;c.classList.remove(\'has-img\');this.remove()">' : '';
+    return $img . '<span class="cat">' . e(REX_SINGULAR[$it['category']] ?? $it['category']) . '</span><span class="ini">' . e(initials($it['title'])) . '</span>';
+}
+
 /** One title tile. $extra = optional line(s) of HTML under the meta. */
 function item_card(array $it, string $back = 'index.php', string $extra = ''): void
 {
     $cat = $it['category'];
     ?>
 <article class="card">
-  <a class="cover" href="<?= e(url('title.php?id=' . (int)$it['id'])) ?>" style="<?= e(cover_style($it['title'], $cat)) ?>" aria-label="<?= e($it['title']) ?>">
-    <span class="cat"><?= e(REX_SINGULAR[$cat] ?? $cat) ?></span>
-    <span class="ini"><?= e(initials($it['title'])) ?></span>
-  </a>
+  <a class="cover<?= !empty($it['image_url']) ? ' has-img' : '' ?>" href="<?= e(url('title.php?id=' . (int)$it['id'])) ?>" style="<?= e(cover_style($it['title'], $cat)) ?>" aria-label="<?= e($it['title']) ?>"><?= cover_inner($it) ?></a>
   <div class="body">
     <h3><a href="<?= e(url('title.php?id=' . (int)$it['id'])) ?>"><?= e($it['title']) ?></a></h3>
     <p class="meta"><?= e($it['creator']) ?><?= ($it['creator'] !== '' && $it['year']) ? ' · ' : '' ?><?= $it['year'] ? (int)$it['year'] : '' ?></p>
