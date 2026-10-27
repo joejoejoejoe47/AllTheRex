@@ -39,3 +39,10 @@ Movies: Apple iTunes Search. Albums: Deezer. Books: Open Library. No API keys. T
 later breaks, show the generated colour cover. Images are fetched when a title is added, in `setup.php`
 ("Fetch cover images"), or by `php cli/fetch_images.php` (also usable as a Plesk Scheduled Task). Anyone logged in can
 fix a wrong image from the title's page ("Wrong or missing image?").
+
+## Adding titles from public databases
+
+`add.php` searches as you type (logged-in users only, 40 searches/min): movies via Wikipedia film articles, albums via
+Deezer, books via Open Library. Picking a result adds it with year, creator and cover; titles already in the catalog
+are flagged "Already added". Manual entry remains as a fallback. Code: `lib/lookup.php`, `search_external.php`,
+`add_external.php`, `assets/add.js`.

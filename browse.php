@@ -36,7 +36,7 @@ page_head($label, $cat ?? 'browse');
 
 <?php if (!$rows): ?>
   <div class="empty"><h2>Nothing found</h2>
-    <p>Can't find it? <a href="<?= e(url('add.php' . ($cat ? '?cat=' . $cat : ''))) ?>">Add it to the catalog</a> and be the first to rate it.</p></div>
+    <p>Can't find it? <a href="<?= e(url('add.php?' . http_build_query(array_filter(['cat' => $cat, 'q' => $q])))) ?>">Search public databases and add it</a> to the catalog.</p></div>
 <?php else: ?>
   <div class="grid"><?php foreach ($rows as $it) { item_card($it, $back); } ?></div>
   <?php pager($total, $page, http_build_query(array_filter(['cat' => $cat, 'q' => $q, 'sort' => $sort]))); ?>

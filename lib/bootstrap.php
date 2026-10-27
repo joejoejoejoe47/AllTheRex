@@ -12,6 +12,7 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/images.php';
 require __DIR__ . '/catalog.php';
 require __DIR__ . '/recommender.php';
+require __DIR__ . '/lookup.php';
 require __DIR__ . '/view.php';
 
 mb_internal_encoding('UTF-8');

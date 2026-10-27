@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Not needed on the server; safe to leave out of deployment.
  */
 define('REX_ROOT', dirname(__DIR__));
-foreach (['db', 'schema', 'helpers', 'auth', 'images', 'catalog', 'recommender', 'seed'] as $f) {
+foreach (['db', 'schema', 'helpers', 'auth', 'images', 'catalog', 'recommender', 'lookup', 'seed'] as $f) {
     require REX_ROOT . "/lib/$f.php";
 }
 mb_internal_encoding('UTF-8');
@@ -207,6 +207,47 @@ check('network failure leaves the title untried (will retry later)', (int)q1('SE
 $GLOBALS['REX_HTTP'] = fn(string $url) => json_encode(['results' => []]);
 rex_fetch_image_for($rid);
 check('a successful lookup with no match is final (marked tried)', (int)q1('SELECT image_tried t FROM items WHERE id=?', [$rid])['t'] === 1);
+unset($GLOBALS['REX_HTTP']);
+
+echo "Search public databases\n";
+$wikiSearch = json_encode(['query' => ['pages' => [
+    '1' => ['title' => 'Inception', 'index' => 1, 'description' => '2010 film by Christopher Nolan'],
+    '2' => ['title' => 'Inception (soundtrack)', 'index' => 3, 'description' => '2010 soundtrack album by Hans Zimmer'],
+    '3' => ['title' => 'Christopher Nolan', 'index' => 2, 'description' => 'British and American filmmaker (born 1970)'],
+    '4' => ['title' => 'Heat (1995 film)', 'index' => 4, 'description' => '1995 American crime film by Michael Mann'],
+    '5' => ['title' => 'Inception (film series)', 'index' => 5, 'description' => 'film series'],
+    '6' => ['title' => 'Parasite (2019 film)', 'index' => 6, 'description' => '2019 South Korean film by Bong Joon-ho'],
+]]]);
+$dz = json_encode(['data' => [['title' => 'Revolver', 'artist' => ['name' => 'The Beatles'], 'cover_big' => 'https://cdn-images.dzcdn.net/images/cover/r/500x500.jpg'],
+                              ['title' => 'Revolver', 'artist' => ['name' => 'The Beatles'], 'cover_big' => 'https://cdn-images.dzcdn.net/images/cover/r2/500x500.jpg']]]);
+$olb = json_encode(['docs' => [['title' => 'Dune', 'author_name' => ['Frank Herbert', 'Other'], 'first_publish_year' => 1965, 'cover_i' => 222],
+                               ['title' => 'Emma', 'author_name' => ['Jane Austen'], 'first_publish_year' => 1815]]]);
+$GLOBALS['REX_HTTP'] = fn(string $u) => match (true) { str_contains($u, 'wikipedia') => $wikiSearch, str_contains($u, 'deezer') => $dz, str_contains($u, 'openlibrary') => $olb, default => null };
+$mv = rex_external_search('movie', 'inception')['results'];
+echo '  movies: ' . implode(' | ', array_map(fn($r) => "{$r['title']} ({$r['year']}) {$r['creator']}", $mv)) . "\n";
+check('movies: films only (people, series, soundtracks filtered)', array_column($mv, 'title') === ['Inception', 'Heat', 'Parasite']);
+check('movies: year and director parsed', $mv[0]['year'] === 2010 && $mv[0]['creator'] === 'Christopher Nolan' && $mv[1]['year'] === 1995 && $mv[1]['creator'] === 'Michael Mann');
+check('movies: "(1995 film)" suffix removed from title', $mv[1]['title'] === 'Heat');
+check('movies: already-added title is flagged (despite different director text)', $mv[0]['existing_id'] === id_of('Inception') && $mv[2]['existing_id'] === id_of('Parasite'));
+check('movies: new title has no existing id', $mv[1]['existing_id'] === null || is_int($mv[1]['existing_id']));
+$al = rex_external_search('album', 'revolver')['results'];
+check('albums: duplicates collapsed, image kept', count($al) === 1 && $al[0]['creator'] === 'The Beatles' && str_contains($al[0]['image'], 'dzcdn.net') && $al[0]['existing_id'] === null);
+$bk = rex_external_search('book', 'dune')['results'];
+check('books: first author, year, cover', $bk[0]['creator'] === 'Frank Herbert' && $bk[0]['year'] === 1965 && $bk[0]['image'] === 'https://covers.openlibrary.org/b/id/222-L.jpg');
+check('books: existing flagged, new one not', $bk[0]['existing_id'] === id_of('Dune') && $bk[1]['existing_id'] === null);
+check('query too short / bad category => nothing', rex_external_search('movie', 'a')['results'] === [] && rex_external_search('podcast', 'abc')['results'] === []);
+$GLOBALS['REX_HTTP'] = fn($u) => null;
+$fx = rex_external_search('book', 'dune');
+check('service down => failed flag, no crash', $fx['failed'] === true && $fx['results'] === []);
+$GLOBALS['REX_HTTP'] = fn($u) => '{"docs":[]}';
+$fx = rex_external_search('book', 'zzzzzz');
+check('no matches => empty but not "failed"', $fx['failed'] === false && $fx['results'] === []);
+$GLOBALS['REX_HTTP'] = fn($u) => null;
+[$nid, $nerr] = add_item('book', 'Emma', 'Jane Austen', '1815', null, true, 'https://covers.openlibrary.org/b/id/9-L.jpg');
+check('add with a supplied image stores it without another lookup', !$nerr && q1('SELECT image_url u, image_tried t FROM items WHERE id=?', [$nid]) == ['u' => 'https://covers.openlibrary.org/b/id/9-L.jpg', 't' => 1]);
+[$nid2] = add_item('book', 'Evil Image', 'X', '2000', null, false, 'https://evil.example/x.jpg');
+check('supplied image from an unknown host is ignored', q1('SELECT image_url u FROM items WHERE id=?', [$nid2])['u'] === null);
+check('existing-title match tolerates a 1-year difference, not 5', catalog_find_existing('movie', 'The Godfather', '', 1973) === id_of('The Godfather') && catalog_find_existing('movie', 'The Godfather', '', 1980) === null);
 unset($GLOBALS['REX_HTTP']);
 
 echo "Upgrading an older database\n";

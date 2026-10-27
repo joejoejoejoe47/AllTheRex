@@ -10,7 +10,7 @@ function item_dedupe_key(string $category, string $title, string $creator): stri
 }
 
 /** @return array{0:?int,1:array<string,string>} [item id, errors]. On a duplicate, returns the existing id. */
-function add_item(string $category, string $title, string $creator, ?string $year, ?int $userId, bool $fetchImage = true): array
+function add_item(string $category, string $title, string $creator, ?string $year, ?int $userId, bool $fetchImage = true, ?string $image = null): array
 {
     $errors = [];
     $category = valid_category($category);
@@ -43,10 +43,36 @@ function add_item(string $category, string $title, string $creator, ?string $yea
     qx('INSERT INTO items (category, title, creator, year, dedupe_key, created_by) VALUES (?, ?, ?, ?, ?, ?)',
         [$category, $title, $creator, $y, $key, $userId]);
     $newId = (int)db()->lastInsertId();
-    if ($fetchImage) {
+    if (($img = rex_clean_image_url($image)) !== null) {
+        qx('UPDATE items SET image_url = ?, image_tried = 1 WHERE id = ?', [$img, $newId]);
+    } elseif ($fetchImage) {
         rex_fetch_image_for($newId);   // best effort; never blocks adding the title
     }
     return [$newId, []];
+}
+
+/**
+ * Is this title already in the catalog? Matches the exact key, or the same normalised title with a
+ * compatible year (so "Inception" from a public database doesn't duplicate our "Inception").
+ */
+function catalog_find_existing(string $category, string $title, string $creator, ?int $year): ?int
+{
+    $r = q1('SELECT id FROM items WHERE dedupe_key = ?', [item_dedupe_key($category, $title, $creator)]);
+    if ($r) {
+        return (int)$r['id'];
+    }
+    $nt = rex_norm($title);
+    if ($nt === '') {
+        return null;
+    }
+    $first = explode(' ', $nt)[0];
+    $like  = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $first) . '%';
+    foreach (q("SELECT id, title, year FROM items WHERE category = ? AND title LIKE ? ESCAPE '!'", [$category, $like]) as $row) {
+        if (rex_norm($row['title']) === $nt && ($year === null || $row['year'] === null || abs((int)$row['year'] - $year) <= 1)) {
+            return (int)$row['id'];
+        }
+    }
+    return null;
 }
 
 /** Stats SELECT shared by every listing. $uid = viewer, adds my_rating. */
