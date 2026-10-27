@@ -171,13 +171,29 @@ check('host allowlist accepts known hosts', rex_clean_image_url('https://is1-ssl
 check('pasted URL: https only, no quotes/scripts', rex_user_image_url('javascript:alert(1)') === null && rex_user_image_url('https://a.com/x"onerror="y') === null && rex_user_image_url('https://a.com/x.jpg') !== null);
 
 $GLOBALS['REX_HTTP'] = fn(string $url) => str_contains($url, 'itunes')
-    ? json_encode(['results' => [['trackName' => 'Heat', 'artistName' => 'Michael Mann', 'artworkUrl100' => 'https://is1-ssl.mzstatic.com/image/thumb/Video/cc/good.jpg/100x100bb.jpg']]]) : null;
+    ? json_encode(['results' => [['trackName' => 'Heat', 'artistName' => 'Michael Mann', 'artworkUrl100' => 'https://is1-ssl.mzstatic.com/image/thumb/Video/cc/good.jpg/100x100bb.jpg']]]) : '{}';   // other services: reachable, no match
 [$newId] = add_item('movie', 'Heat', 'Michael Mann', '1995', null, true);
 check('add_item saves the image URL', str_contains((string)q1('SELECT image_url FROM items WHERE id=?', [$newId])['image_url'], 'good.jpg'));
 $tried = (int)q1("SELECT COUNT(*) c FROM items WHERE image_tried = 0")['c'];
 [$done, $left] = rex_backfill_images(30.0);
 check('backfill processes every untried title once', $done === $tried && $left === 0, "done=$done left=$left");
 check('titles with no match are marked tried (no endless retries)', rex_backfill_images(5.0) === [0, 0]);
+unset($GLOBALS['REX_HTTP']);
+
+$wiki = json_encode(['query' => ['pages' => [
+    '1' => ['title' => 'Inception (soundtrack)', 'index' => 2, 'description' => '2010 soundtrack album', 'thumbnail' => ['source' => 'https://upload.wikimedia.org/wikipedia/en/x/snd.jpg']],
+    '2' => ['title' => 'Inception', 'index' => 1, 'description' => '2010 film by Christopher Nolan', 'thumbnail' => ['source' => 'https://upload.wikimedia.org/wikipedia/en/2/2e/Inception_(2010)_theatrical_poster.jpg']],
+]]]);
+$GLOBALS['REX_HTTP'] = fn(string $url) => str_contains($url, 'wikipedia') ? $wiki : null;   // iTunes unreachable
+check('movie falls back to Wikipedia when iTunes is unreachable', rex_find_image('movie', 'Inception', 'Christopher Nolan', 2010) === 'https://upload.wikimedia.org/wikipedia/en/2/2e/Inception_(2010)_theatrical_poster.jpg');
+check('Wikipedia fallback rejects wrong year and non-films', rex_find_image('movie', 'Inception', '', 1999) === null);
+$GLOBALS['REX_HTTP'] = fn(string $url) => null;
+[$rid] = add_item('movie', 'Retry Me', 'X', '2001', null, false);
+rex_fetch_image_for($rid);
+check('network failure leaves the title untried (will retry later)', (int)q1('SELECT image_tried t FROM items WHERE id=?', [$rid])['t'] === 0);
+$GLOBALS['REX_HTTP'] = fn(string $url) => json_encode(['results' => []]);
+rex_fetch_image_for($rid);
+check('a successful lookup with no match is final (marked tried)', (int)q1('SELECT image_tried t FROM items WHERE id=?', [$rid])['t'] === 1);
 unset($GLOBALS['REX_HTTP']);
 
 echo "Upgrading an older database\n";

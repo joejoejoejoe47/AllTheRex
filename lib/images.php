@@ -6,14 +6,18 @@ declare(strict_types=1);
  *   movies -> Apple iTunes Search (no key)   albums -> Deezer (no key)   books -> Open Library (no key)
  * Lookups are best-effort. A title with no image just shows the generated colour cover.
  */
-const REX_IMG_HOSTS = ['mzstatic.com', 'dzcdn.net', 'covers.openlibrary.org', 'archive.org'];
+const REX_IMG_HOSTS = ['mzstatic.com', 'dzcdn.net', 'covers.openlibrary.org', 'archive.org', 'wikimedia.org'];
 
 /** GET a URL, return the body or null. Tests replace this via $GLOBALS['REX_HTTP']. */
 function rex_http_get(string $url): ?string
 {
     if (isset($GLOBALS['REX_HTTP']) && is_callable($GLOBALS['REX_HTTP'])) {
-        return ($GLOBALS['REX_HTTP'])($url);
+        $r = ($GLOBALS['REX_HTTP'])($url);
+        if ($r === null) { $GLOBALS['REX_HTTP_FAILED'] = true; }
+        return $r;
     }
+    $t0 = microtime(true);
+    $GLOBALS['REX_HTTP_LAST'] = ['url' => $url, 'code' => 0, 'errno' => 0, 'error' => '', 'ms' => 0, 'body' => ''];
     $ua = 'AllTheRex/1.0 (+https://alltherex.com)';
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
@@ -24,12 +28,19 @@ function rex_http_get(string $url): ?string
         ]);
         $body = curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $GLOBALS['REX_HTTP_LAST'] = ['url' => $url, 'code' => $code, 'errno' => curl_errno($ch), 'error' => curl_error($ch),
+                                     'ms' => (int)((microtime(true) - $t0) * 1000), 'body' => $body === false ? '' : substr((string)$body, 0, 300)];
         curl_close($ch);
-        return ($body !== false && $code >= 200 && $code < 300) ? (string)$body : null;
+        if ($body !== false && $code >= 200 && $code < 300) {
+            return (string)$body;
+        }
+        $GLOBALS['REX_HTTP_FAILED'] = true;
+        return null;
     }
     $ctx = stream_context_create(['http' => ['timeout' => 6, 'header' => "User-Agent: $ua\r\n"]]);
     $body = @file_get_contents($url, false, $ctx);
-    return $body === false ? null : $body;
+    if ($body === false) { $GLOBALS['REX_HTTP_FAILED'] = true; return null; }
+    return $body;
 }
 
 function rex_norm(string $s): string
@@ -106,6 +117,9 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
                 $cands[] = ['t' => (string)($r['trackName'] ?? ''), 'by' => (string)($r['artistName'] ?? ''),
                             'img' => preg_replace('#/\d+x\d+bb\.(jpg|png)$#', '/400x600bb.$1', $img)];
             }
+            if (!rex_pick_best($cands, $title, $creator)) {
+                return rex_wikipedia_poster($title, $year);
+            }
         } elseif ($category === 'album') {
             $body = rex_http_get('https://api.deezer.com/search/album?' . http_build_query(['q' => trim($title . ' ' . $creator), 'limit' => 10]));
             foreach ((json_decode((string)$body, true)['data'] ?? []) as $r) {
@@ -129,6 +143,35 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
     }
 }
 
+/** Movie poster from Wikipedia's lead image (keyless). Used when iTunes has no match or can't be reached. */
+function rex_wikipedia_poster(string $title, ?int $year): ?string
+{
+    $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
+        'action' => 'query', 'format' => 'json', 'generator' => 'search', 'gsrnamespace' => 0, 'gsrlimit' => 5,
+        'gsrsearch' => trim($title . ' ' . ($year ?: '') . ' film'),
+        'prop' => 'pageimages|description', 'piprop' => 'thumbnail', 'pithumbsize' => 400,
+    ]));
+    $pages = (json_decode((string)$body, true)['query']['pages'] ?? []);
+    uasort($pages, fn($a, $b) => ($a['index'] ?? 99) <=> ($b['index'] ?? 99));
+    foreach ($pages as $p) {
+        $desc = mb_strtolower((string)($p['description'] ?? ''));
+        $img  = (string)($p['thumbnail']['source'] ?? '');
+        if ($img === '' || !str_contains($desc, 'film')) {
+            continue;
+        }
+        if (rex_norm((string)($p['title'] ?? '')) !== rex_norm($title)) {
+            continue;
+        }
+        if ($year && !str_contains($desc, (string)$year)) {
+            continue;
+        }
+        if (rex_clean_image_url($img)) {
+            return $img;
+        }
+    }
+    return null;
+}
+
 /** Look up and save the image for one item. Returns the URL or null. Marks the item as tried either way. */
 function rex_fetch_image_for(int $itemId): ?string
 {
@@ -136,8 +179,11 @@ function rex_fetch_image_for(int $itemId): ?string
     if (!$it) {
         return null;
     }
+    $GLOBALS['REX_HTTP_FAILED'] = false;
     $url = rex_find_image($it['category'], $it['title'], $it['creator'], $it['year'] ? (int)$it['year'] : null);
-    qx('UPDATE items SET image_url = ?, image_tried = 1 WHERE id = ?', [$url, $itemId]);
+    // If a request failed (timeout/blocked) and we found nothing, leave it untried so a later run can retry.
+    $tried = ($url !== null || empty($GLOBALS['REX_HTTP_FAILED'])) ? 1 : 0;
+    qx('UPDATE items SET image_url = ?, image_tried = ? WHERE id = ?', [$url, $tried, $itemId]);
     return $url;
 }
 
@@ -146,7 +192,8 @@ function rex_backfill_images(float $seconds = 20.0): array
 {
     $end = microtime(true) + $seconds;
     $done = 0;
-    foreach (q('SELECT id FROM items WHERE image_url IS NULL AND image_tried = 0 ORDER BY id') as $row) {
+    $rows = q('SELECT id FROM items WHERE image_url IS NULL AND image_tried = 0 ORDER BY id');
+    foreach ($rows as $row) {
         if (microtime(true) > $end) {
             break;
         }
