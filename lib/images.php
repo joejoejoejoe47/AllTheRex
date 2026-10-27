@@ -111,7 +111,7 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
     try {
         $cands = [];
         if ($category === 'movie') {
-            $body = rex_http_get('https://itunes.apple.com/search?' . http_build_query(['term' => $title, 'media' => 'movie', 'entity' => 'movie', 'limit' => 10]));
+            $body = rex_http_get('https://itunes.apple.com/search?' . http_build_query(['term' => $title, 'media' => 'movie', 'entity' => 'movie', 'country' => 'us', 'limit' => 10]));
             foreach ((json_decode((string)$body, true)['results'] ?? []) as $r) {
                 $img = (string)($r['artworkUrl100'] ?? '');
                 $cands[] = ['t' => (string)($r['trackName'] ?? ''), 'by' => (string)($r['artistName'] ?? ''),
@@ -144,8 +144,9 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
 }
 
 /** Movie poster from Wikipedia's lead image (keyless). Used when iTunes has no match or can't be reached. */
-function rex_wikipedia_poster(string $title, ?int $year): ?string
+function rex_wikipedia_poster(string $title, ?int $year, ?array &$why = null): ?string
 {
+    $why = [];
     $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
         'action' => 'query', 'format' => 'json', 'generator' => 'search', 'gsrnamespace' => 0, 'gsrlimit' => 5,
         'gsrsearch' => trim($title . ' ' . ($year ?: '') . ' film'),
@@ -156,18 +157,15 @@ function rex_wikipedia_poster(string $title, ?int $year): ?string
     foreach ($pages as $p) {
         $desc = mb_strtolower((string)($p['description'] ?? ''));
         $img  = (string)($p['thumbnail']['source'] ?? '');
-        if ($img === '' || !str_contains($desc, 'film')) {
-            continue;
-        }
-        if (rex_norm((string)($p['title'] ?? '')) !== rex_norm($title)) {
-            continue;
-        }
-        if ($year && !str_contains($desc, (string)$year)) {
-            continue;
-        }
-        if (rex_clean_image_url($img)) {
-            return $img;
-        }
+        $name = (string)($p['title'] ?? '');
+        $tag  = "\"$name\" | desc=\"$desc\" | thumb=" . ($img !== '' ? 'yes' : 'NO') . ' => ';
+        if ($img === '') { $why[] = $tag . 'rejected: no thumbnail'; continue; }
+        if (!str_contains($desc, 'film')) { $why[] = $tag . 'rejected: description lacks "film"'; continue; }
+        if (rex_norm($name) !== rex_norm($title)) { $why[] = $tag . 'rejected: title differs'; continue; }
+        if ($year && !str_contains($desc, (string)$year)) { $why[] = $tag . 'rejected: year not in description'; continue; }
+        if (!rex_clean_image_url($img)) { $why[] = $tag . 'rejected: image host/URL not allowed (' . $img . ')'; continue; }
+        $why[] = $tag . 'ACCEPTED';
+        return $img;
     }
     return null;
 }

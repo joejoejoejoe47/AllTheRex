@@ -41,6 +41,7 @@ if (isset($_GET['probe'])) {
             return 'HTTP ' . ($l['code'] ?? '?') . ' in ' . ($l['ms'] ?? '?') . 'ms' . (!empty($l['error']) ? ' | curl error ' . $l['errno'] . ': ' . $l['error'] : '') . ' | ' . substr(preg_replace('/\s+/', ' ', (string)($l['body'] ?? '')), 0, 160);
         });
     }
+    step('Wikipedia decision for "Inception" (2010)', function () { rex_wikipedia_poster('Inception', 2010, $why); return "\n         " . (implode("\n         ", $why) ?: 'no pages returned'); });
     step('find image for "Inception"', function () { return rex_find_image('movie', 'Inception', 'Christopher Nolan', 2010) ?? 'NONE'; });
 }
 if (isset($_GET['images'])) {
