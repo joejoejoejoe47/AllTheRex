@@ -209,6 +209,22 @@ rex_fetch_image_for($rid);
 check('a successful lookup with no match is final (marked tried)', (int)q1('SELECT image_tried t FROM items WHERE id=?', [$rid])['t'] === 1);
 unset($GLOBALS['REX_HTTP']);
 
+// Posters whose file is NOT called "poster": found through Wikipedia's recorded lead image, or by film-name match.
+$mkWiki = fn(string $title, string $desc, ?string $pageImage) => json_encode(['query' => ['pages' => ['5' => array_filter([
+    'title' => $title, 'index' => 1, 'description' => $desc, 'pageprops' => $pageImage ? ['page_image' => $pageImage] : null])]]]);
+$infoOf = fn(string $file) => json_encode(['query' => ['pages' => ['-1' => ['title' => $file, 'imageinfo' => [['thumburl' => 'https://upload.wikimedia.org/wikipedia/en/thumb/x/' . rawurlencode($file)]]]]]]);
+$GLOBALS['REX_HTTP'] = fn(string $u) => str_contains($u, 'itunes') ? '{"results":[]}'
+    : (str_contains($u, 'prop=imageinfo') ? $infoOf('File:Godfather ver1.jpg') : $mkWiki('The Godfather', '1972 film by Francis Ford Coppola', 'Godfather_ver1.jpg'));
+$g = rex_find_image('movie', 'The Godfather', 'Francis Ford Coppola', 1972);
+check('movie poster via recorded lead image ("Godfather ver1.jpg", no "poster" in name)', $g !== null && str_contains($g, 'Godfather%20ver1.jpg'), (string)$g);
+$files = json_encode(['query' => ['pages' => ['5' => ['title' => 'The Dark Knight (film)', 'images' => [
+    ['title' => 'File:Commons-logo.svg'], ['title' => 'File:Christian Bale as Batman.jpg'], ['title' => 'File:The Dark Knight (2008 film).jpg'], ['title' => 'File:Heath Ledger signature.png']]]]]]);
+$GLOBALS['REX_HTTP'] = fn(string $u) => str_contains($u, 'itunes') ? '{"results":[]}'
+    : (str_contains($u, 'prop=imageinfo') ? $infoOf('File:The Dark Knight (2008 film).jpg')
+    : (str_contains($u, 'prop=images') ? $files : $mkWiki('The Dark Knight (film)', '2008 film directed by Christopher Nolan', null)));
+$dk = rex_find_image('movie', 'The Dark Knight', 'Christopher Nolan', 2008);
+check('movie poster by film-name file match when no lead-image property', $dk !== null && str_contains($dk, 'Dark%20Knight%20%282008%20film%29.jpg'), (string)$dk);
+
 echo "Search public databases\n";
 $wikiSearch = json_encode(['query' => ['pages' => [
     '1' => ['title' => 'Inception', 'index' => 1, 'description' => '2010 film by Christopher Nolan'],

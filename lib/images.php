@@ -144,8 +144,11 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
 }
 
 /** Find the poster file listed on a film's Wikipedia page and return a 400px thumbnail URL. */
-function rex_wikipedia_poster_file(string $page): ?string
+function rex_wikipedia_poster_file(string $page, string $knownFile = ''): ?string
 {
+    if ($knownFile !== '') {
+        return rex_wikipedia_file_thumb('File:' . str_replace('_', ' ', $knownFile));
+    }
     $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
         'action' => 'query', 'format' => 'json', 'titles' => $page, 'prop' => 'images', 'imlimit' => 500,
     ]));
@@ -155,15 +158,29 @@ function rex_wikipedia_poster_file(string $page): ?string
             $files[] = (string)($im['title'] ?? '');
         }
     }
+    $isImg = fn(string $f) => (bool)preg_match('/\.(jpe?g|png)$/i', $f);
+    $bad   = '/(logo|flag|icon|commons|wiki|symbol|edit|question|ambox|stub|portal|signature|portrait|screenshot|still|scene|map)/i';
+    $core  = trim(preg_replace('/^(the|a|an) /', '', rex_norm($page)));
     $file = null;
-    foreach (['/poster/i', '/(cover|theatrical|release)/i'] as $pattern) {     // best guess first
+    foreach ($files as $f) {                                   // 1. a file called "...poster..."
+        if ($isImg($f) && preg_match('/poster/i', $f)) { $file = $f; break; }
+    }
+    if ($file === null && $core !== '') {                      // 2. a file named after the film, e.g. "The Dark Knight (2008 film).jpg"
         foreach ($files as $f) {
-            if (preg_match($pattern, $f) && preg_match('/\.(jpe?g|png)$/i', $f)) { $file = $f; break 2; }
+            if ($isImg($f) && !preg_match($bad, $f) && str_contains(rex_norm(preg_replace('/^File:/i', '', $f)), $core)) { $file = $f; break; }
         }
     }
     if ($file === null) {
-        return null;
+        foreach ($files as $f) {                               // 3. cover / release art
+            if ($isImg($f) && preg_match('/(cover|theatrical|release)/i', $f)) { $file = $f; break; }
+        }
     }
+    return $file === null ? null : rex_wikipedia_file_thumb($file);
+}
+
+/** 400px thumbnail URL for a Wikipedia file ("File:Name.jpg"). */
+function rex_wikipedia_file_thumb(string $file): ?string
+{
     $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
         'action' => 'query', 'format' => 'json', 'titles' => $file, 'prop' => 'imageinfo', 'iiprop' => 'url', 'iiurlwidth' => 400,
     ]));
@@ -183,7 +200,8 @@ function rex_wikipedia_poster(string $title, ?int $year, ?array &$why = null): ?
     $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
         'action' => 'query', 'format' => 'json', 'generator' => 'search', 'gsrnamespace' => 0, 'gsrlimit' => 5,
         'gsrsearch' => trim($title . ' ' . ($year ?: '') . ' film'),
-        'prop' => 'pageimages|description', 'piprop' => 'thumbnail', 'pithumbsize' => 400,
+        'prop' => 'pageimages|description|pageprops', 'piprop' => 'thumbnail', 'pithumbsize' => 400,
+        'ppprop' => 'page_image|page_image_free',
     ]));
     $pages = (json_decode((string)$body, true)['query']['pages'] ?? []);
     uasort($pages, fn($a, $b) => ($a['index'] ?? 99) <=> ($b['index'] ?? 99));
@@ -196,7 +214,10 @@ function rex_wikipedia_poster(string $title, ?int $year, ?array &$why = null): ?
         if (rex_norm($name) !== rex_norm($title)) { $why[] = $tag . 'rejected: title differs'; continue; }
         if ($year && !str_contains($desc, (string)$year)) { $why[] = $tag . 'rejected: year not in description'; continue; }
         if ($img === '') {
-            $img = (string)rex_wikipedia_poster_file($name);   // film posters are non-free files, so no automatic thumbnail
+            // Film posters are non-free files, so there is no automatic thumbnail. Wikipedia still records the
+            // page's lead image (the infobox poster) as the "page_image" property; use that, else scan the file list.
+            $known = (string)($p['pageprops']['page_image'] ?? $p['pageprops']['page_image_free'] ?? '');
+            $img = (string)rex_wikipedia_poster_file($name, $known);
             if ($img === '') { $why[] = $tag . 'rejected: no thumbnail and no poster file found'; continue; }
         }
         if (!rex_clean_image_url($img)) { $why[] = $tag . 'rejected: image host/URL not allowed (' . $img . ')'; continue; }
