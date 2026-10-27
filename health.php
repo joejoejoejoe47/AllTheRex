@@ -34,7 +34,10 @@ if (isset($_GET['retry'])) {
     step('RETRY: reset titles that have no image so they are looked up again', function () { return db()->exec('UPDATE items SET image_tried = 0 WHERE image_url IS NULL') . ' titles reset'; });
 }
 if (isset($_GET['probe'])) {
-    foreach ([['iTunes (movies)', 'https://itunes.apple.com/search?term=inception&media=movie&entity=movie&limit=2'],
+    foreach ([['iTunes A: media=movie&country=us', 'https://itunes.apple.com/search?term=inception&media=movie&country=us&limit=3'],
+              ['iTunes B: entity=movie&country=us', 'https://itunes.apple.com/search?term=inception&entity=movie&country=us&limit=3'],
+              ['iTunes C: no media filter', 'https://itunes.apple.com/search?term=inception+nolan&country=us&limit=3'],
+              ['iTunes D: lowercase us, movie+movie', 'https://itunes.apple.com/search?term=inception&media=movie&entity=movie&country=US&limit=3'],
               ['Wikipedia (movies)', 'https://en.wikipedia.org/w/api.php?action=query&format=json&generator=search&gsrsearch=Inception+2010+film&gsrlimit=2&prop=pageimages|description&piprop=thumbnail&pithumbsize=400']] as [$label, $u]) {
         step("PROBE $label", function () use ($u) {
             $r = rex_http_get($u); $l = $GLOBALS['REX_HTTP_LAST'] ?? [];

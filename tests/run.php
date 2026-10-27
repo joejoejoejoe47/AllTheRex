@@ -187,6 +187,19 @@ $wiki = json_encode(['query' => ['pages' => [
 $GLOBALS['REX_HTTP'] = fn(string $url) => str_contains($url, 'wikipedia') ? $wiki : null;   // iTunes unreachable
 check('movie falls back to Wikipedia when iTunes is unreachable', rex_find_image('movie', 'Inception', 'Christopher Nolan', 2010) === 'https://upload.wikimedia.org/wikipedia/en/2/2e/Inception_(2010)_theatrical_poster.jpg');
 check('Wikipedia fallback rejects wrong year and non-films', rex_find_image('movie', 'Inception', '', 1999) === null);
+// Real Wikipedia behaviour: the film page has NO thumbnail (non-free poster), so the poster file is looked up from the page's file list.
+$wikiNoThumb = json_encode(['query' => ['pages' => ['9' => ['title' => 'Inception', 'index' => 1, 'description' => '2010 film by Christopher Nolan']]]]);
+$wikiFiles = json_encode(['query' => ['pages' => ['9' => ['title' => 'Inception', 'images' => [
+    ['title' => 'File:Commons-logo.svg'], ['title' => 'File:Inception (2010) theatrical poster.jpg'], ['title' => 'File:Question book-new.svg']]]]]]);
+$wikiInfo = json_encode(['query' => ['pages' => ['-1' => ['title' => 'File:Inception (2010) theatrical poster.jpg', 'imageinfo' => [['thumburl' => 'https://upload.wikimedia.org/wikipedia/en/thumb/2/2e/Inception_%282010%29_theatrical_poster.jpg/400px-Inception_%282010%29_theatrical_poster.jpg']]]]]]);
+$GLOBALS['REX_HTTP'] = function (string $url) use ($wikiNoThumb, $wikiFiles, $wikiInfo) {
+    if (str_contains($url, 'itunes')) { return '{"resultCount":0,"results":[]}'; }
+    if (str_contains($url, 'prop=imageinfo')) { return $wikiInfo; }
+    if (str_contains($url, 'prop=images')) { return $wikiFiles; }
+    return $wikiNoThumb;
+};
+$wp = rex_find_image('movie', 'Inception', 'Christopher Nolan', 2010);
+check('movie poster found via the Wikipedia page poster file (no thumbnail case)', $wp !== null && str_contains($wp, 'upload.wikimedia.org') && str_contains($wp, 'poster'), (string)$wp);
 $GLOBALS['REX_HTTP'] = fn(string $url) => null;
 [$rid] = add_item('movie', 'Retry Me', 'X', '2001', null, false);
 rex_fetch_image_for($rid);

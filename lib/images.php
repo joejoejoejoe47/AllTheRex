@@ -143,6 +143,37 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
     }
 }
 
+/** Find the poster file listed on a film's Wikipedia page and return a 400px thumbnail URL. */
+function rex_wikipedia_poster_file(string $page): ?string
+{
+    $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
+        'action' => 'query', 'format' => 'json', 'titles' => $page, 'prop' => 'images', 'imlimit' => 40,
+    ]));
+    $files = [];
+    foreach ((json_decode((string)$body, true)['query']['pages'] ?? []) as $p) {
+        foreach (($p['images'] ?? []) as $im) {
+            $files[] = (string)($im['title'] ?? '');
+        }
+    }
+    $file = null;
+    foreach ($files as $f) {                       // best: "...poster..."
+        if (preg_match('/poster/i', $f) && preg_match('/\.(jpe?g|png)$/i', $f)) { $file = $f; break; }
+    }
+    if ($file === null) {
+        return null;
+    }
+    $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
+        'action' => 'query', 'format' => 'json', 'titles' => $file, 'prop' => 'imageinfo', 'iiprop' => 'url', 'iiurlwidth' => 400,
+    ]));
+    foreach ((json_decode((string)$body, true)['query']['pages'] ?? []) as $p) {
+        $u = (string)($p['imageinfo'][0]['thumburl'] ?? $p['imageinfo'][0]['url'] ?? '');
+        if ($u !== '') {
+            return $u;
+        }
+    }
+    return null;
+}
+
 /** Movie poster from Wikipedia's lead image (keyless). Used when iTunes has no match or can't be reached. */
 function rex_wikipedia_poster(string $title, ?int $year, ?array &$why = null): ?string
 {
@@ -159,10 +190,13 @@ function rex_wikipedia_poster(string $title, ?int $year, ?array &$why = null): ?
         $img  = (string)($p['thumbnail']['source'] ?? '');
         $name = (string)($p['title'] ?? '');
         $tag  = "\"$name\" | desc=\"$desc\" | thumb=" . ($img !== '' ? 'yes' : 'NO') . ' => ';
-        if ($img === '') { $why[] = $tag . 'rejected: no thumbnail'; continue; }
         if (!str_contains($desc, 'film')) { $why[] = $tag . 'rejected: description lacks "film"'; continue; }
         if (rex_norm($name) !== rex_norm($title)) { $why[] = $tag . 'rejected: title differs'; continue; }
         if ($year && !str_contains($desc, (string)$year)) { $why[] = $tag . 'rejected: year not in description'; continue; }
+        if ($img === '') {
+            $img = (string)rex_wikipedia_poster_file($name);   // film posters are non-free files, so no automatic thumbnail
+            if ($img === '') { $why[] = $tag . 'rejected: no thumbnail and no poster file found'; continue; }
+        }
         if (!rex_clean_image_url($img)) { $why[] = $tag . 'rejected: image host/URL not allowed (' . $img . ')'; continue; }
         $why[] = $tag . 'ACCEPTED';
         return $img;
