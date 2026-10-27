@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Search public databases for titles to add (no API keys):
- *   movies -> Wikipedia (film articles)   albums -> Deezer   books -> Open Library
+ *   movies -> Wikipedia (film articles)   albums -> MusicBrainz + Deezer   books -> Open Library
  * Returns candidates: [category, title, creator, year, image, existing_id].
  */
 function rex_external_search(string $category, string $q, int $limit = 8): array
@@ -28,7 +28,7 @@ function rex_external_search(string $category, string $q, int $limit = 8): array
     $res['failed'] = !empty($GLOBALS['REX_HTTP_FAILED']) && !$found;
     $seen = [];
     foreach ($found as $c) {
-        $k = rex_norm($c['title']) . '|' . rex_norm($c['creator']) . '|' . $c['year'];
+        $k = rex_norm($c['title']) . '|' . rex_norm($c['creator']) . ($category === 'album' ? '' : '|' . $c['year']);
         if (isset($seen[$k]) || $c['title'] === '') {
             continue;
         }
@@ -79,6 +79,69 @@ function rex_ext_movies(string $q): array
 }
 
 function rex_ext_albums(string $q): array
+{
+    $mb = rex_ext_albums_musicbrainz($q);
+    $dz = rex_ext_albums_deezer($q);
+
+    // Prefer MusicBrainz entries (complete catalogue, release year); borrow Deezer's cover when it has the same album.
+    $out = [];
+    $usedDz = [];
+    foreach ($mb as $m) {
+        foreach ($dz as $i => $d) {
+            if (isset($usedDz[$i])) {
+                continue;
+            }
+            if (rex_norm($d['title']) === rex_norm($m['title']) && (str_contains(rex_norm($d['creator']), rex_norm($m['creator'])) || str_contains(rex_norm($m['creator']), rex_norm($d['creator'])))) {
+                if ($d['image'] !== '') {
+                    $m['image'] = $d['image'];
+                }
+                $usedDz[$i] = true;
+                break;
+            }
+        }
+        $out[] = $m;
+    }
+    foreach ($dz as $i => $d) {
+        if (!isset($usedDz[$i])) {
+            $out[] = $d;
+        }
+    }
+    return $out;
+}
+
+/** MusicBrainz release groups. Terms are OR-ed so "van dyke parks discover america" (artist + title) still matches. */
+function rex_ext_albums_musicbrainz(string $q): array
+{
+    $terms = array_filter(preg_split('/\s+/', preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $q)) ?: []);
+    $terms = array_slice(array_values($terms), 0, 8);
+    if (!$terms) {
+        return [];
+    }
+    $or  = implode(' OR ', $terms);
+    $lq  = "(releasegroup:($or) OR artist:($or)) AND primarytype:album";
+    $body = rex_http_get('https://musicbrainz.org/ws/2/release-group?' . http_build_query(['query' => $lq, 'fmt' => 'json', 'limit' => 15]));
+    $out = [];
+    foreach ((json_decode((string)$body, true)['release-groups'] ?? []) as $r) {
+        if (!empty($r['secondary-types'])) {          // skip compilations, live albums, soundtracks, remixes
+            continue;
+        }
+        $title = trim((string)($r['title'] ?? ''));
+        $by = trim((string)($r['artist-credit'][0]['name'] ?? ''));
+        $id = (string)($r['id'] ?? '');
+        if ($title === '' || !preg_match('/^[0-9a-f\-]{36}$/i', $id)) {
+            continue;
+        }
+        $out[] = [
+            'title'   => $title,
+            'creator' => $by,
+            'year'    => preg_match('/^(\d{4})/', (string)($r['first-release-date'] ?? ''), $m) ? (int)$m[1] : null,
+            'image'   => 'https://coverartarchive.org/release-group/' . $id . '/front-250',
+        ];
+    }
+    return $out;
+}
+
+function rex_ext_albums_deezer(string $q): array
 {
     $body = rex_http_get('https://api.deezer.com/search/album?' . http_build_query(['q' => $q, 'limit' => 12]));
     $out = [];

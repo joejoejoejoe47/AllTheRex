@@ -230,6 +230,23 @@ check('movies: year and director parsed', $mv[0]['year'] === 2010 && $mv[0]['cre
 check('movies: "(1995 film)" suffix removed from title', $mv[1]['title'] === 'Heat');
 check('movies: already-added title is flagged (despite different director text)', $mv[0]['existing_id'] === id_of('Inception') && $mv[2]['existing_id'] === id_of('Parasite'));
 check('movies: new title has no existing id', $mv[1]['existing_id'] === null || is_int($mv[1]['existing_id']));
+$mbj = json_encode(['release-groups' => [
+    ['id' => '11111111-1111-1111-1111-111111111111', 'title' => 'Discover America', 'first-release-date' => '1972-06-01', 'primary-type' => 'Album', 'artist-credit' => [['name' => 'Van Dyke Parks']]],
+    ['id' => '22222222-2222-2222-2222-222222222222', 'title' => 'Discover America (Live)', 'first-release-date' => '1999', 'primary-type' => 'Album', 'secondary-types' => ['Live'], 'artist-credit' => [['name' => 'Van Dyke Parks']]],
+    ['id' => '33333333-3333-3333-3333-333333333333', 'title' => 'Revolver', 'first-release-date' => '1966-08-05', 'primary-type' => 'Album', 'artist-credit' => [['name' => 'The Beatles']]],
+]]);
+$GLOBALS['REX_HTTP'] = fn(string $u) => match (true) { str_contains($u, 'musicbrainz') => $mbj, str_contains($u, 'deezer') => $dz, default => '{}' };
+$GLOBALS['REX_LASTQ'] = null;
+$vdp = rex_external_search('album', 'van dyke parks discover america')['results'];
+echo '  albums: ' . implode(' | ', array_map(fn($r) => "{$r['title']} - {$r['creator']} ({$r['year']})", $vdp)) . "\n";
+check('albums: MusicBrainz finds an album Deezer lacks, with year', $vdp[0]['title'] === 'Discover America' && $vdp[0]['creator'] === 'Van Dyke Parks' && $vdp[0]['year'] === 1972);
+check('albums: live/compilation releases are skipped', !in_array('Discover America (Live)', array_column($vdp, 'title'), true));
+check('albums: MusicBrainz-only album gets a Cover Art Archive image', $vdp[0]['image'] === 'https://coverartarchive.org/release-group/11111111-1111-1111-1111-111111111111/front-250');
+$rv = array_values(array_filter($vdp, fn($r) => $r['title'] === 'Revolver'));
+check('albums: same album from both sources appears once, with MB year and Deezer cover', count($rv) === 1 && $rv[0]['year'] === 1966 && str_contains($rv[0]['image'], 'dzcdn.net'));
+$GLOBALS['REX_HTTP'] = fn(string $u) => str_contains($u, 'musicbrainz') ? null : $dz;      // MusicBrainz down -> Deezer still works
+check('albums: falls back to Deezer when MusicBrainz is down', count(rex_external_search('album', 'revolver')['results']) === 1);
+$GLOBALS['REX_HTTP'] = fn(string $u) => match (true) { str_contains($u, 'wikipedia') => $wikiSearch, str_contains($u, 'deezer') => $dz, str_contains($u, 'openlibrary') => $olb, default => null };
 $al = rex_external_search('album', 'revolver')['results'];
 check('albums: duplicates collapsed, image kept', count($al) === 1 && $al[0]['creator'] === 'The Beatles' && str_contains($al[0]['image'], 'dzcdn.net') && $al[0]['existing_id'] === null);
 $bk = rex_external_search('book', 'dune')['results'];

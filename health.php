@@ -30,6 +30,12 @@ step('connect to database', function () { return db()->query('SELECT VERSION()')
 if (isset($_GET['fix'])) {
     step('FIX: create/upgrade tables (adds missing columns, keeps all data)', function () { rex_install(db()); return 'done'; });
 }
+if (isset($_GET['missing'])) {
+    step('TITLES WITHOUT AN IMAGE', function () {
+        $r = q('SELECT category, title, year FROM items WHERE image_url IS NULL ORDER BY category, title');
+        return count($r) . ' titles' . ($r ? ":\n         " . implode("\n         ", array_map(fn($x) => $x['category'] . ': ' . $x['title'] . ' (' . $x['year'] . ')', $r)) : '');
+    });
+}
 if (isset($_GET['retry'])) {
     step('RETRY: reset titles that have no image so they are looked up again', function () { return db()->exec('UPDATE items SET image_tried = 0 WHERE image_url IS NULL') . ' titles reset'; });
 }

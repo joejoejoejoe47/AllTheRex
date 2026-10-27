@@ -6,7 +6,7 @@ declare(strict_types=1);
  *   movies -> Apple iTunes Search (no key)   albums -> Deezer (no key)   books -> Open Library (no key)
  * Lookups are best-effort. A title with no image just shows the generated colour cover.
  */
-const REX_IMG_HOSTS = ['mzstatic.com', 'dzcdn.net', 'covers.openlibrary.org', 'archive.org', 'wikimedia.org'];
+const REX_IMG_HOSTS = ['mzstatic.com', 'dzcdn.net', 'covers.openlibrary.org', 'archive.org', 'wikimedia.org', 'coverartarchive.org'];
 
 /** GET a URL, return the body or null. Tests replace this via $GLOBALS['REX_HTTP']. */
 function rex_http_get(string $url): ?string
@@ -147,7 +147,7 @@ function rex_find_image(string $category, string $title, string $creator = '', ?
 function rex_wikipedia_poster_file(string $page): ?string
 {
     $body = rex_http_get('https://en.wikipedia.org/w/api.php?' . http_build_query([
-        'action' => 'query', 'format' => 'json', 'titles' => $page, 'prop' => 'images', 'imlimit' => 40,
+        'action' => 'query', 'format' => 'json', 'titles' => $page, 'prop' => 'images', 'imlimit' => 500,
     ]));
     $files = [];
     foreach ((json_decode((string)$body, true)['query']['pages'] ?? []) as $p) {
@@ -156,8 +156,10 @@ function rex_wikipedia_poster_file(string $page): ?string
         }
     }
     $file = null;
-    foreach ($files as $f) {                       // best: "...poster..."
-        if (preg_match('/poster/i', $f) && preg_match('/\.(jpe?g|png)$/i', $f)) { $file = $f; break; }
+    foreach (['/poster/i', '/(cover|theatrical|release)/i'] as $pattern) {     // best guess first
+        foreach ($files as $f) {
+            if (preg_match($pattern, $f) && preg_match('/\.(jpe?g|png)$/i', $f)) { $file = $f; break 2; }
+        }
     }
     if ($file === null) {
         return null;

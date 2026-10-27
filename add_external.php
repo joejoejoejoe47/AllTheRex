@@ -18,7 +18,12 @@ if (($existing = catalog_find_existing($cat, $title, $creator, $year)) !== null)
     flash('That one is already in the catalog.');
     redirect('title.php?id=' . $existing);
 }
-[$id, $errors] = add_item($cat, $title, $creator, $year !== null ? (string)$year : '', (int)$u['id'], true, (string)($_POST['image_url'] ?? ''));
+$image = (string)($_POST['image_url'] ?? '');
+// Cover Art Archive has no cover for many albums; if so, drop it so the normal lookup (Deezer) can find one.
+if (str_contains($image, 'coverartarchive.org') && rex_http_get($image) === null) {
+    $image = '';
+}
+[$id, $errors] = add_item($cat, $title, $creator, $year !== null ? (string)$year : '', (int)$u['id'], true, $image);
 if ($id && !$errors) {
     flash('Added! Now give it a rating.');
     redirect('title.php?id=' . $id);
