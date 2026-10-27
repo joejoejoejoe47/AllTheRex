@@ -27,11 +27,14 @@ foreach (['db', 'schema', 'helpers', 'auth', 'images', 'catalog', 'recommender',
 }
 mb_internal_encoding('UTF-8');
 step('connect to database', function () { return db()->query('SELECT VERSION()')->fetchColumn(); });
+if (isset($_GET['fix'])) {
+    step('FIX: create/upgrade tables (adds missing columns, keeps all data)', function () { rex_install(db()); return 'done'; });
+}
 step('items columns', function () {
     $c = array_column(db()->query('SHOW COLUMNS FROM items')->fetchAll(), 'Field');
     $need = ['image_url', 'image_tried'];
     $miss = array_diff($need, $c);
-    if ($miss) { throw new RuntimeException('missing columns: ' . implode(', ', $miss) . '  (run setup.php again)'); }
+    if ($miss) { throw new RuntimeException('missing columns: ' . implode(', ', $miss) . '  (open this page again with &fix=1 added to the address)'); }
     return implode(',', $c);
 });
 step('counts', function () {
