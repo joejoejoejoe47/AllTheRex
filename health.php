@@ -30,6 +30,12 @@ step('connect to database', function () { return db()->query('SELECT VERSION()')
 if (isset($_GET['fix'])) {
     step('FIX: create/upgrade tables (adds missing columns, keeps all data)', function () { rex_install(db()); return 'done'; });
 }
+if (isset($_GET['images'])) {
+    step('FETCH IMAGES (up to ~18 seconds; reload with &images=1 again if titles remain)', function () {
+        [$n, $left] = rex_backfill_images(18.0);
+        return "looked up $n titles, $left still to do";
+    });
+}
 step('items columns', function () {
     $c = array_column(db()->query('SHOW COLUMNS FROM items')->fetchAll(), 'Field');
     $need = ['image_url', 'image_tried'];
