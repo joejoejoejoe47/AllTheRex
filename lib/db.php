@@ -26,7 +26,7 @@ function rex_fatal(string $message, ?Throwable $e = null): never
         http_response_code(500);
         header('Content-Type: text/html; charset=utf-8');
     }
-    $detail = (rex_config()['debug'] && $e) ? "\n" . $e->getMessage() : '';
+    $detail = (rex_config()['debug'] && $e) ? "\n" . get_class($e) . ': ' . $e->getMessage() . "\n" . basename($e->getFile()) . ':' . $e->getLine() : '';
     echo PHP_SAPI === 'cli'
         ? $message . $detail . "\n"
         : '<!doctype html><meta charset="utf-8"><title>Error</title>'

@@ -16,6 +16,11 @@ require __DIR__ . '/view.php';
 
 mb_internal_encoding('UTF-8');
 
+// Any uncaught error: log it, and show the real message only when 'debug' => true in config.php.
+set_exception_handler(function (Throwable $e): void {
+    rex_fatal('Something went wrong on this page.', $e);
+});
+
 if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
