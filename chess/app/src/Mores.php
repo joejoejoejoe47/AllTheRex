@@ -218,10 +218,12 @@ final class Mores
 
     // ── games ──────────────────────────────────────────────────────────────
 
-    private static function insertGame(string $a, string $b, string $mode, bool $pull = false, int $clockMs = Constants::TURN_MS, string $source = ''): string
+    /** $aColor: 'w' / 'b' puts player $a on that side; null flips a coin. */
+    private static function insertGame(string $a, string $b, string $mode, bool $pull = false, int $clockMs = Constants::TURN_MS, string $source = '', ?string $aColor = null, string $variant = ''): string
     {
+        $variant = Variants::valid($variant) ? $variant : '';
         $id = Util::uuid();
-        $aWhite = Util::chance(0.5);
+        $aWhite = $aColor === 'w' ? true : ($aColor === 'b' ? false : Util::chance(0.5));
         $white = $aWhite ? $a : $b;
         $black = $aWhite ? $b : $a;
         $chess = new Chess();
@@ -236,12 +238,17 @@ final class Mores
         };
         [$wBoard, $wStyle] = $look($white);
         [$bBoard, $bStyle] = $look($black);
+        // Ratings as the game starts: the coin rule pays 5 for beating a player who was "very high" at the start.
+        $wStart = Db::value('SELECT score FROM profiles WHERE user_id = ? LIMIT 1', [$white]);
+        $bStart = Db::value('SELECT score FROM profiles WHERE user_id = ? LIMIT 1', [$black]);
         Db::run(
             "INSERT INTO games (id, white_user_id, black_user_id, mode, fen, status, turn, turn_started_at, created_at,
-                                white_clock_ms, black_clock_ms, pull, clock_ms, white_board, black_board, white_style, black_style, source)
-             VALUES (?, ?, ?, ?, ?, 'active', 'w', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [$id, $white, $black, $mode, $chess->fen(), $now, $now, $clockMs, $clockMs, $pull ? 1 : 0,
-             $clockMs, $wBoard, $bBoard, $wStyle, $bStyle, $source]
+                                white_clock_ms, black_clock_ms, pull, clock_ms, white_board, black_board, white_style, black_style, source,
+                                white_start_score, black_start_score, variant)
+             VALUES (?, ?, ?, ?, ?, 'active', 'w', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [$id, $white, $black, $mode, $variant !== '' ? Variants::START_FEN[$variant] : $chess->fen(), $now, $now, $clockMs, $clockMs, $pull ? 1 : 0,
+             $clockMs, $wBoard, $bBoard, $wStyle, $bStyle, $source,
+             $wStart === null ? null : (int) $wStart, $bStart === null ? null : (int) $bStart, $variant]
         );
         return $id;
     }
@@ -253,6 +260,26 @@ final class Mores
     {
         $m = is_numeric($minutes) ? (int) $minutes : 1;
         return in_array($m, self::CLOCK_MINUTES, true) ? $m * 60000 : Constants::TURN_MS;
+    }
+
+    /** The game's variant (see Variants::IDS), or '' for normal chess (owner t205u). */
+    private static function variantOf(array $game): string
+    {
+        $v = (string) ($game['variant'] ?? '');
+        return Variants::valid($v) ? $v : '';
+    }
+
+    /**
+     * The variant a player asked to start, or '' for normal chess. Variants are "Coming soon" until the
+     * owner approves them (Variants::RELEASED); MasterGus can always play them to test (owner t209u).
+     */
+    private static function requestedVariant(array $data, ?array $me): string
+    {
+        $v = Variants::valid($data['variant'] ?? null) ? (string) $data['variant'] : '';
+        if ($v !== '' && !Variants::released($v) && !Catalog::isMasterUsername((string) ($me['username'] ?? ''))) {
+            throw new RpcError(Variants::name($v) . ' is coming soon.');
+        }
+        return $v;
     }
 
     /** @return array<string,mixed>|null */
@@ -320,12 +347,12 @@ final class Mores
         $game['scored'] = 1;
     }
 
-    private static function finishGame(array &$game, string $status, ?string $winnerUserId): void
+    private static function finishGame(array &$game, string $status, ?string $winnerUserId, bool $checkmate = false): void
     {
         if ($game['status'] !== 'active') {
             return;
         }
-        $applied = Db::transaction(static function () use (&$game, $status, $winnerUserId): bool {
+        $applied = Db::transaction(static function () use (&$game, $status, $winnerUserId, $checkmate): bool {
             $changed = Db::run(
                 "UPDATE games SET status = ?, winner_user_id = ?, scored = 1 WHERE id = ? AND status = 'active'",
                 [$status, $winnerUserId, $game['id']]
@@ -333,6 +360,15 @@ final class Mores
             if ($changed === 0) {
                 return false; // someone else already settled this game
             }
+            if (self::variantOf($game) !== '') {
+                // Variant games: no coins, no rating change, no bot streak (owner t205u).
+                $game['status'] = $status;
+                $game['winner_user_id'] = $winnerUserId;
+                $game['scored'] = 1;
+                self::awardStyleCoin($game, $winnerUserId);
+                return true;
+            }
+            self::payWinCoins($game, $winnerUserId, $checkmate);
             self::settleElo($game, $status, $winnerUserId);
             $game['status'] = $status;
             $game['winner_user_id'] = $winnerUserId;
@@ -365,53 +401,87 @@ final class Mores
             Db::run('UPDATE profiles SET bot_streak = 0 WHERE user_id = ?', [$humanId]);
             return;
         }
-        $row = Db::one('SELECT bot_streak FROM profiles WHERE user_id = ? LIMIT 1' . Db::forUpdate(), [$humanId]);
-        $streak = self::toInt($row['bot_streak'] ?? null, 0) + 1;
-        $award = 0;
-        $next = $streak;
-        if ($streak >= 6) {
-            $award = 5;
-            $next = 0;
-        }
-        Db::run('UPDATE profiles SET bot_streak = ?, coins = coins + ? WHERE user_id = ?', [$next, $award, $humanId]);
-        if ($award > 0) {
-            Db::run('UPDATE games SET coin_award = ? WHERE id = ?', [$award, $game['id']]);
-            $game['coin_award'] = $award;
-        }
+        // Win streak vs the bots is only counted now; it no longer pays coins (owner rule, Oct 28).
+        Db::run('UPDATE profiles SET bot_streak = bot_streak + 1 WHERE user_id = ?', [$humanId]);
     }
 
     /**
-     * Every finished game pays each human player 2 Morse coins (any piece style),
-     * counts the game toward the RA free-trial schedule, and ends a used RA trial.
+     * Counts a finished game for each human player (RA free-trial schedule) and ends a used RA trial.
+     * No coins here: coins come only from payWinCoins.
      */
     private static function awardStyleCoin(array &$game, ?string $winnerUserId): void
     {
-        $mine = 0;
         foreach ([(string) $game['white_user_id'], (string) $game['black_user_id']] as $uid) {
             if ($uid === '' || Constants::isBotUserId($uid)) {
                 continue;
             }
             self::countFinishedGame($uid);
-            if ($uid === $winnerUserId) {
-                $mine = 2;
-            }
         }
-        if ($mine === 0) {
-            return;
-        }
-        $next = self::toInt($game['coin_award'] ?? null, 0) + $mine;
-        Db::run('UPDATE games SET coin_award = ? WHERE id = ?', [$next, $game['id']]);
-        $game['coin_award'] = $next;
     }
 
-    /** +2 coins, +1 game played; a player who used a free RA trial goes back to 3d. */
+    /**
+     * The ONE place game coins are paid (owner rule, Oct 28):
+     *  - the winner gets COINS_WIN_HIGH (5) if the loser's rating at game start was >= HIGH_SCORE_AT, else COINS_WIN (2);
+     *  - losers, draws and bots get nothing; nobody pays a stake to play;
+     *  - "aborted" games (resign / clock before COINS_MIN_PLIES half-moves) pay nothing; checkmate always counts;
+     *  - vs MorseBot / MorseBotv2: paid by the bot's rating like anyone else, but only for checkmate
+     *    (a bot only "runs out of time" when the player stops watching the game);
+     *  - paid at most once per game: games.coin_award is set with a conditional UPDATE in the same transaction.
+     * Must run inside the transaction that moves the game out of 'active', before Elo changes the ratings.
+     */
+    public static function payWinCoins(array &$game, ?string $winnerUserId, bool $checkmate): int
+    {
+        if (self::variantOf($game) !== '') {
+            return 0; // coins only for normal chess wins (owner t205u)
+        }
+        $white = (string) $game['white_user_id'];
+        $black = (string) $game['black_user_id'];
+        if ($winnerUserId === null || $winnerUserId === '' || $white === $black) {
+            return 0;
+        }
+        if ($winnerUserId !== $white && $winnerUserId !== $black) {
+            return 0;
+        }
+        if (Constants::isBotUserId($winnerUserId)) {
+            return 0;
+        }
+        $loserId = $winnerUserId === $white ? $black : $white;
+        $vsBot = Constants::isBotUserId($loserId);
+        if (!$checkmate) {
+            if ($vsBot) {
+                return 0;
+            }
+            $plies = (int) Db::value('SELECT COUNT(*) FROM game_moves WHERE game_id = ?', [$game['id']]);
+            if ($plies < Constants::COINS_MIN_PLIES) {
+                return 0;
+            }
+        }
+        $startKey = $loserId === $white ? 'white_start_score' : 'black_start_score';
+        $start = $game[$startKey] ?? null;
+        if ($start === null || $start === '') {
+            // Games started before the start ratings were stored: the loser's rating before this result.
+            $start = Db::value('SELECT score FROM profiles WHERE user_id = ? LIMIT 1', [$loserId]);
+        }
+        $amount = self::toInt($start, Constants::START_SCORE) >= Constants::HIGH_SCORE_AT
+            ? Constants::COINS_WIN_HIGH
+            : Constants::COINS_WIN;
+        $claimed = Db::run('UPDATE games SET coin_award = ? WHERE id = ? AND coin_award = 0', [$amount, $game['id']]);
+        if ($claimed !== 1) {
+            return 0; // already paid
+        }
+        Db::run('UPDATE profiles SET coins = coins + ? WHERE user_id = ?', [$amount, $winnerUserId]);
+        $game['coin_award'] = $amount;
+        return $amount;
+    }
+
+    /** +1 game played; a player who used a free RA trial goes back to 3d. */
     public static function countFinishedGame(string $userId): void
     {
         $row = Db::one('SELECT piece_style, owned_gear FROM profiles WHERE user_id = ? LIMIT 1' . Db::forUpdate(), [$userId]);
         if ($row === null) {
             return;
         }
-        Db::run('UPDATE profiles SET coins = coins + 2, games_played = games_played + 1 WHERE user_id = ?', [$userId]);
+        Db::run('UPDATE profiles SET games_played = games_played + 1 WHERE user_id = ?', [$userId]);
         $owned = self::ownedList($row['owned_gear'] ?? '');
         if ((string) ($row['piece_style'] ?? '') === 'ra' && !in_array('royal', $owned, true)) {
             Db::run("UPDATE profiles SET piece_style = '3d' WHERE user_id = ?", [$userId]);
@@ -650,8 +720,13 @@ final class Mores
     /** @return array{ok:true}|array{ok:false,error:string} */
     private static function recordAndApplyMove(array &$game, string $from, string $to, ?string $promotion = null): array
     {
+        if (self::variantOf($game) !== '') {
+            return self::recordVariantMove($game, $from, $to, $promotion);
+        }
         $expectedFen = (string) $game['fen'];
-        $chess = new Chess($expectedFen);
+        // Rebuilt from the move list (not just the fen) so the position history is known
+        // and threefold repetition can end the game in a draw.
+        $chess = self::replayGame($game);
         $isSq = self::validSquare($from);
         $needsPromo = $isSq && ($chess->get($from)['type'] ?? null) === 'p' && (str_ends_with($to, '8') || str_ends_with($to, '1'));
         $promo = in_array($promotion, ['q', 'r', 'b', 'n'], true) ? $promotion : null;
@@ -713,6 +788,9 @@ final class Mores
             $game['winner_user_id'] = $winner;
 
             if ($status === 'white_win' || $status === 'black_win' || $status === 'draw') {
+                if ($winner !== null) {
+                    self::payWinCoins($game, $winner, true);
+                }
                 self::settleElo($game, $status, $winner);
             }
             return null;
@@ -721,6 +799,111 @@ final class Mores
             return ['ok' => false, 'error' => $result];
         }
         return ['ok' => true];
+    }
+
+    /**
+     * A move in a variant game: checked by Variants and stored like a normal move.
+     * Variant games never pay coins or change ratings (owner t205u).
+     * @return array{ok:true}|array{ok:false,error:string}
+     */
+    private static function recordVariantMove(array &$game, string $from, string $to, ?string $promotion): array
+    {
+        $variant = self::variantOf($game);
+        $expectedFen = (string) $game['fen'];
+        $promo = in_array($promotion, ['q', 'r', 'b', 'n'], true) ? $promotion : null;
+        if (!self::validSquare($from) || !self::validSquare($to)) {
+            return ['ok' => false, 'error' => 'That move is not legal.'];
+        }
+        if ($promo === null && Variants::needsPromotion($variant, $expectedFen, $from, $to)) {
+            return ['ok' => false, 'error' => 'Choose a piece.'];
+        }
+        $res = Variants::tryMove($variant, $expectedFen, $from, $to, $promo);
+        if ($res === null) {
+            return ['ok' => false, 'error' => 'That move is not legal.'];
+        }
+        $status = 'active';
+        $winner = null;
+        if ($res['status']['over']) {
+            $w = $res['status']['winner'] ?? null;
+            $status = $w === 'w' ? 'white_win' : ($w === 'b' ? 'black_win' : 'draw');
+            $winner = $w === 'w' ? (string) $game['white_user_id'] : ($w === 'b' ? (string) $game['black_user_id'] : null);
+        }
+        $now = Db::ts(Db::nowMs());
+        $clocks = self::liveClocks($game);
+        $result = Db::transaction(static function () use (&$game, $res, $from, $to, $status, $winner, $now, $clocks, $expectedFen): ?string {
+            $changed = Db::run(
+                "UPDATE games SET fen = ?, turn = ?, last_move_from = ?, last_move_to = ?, last_move_san = ?,
+                    turn_started_at = ?, white_clock_ms = ?, black_clock_ms = ?, status = ?, winner_user_id = ?, scored = ?
+                 WHERE id = ? AND fen = ? AND status = 'active'",
+                [
+                    $res['fen'], $res['turn'], $from, $to, $res['san'],
+                    $now, $clocks['w'], $clocks['b'], $status, $winner, $status !== 'active' ? 1 : 0,
+                    $game['id'], $expectedFen,
+                ]
+            );
+            if ($changed === 0) {
+                return 'That move already happened.';
+            }
+            $ply = (int) Db::value('SELECT COUNT(*) FROM game_moves WHERE game_id = ?', [$game['id']]) + 1;
+            Db::insertIgnore('game_moves', [
+                'game_id' => $game['id'], 'ply' => $ply, 'san' => $res['san'],
+                'from_sq' => $from, 'to_sq' => $to, 'created_at' => $now,
+            ]);
+            $game['fen'] = $res['fen'];
+            $game['turn'] = $res['turn'];
+            $game['last_move_from'] = $from;
+            $game['last_move_to'] = $to;
+            $game['last_move_san'] = $res['san'];
+            $game['turn_started_at'] = $now;
+            $game['white_clock_ms'] = $clocks['w'];
+            $game['black_clock_ms'] = $clocks['b'];
+            $game['status'] = $status;
+            $game['winner_user_id'] = $winner;
+            return null;
+        });
+        if ($result !== null) {
+            return ['ok' => false, 'error' => $result];
+        }
+        return ['ok' => true];
+    }
+
+    /**
+     * The game's position with its full history: every game starts from the normal setup, so play the
+     * stored moves back. Falls back to the bare fen if the move list does not lead to the stored position.
+     */
+    private static function replayGame(array $game): Chess
+    {
+        $fen = (string) $game['fen'];
+        $chess = new Chess();
+        $rows = Db::all('SELECT san FROM game_moves WHERE game_id = ? ORDER BY ply ASC', [$game['id']]);
+        foreach ($rows as $r) {
+            if ($chess->move((string) $r['san'], false) === null) {
+                return new Chess($fen);
+            }
+        }
+        return $chess->fen() === $fen ? $chess : new Chess($fen);
+    }
+
+    /** Why a drawn game was drawn: repetition, stalemate, material, fifty, or null (no rule, e.g. the bot gave up). */
+    private static function drawReason(array $game): ?string
+    {
+        if ((string) $game['status'] !== 'draw' || self::variantOf($game) !== '') {
+            return null;
+        }
+        $chess = self::replayGame($game);
+        if ($chess->isStalemate()) {
+            return 'stalemate';
+        }
+        if ($chess->isThreefoldRepetition()) {
+            return 'repetition';
+        }
+        if ($chess->isInsufficientMaterial()) {
+            return 'material';
+        }
+        if ((int) (explode(' ', $chess->fen())[4] ?? 0) >= 100) {
+            return 'fifty';
+        }
+        return null;
     }
 
     private static function maybeTimeout(array &$game): void
@@ -753,6 +936,25 @@ final class Mores
         if ($botSide === null || $game['turn'] !== $botSide) {
             return;
         }
+        $variant = self::variantOf($game);
+        if ($variant !== '') {
+            // Variant MorseBot (Variants::botMove): waits out the capture duel / Atomic blast first.
+            $capture = str_contains((string) ($game['last_move_san'] ?? ''), 'x');
+            $waitMs = $capture ? ($variant === 'atomic' ? 2200 : 4200) : 450;
+            if (Db::nowMs() - Db::toMs($game['turn_started_at']) < $waitMs) {
+                return;
+            }
+            $pick = Variants::botMove($variant, (string) $game['fen'], 900);
+            if ($pick === null) {
+                $st = Variants::statusOfFen($variant, (string) $game['fen']);
+                $w = $st['winner'] ?? null;
+                self::finishGame($game, $w === 'w' ? 'white_win' : ($w === 'b' ? 'black_win' : 'draw'),
+                    $w === 'w' ? (string) $game['white_user_id'] : ($w === 'b' ? (string) $game['black_user_id'] : null));
+                return;
+            }
+            self::recordAndApplyMove($game, $pick['from'], $pick['to'], $pick['promotion'] ?? null);
+            return;
+        }
         $position = new Chess((string) $game['fen']);
         if ($position->turn() !== $botSide) {
             return;
@@ -771,7 +973,7 @@ final class Mores
             }
             if ($position->isCheckmate()) {
                 $winner = (string) ($botSide === 'w' ? $game['black_user_id'] : $game['white_user_id']);
-                self::finishGame($game, $botSide === 'w' ? 'black_win' : 'white_win', $winner);
+                self::finishGame($game, $botSide === 'w' ? 'black_win' : 'white_win', $winner, true);
             } else {
                 self::finishGame($game, 'draw', null);
             }
@@ -819,6 +1021,7 @@ final class Mores
         return [
             'id' => (string) $fresh['id'],
             'fen' => (string) $fresh['fen'],
+            'variant' => self::variantOf($fresh) !== '' ? self::variantOf($fresh) : null,
             'mode' => self::parseMode($fresh['mode']),
             'status' => (string) $fresh['status'],
             'turn' => (string) $fresh['turn'],
@@ -843,6 +1046,7 @@ final class Mores
             'serverNow' => Db::nowMs(),
             'moves' => array_map(static fn (array $m): array => ['san' => (string) $m['san'], 'from' => (string) $m['from_sq'], 'to' => (string) $m['to_sq']], $moves),
             'winnerUserId' => $fresh['winner_user_id'] !== null ? (string) $fresh['winner_user_id'] : null,
+            'drawReason' => self::drawReason($fresh),
             'myScore' => $me['score'] ?? Constants::START_SCORE,
             'opponentName' => $opp['username'] ?? 'Opponent',
             'myBoard' => Catalog::boardById($me['equipped_board'] ?? null)['id'],
@@ -860,8 +1064,8 @@ final class Mores
             'coins' => $me['coins'] ?? 0,
             'coinAward' => $fresh['winner_user_id'] === $userId ? self::toInt($fresh['coin_award'] ?? null, 0) : 0,
             'ownedBoards' => self::ownedList($me['owned_boards'] ?? ''),
-            'whiteLook' => ($white['avatar_json'] ?? '') ?: '',
-            'blackLook' => ($black['avatar_json'] ?? '') ?: '',
+            'whiteLook' => Kit::look((string) $fresh['white_user_id'], ($white['avatar_json'] ?? '') ?: ''),
+            'blackLook' => Kit::look((string) $fresh['black_user_id'], ($black['avatar_json'] ?? '') ?: ''),
         ];
     }
 
@@ -1059,14 +1263,14 @@ final class Mores
         }
 
         $inboxRows = Db::all(
-            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind
+            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant
              FROM challenges c JOIN profiles p ON p.user_id = c.from_user_id
              WHERE c.to_user_id = ? AND c.status = 'pending'
              ORDER BY c.created_at DESC",
             [$userId]
         );
         $outRows = Db::all(
-            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind
+            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant
              FROM challenges c JOIN profiles p ON p.user_id = c.to_user_id
              WHERE c.from_user_id = ? AND c.status IN ('pending', 'declined')
              ORDER BY c.created_at DESC LIMIT 8",
@@ -1101,8 +1305,9 @@ final class Mores
                 'mode' => self::parseMode($r['mode']),
                 'status' => (string) $r['status'],
                 'createdAt' => Db::iso($r['created_at']),
-                'kind' => ($r['kind'] ?? null) === 'pull' ? 'pull' : 'named',
+                'kind' => self::kindOf($r),
                 'expiresInMs' => self::namedExpiry($r),
+                'variant' => Variants::valid($r['variant'] ?? null) ? (string) $r['variant'] : null,
             ], $inboxRows),
             'outgoing' => array_map(static fn (array $r): array => [
                 'id' => (string) $r['id'],
@@ -1111,10 +1316,13 @@ final class Mores
                 'mode' => self::parseMode($r['mode']),
                 'status' => (string) $r['status'],
                 'createdAt' => Db::iso($r['created_at']),
-                'kind' => 'named',
+                'kind' => self::kindOf($r) === 'football' ? 'football' : 'named',
                 'expiresInMs' => self::namedExpiry($r),
+                'variant' => Variants::valid($r['variant'] ?? null) ? (string) $r['variant'] : null,
             ], $outRows),
             'activeGameId' => $matched ?? ($active !== null ? (string) $active['id'] : null),
+            // Football vs a player (t234u): the challenger's home page opens the game once it is accepted
+            'footballGameId' => FootballMatch::activeIdFor($userId),
             'queued' => $queued,
             'queueMode' => $queueMode,
             'queueMiss' => $queueMiss,
@@ -1199,6 +1407,7 @@ final class Mores
         if ($me === null) {
             throw new RpcError('Choose a club name first.');
         }
+        $variant = self::requestedVariant($data, $me);
         $active = self::activeGameIdFor($userId);
         if ($active !== null) {
             return ['ok' => true, 'gameId' => $active];
@@ -1212,7 +1421,7 @@ final class Mores
             return ['ok' => false, 'error' => 'You cannot challenge yourself.'];
         }
         if (Constants::isBotUserId($toId)) {
-            return ['ok' => true, 'gameId' => self::insertGame($userId, $toId, $mode)];
+            return ['ok' => true, 'gameId' => self::insertGame($userId, $toId, $mode, false, Constants::TURN_MS, '', null, $variant)];
         }
         $pending = Db::one(
             "SELECT 1 AS x FROM challenges WHERE from_user_id = ? AND to_user_id = ? AND status = 'pending' LIMIT 1",
@@ -1223,8 +1432,8 @@ final class Mores
         }
         $id = Util::uuid();
         Db::run(
-            "INSERT INTO challenges (id, from_user_id, to_user_id, mode, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)",
-            [$id, $userId, $toId, $mode, Db::now()]
+            "INSERT INTO challenges (id, from_user_id, to_user_id, mode, status, created_at, variant) VALUES (?, ?, ?, ?, 'pending', ?, ?)",
+            [$id, $userId, $toId, $mode, Db::now(), $variant]
         );
         return ['ok' => true, 'challengeId' => $id];
     }
@@ -1235,7 +1444,7 @@ final class Mores
         $id = self::str($data, 'id');
         $accept = (bool) ($data['accept'] ?? false);
         self::expireNamedChallenges();
-        $ch = Db::one('SELECT id, from_user_id, to_user_id, mode, status, kind FROM challenges WHERE id = ? LIMIT 1', [$id]);
+        $ch = Db::one('SELECT id, from_user_id, to_user_id, mode, status, kind, variant FROM challenges WHERE id = ? LIMIT 1', [$id]);
         if ($ch === null || $ch['to_user_id'] !== $userId) {
             return ['ok' => false, 'error' => 'Challenge not found.'];
         }
@@ -1245,6 +1454,9 @@ final class Mores
         if (!$accept) {
             Db::run("UPDATE challenges SET status = 'declined' WHERE id = ?", [$ch['id']]);
             return ['ok' => true];
+        }
+        if (($ch['kind'] ?? null) === 'football') {
+            return FootballMatch::accept($ch);
         }
         $from = (string) $ch['from_user_id'];
         $to = (string) $ch['to_user_id'];
@@ -1266,10 +1478,17 @@ final class Mores
                 [$from, $ch['id']]
             );
             Db::run('DELETE FROM match_queue WHERE user_id IN (?, ?)', [$from, $to]);
-            $gameId = self::insertGame($from, $to, self::parseMode($ch['mode']), $isPull);
+            $gameId = self::insertGame($from, $to, self::parseMode($ch['mode']), $isPull, Constants::TURN_MS, '', null, (string) ($ch['variant'] ?? ''));
             Db::run('UPDATE challenges SET game_id = ? WHERE id = ?', [$gameId, $ch['id']]);
             return ['ok' => true, 'gameId' => $gameId];
         });
+    }
+
+    /** @param array<string,mixed> $r a challenges row */
+    private static function kindOf(array $r): string
+    {
+        $k = $r['kind'] ?? null;
+        return $k === 'pull' ? 'pull' : ($k === 'football' ? 'football' : 'named');
     }
 
     /** @param array<string,mixed> $data */
@@ -1405,7 +1624,16 @@ final class Mores
         if ($game['turn'] !== $side) {
             return ['ok' => false, 'error' => 'Wait for your turn.'];
         }
-        $piece = self::validSquare($from) ? (new Chess((string) $game['fen']))->get($from) : null;
+        if (self::variantOf($game) !== '') {
+            $piece = null;
+            if (self::validSquare($from)) {
+                [$pr, $pf] = Variants::pos($from);
+                $ch = (string) (Variants::parseFen((string) $game['fen'])['board'][$pr][$pf] ?? '');
+                $piece = $ch === '' ? null : ['color' => ctype_upper($ch) ? 'w' : 'b'];
+            }
+        } else {
+            $piece = self::validSquare($from) ? (new Chess((string) $game['fen']))->get($from) : null;
+        }
         if (!$piece || $piece['color'] !== $side) {
             return ['ok' => false, 'error' => 'That is not your piece.'];
         }
@@ -1462,7 +1690,12 @@ final class Mores
         $botId = $bot === 'v2' ? Constants::BOT_V2_USER_ID : Constants::BOT_USER_ID;
         // 'sandbox' marks games started from the goblin Sandbox (they stay out of History).
         $source = ($data['source'] ?? null) === 'sandbox' ? 'sandbox' : '';
-        return ['gameId' => self::insertGame($userId, $botId, $mode, false, self::clockMsFrom($data['minutes'] ?? null), $source)];
+        // color: 'white' | 'black' | 'random' (owner t198u). Random is picked here so the player gets a real side.
+        $want = strtolower((string) ($data['color'] ?? 'random'));
+        $color = $want === 'white' || $want === 'w' ? 'w' : ($want === 'black' || $want === 'b' ? 'b' : (Util::chance(0.5) ? 'w' : 'b'));
+        // A bot game with the player as Black: MorseBot opens on the first poll (maybeBotMove).
+        $variant = self::requestedVariant($data, $me);
+        return ['gameId' => self::insertGame($userId, $botId, $mode, false, self::clockMsFrom($data['minutes'] ?? null), $source, $color, $variant), 'color' => $color === 'w' ? 'white' : 'black'];
     }
 
     // ── history ────────────────────────────────────────────────────────────
@@ -1478,7 +1711,7 @@ final class Mores
         self::$people = [];
         $limit = max(1, min(48, self::toInt($data['limit'] ?? null, 24)));
         $minutes = $data['minutes'] ?? 'all';
-        $where = "(g.white_user_id = ? OR g.black_user_id = ?) AND g.status <> 'active' AND g.source <> 'sandbox'
+        $where = "(g.white_user_id = ? OR g.black_user_id = ?) AND g.status <> 'active' AND g.source <> 'sandbox' AND g.variant = ''
                   AND EXISTS (SELECT 1 FROM game_moves m WHERE m.game_id = g.id)";
         $params = [$userId, $userId];
         $base = $where;
@@ -1522,8 +1755,8 @@ final class Mores
         $card = self::historyCard($g, $userId);
         $white = self::historyPeople((string) $g['white_user_id']);
         $black = self::historyPeople((string) $g['black_user_id']);
-        $card['whiteLook'] = ($white['avatar_json'] ?? '') ?: '';
-        $card['blackLook'] = ($black['avatar_json'] ?? '') ?: '';
+        $card['whiteLook'] = Kit::look((string) $g['white_user_id'], ($white['avatar_json'] ?? '') ?: '');
+        $card['blackLook'] = Kit::look((string) $g['black_user_id'], ($black['avatar_json'] ?? '') ?: '');
         return $card;
     }
 
@@ -1709,7 +1942,7 @@ final class Mores
         return array_map(static fn (array $r): array => [
             'id' => (string) $r['id'],
             'fromUsername' => (string) $r['username'],
-            'kind' => ($r['kind'] ?? null) === 'pull' ? 'pull' : 'named',
+            'kind' => self::kindOf($r),
             'expiresInMs' => self::namedExpiry($r),
         ], $rows);
     }
