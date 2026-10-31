@@ -1,0 +1,48 @@
+name: Bust stadium cache
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Point the live page at fresh stadium scripts
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          from pathlib import Path
+          idx = Path("chess/assets/index-DUP7KZyz.js")
+          text = idx.read_text()
+          if "fireworks-cPhj2bGA.js?v=2" in text:
+              print("already busted")
+              Path("/tmp/skip").write_text("1")
+          else:
+              text = text.replace("./fireworks-cPhj2bGA.js", "./fireworks-cPhj2bGA.js?v=2")
+              text = text.replace("./park-field-Ol8e5Lha.js", "./park-field-Ol8e5Lha.js?v=2")
+              if "?v=2" not in text:
+                  raise SystemExit("stadium import not found")
+              idx.write_text(text)
+              for name in ("chess/assets/fireworks-cPhj2bGA.js", "chess/assets/park-field-Ol8e5Lha.js"):
+                  p = Path(name)
+                  p.write_text(p.read_text().replace("./index-DUP7KZyz.js", "./index-DUP7KZyz.js?v=2"))
+              html = Path("chess/app.html")
+              html.write_text(html.read_text().replace("./assets/index-DUP7KZyz.js", "./assets/index-DUP7KZyz.js?v=2"))
+              print("rewritten")
+          PY
+          if [ -f /tmp/skip ]; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git config user.name "Joe Morse"
+          git config user.email "jsmorse@code-interactive.com"
+          git add chess/app.html chess/assets/index-DUP7KZyz.js chess/assets/fireworks-cPhj2bGA.js chess/assets/park-field-Ol8e5Lha.js
+          git commit -m "Cache-bust the football stadium scripts so the field can draw."
+          git push origin HEAD:main
