@@ -25,6 +25,7 @@ function rex_schema(string $driver): array
                 year INTEGER NULL,
                 image_url TEXT NULL,
                 image_tried INTEGER NOT NULL DEFAULT 0,
+                seed_rank INTEGER NULL,
                 dedupe_key TEXT NOT NULL UNIQUE,
                 created_by INTEGER NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -74,6 +75,7 @@ function rex_schema(string $driver): array
             year SMALLINT UNSIGNED NULL,
             image_url VARCHAR(500) NULL,
             image_tried TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            seed_rank INT UNSIGNED NULL,
             dedupe_key CHAR(40) NOT NULL,
             created_by INT UNSIGNED NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -133,6 +135,9 @@ function rex_migrate(PDO $pdo, string $driver): void
     }
     if (!in_array('image_url', $cols, true)) {
         $pdo->exec($driver === 'sqlite' ? 'ALTER TABLE items ADD COLUMN image_url TEXT NULL' : 'ALTER TABLE items ADD COLUMN image_url VARCHAR(500) NULL');
+    }
+    if (!in_array('seed_rank', $cols, true)) {
+        $pdo->exec($driver === 'sqlite' ? 'ALTER TABLE items ADD COLUMN seed_rank INTEGER NULL' : 'ALTER TABLE items ADD COLUMN seed_rank INT UNSIGNED NULL');
     }
     if (!in_array('image_tried', $cols, true)) {
         $pdo->exec($driver === 'sqlite' ? 'ALTER TABLE items ADD COLUMN image_tried INTEGER NOT NULL DEFAULT 0' : 'ALTER TABLE items ADD COLUMN image_tried TINYINT UNSIGNED NOT NULL DEFAULT 0');

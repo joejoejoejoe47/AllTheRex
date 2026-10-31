@@ -1,0 +1,1111 @@
+Harry Potter and the Philosopher's Stone | J. K. Rowling | 1997
+Harry Potter and the Chamber of Secrets | J. K. Rowling | 1998
+Harry Potter and the Prisoner of Azkaban | J. K. Rowling | 1999
+Harry Potter and the Goblet of Fire | J. K. Rowling | 2000
+Harry Potter and the Order of the Phoenix | J. K. Rowling | 2003
+Harry Potter and the Half-Blood Prince | J. K. Rowling | 2005
+Harry Potter and the Deathly Hallows | J. K. Rowling | 2007
+The Casual Vacancy | J. K. Rowling | 2012
+The Hobbit | J. R. R. Tolkien | 1937
+The Fellowship of the Ring | J. R. R. Tolkien | 1954
+The Two Towers | J. R. R. Tolkien | 1954
+The Return of the King | J. R. R. Tolkien | 1955
+The Silmarillion | J. R. R. Tolkien | 1977
+The Lion, the Witch and the Wardrobe | C. S. Lewis | 1950
+Prince Caspian | C. S. Lewis | 1951
+The Voyage of the Dawn Treader | C. S. Lewis | 1952
+The Silver Chair | C. S. Lewis | 1953
+The Horse and His Boy | C. S. Lewis | 1954
+The Magician's Nephew | C. S. Lewis | 1955
+The Last Battle | C. S. Lewis | 1956
+Mere Christianity | C. S. Lewis | 1952
+The Screwtape Letters | C. S. Lewis | 1942
+1984 | George Orwell | 1949
+Animal Farm | George Orwell | 1945
+Down and Out in Paris and London | George Orwell | 1933
+Homage to Catalonia | George Orwell | 1938
+To Kill a Mockingbird | Harper Lee | 1960
+Go Set a Watchman | Harper Lee | 2015
+The Great Gatsby | F. Scott Fitzgerald | 1925
+Tender Is the Night | F. Scott Fitzgerald | 1934
+This Side of Paradise | F. Scott Fitzgerald | 1920
+Pride and Prejudice | Jane Austen | 1813
+Sense and Sensibility | Jane Austen | 1811
+Emma | Jane Austen | 1815
+Persuasion | Jane Austen | 1817
+Northanger Abbey | Jane Austen | 1817
+Mansfield Park | Jane Austen | 1814
+Jane Eyre | Charlotte Brontë | 1847
+Wuthering Heights | Emily Brontë | 1847
+The Tenant of Wildfell Hall | Anne Brontë | 1848
+Villette | Charlotte Brontë | 1853
+Great Expectations | Charles Dickens | 1861
+A Tale of Two Cities | Charles Dickens | 1859
+Oliver Twist | Charles Dickens | 1838
+David Copperfield | Charles Dickens | 1850
+A Christmas Carol | Charles Dickens | 1843
+Bleak House | Charles Dickens | 1853
+Hard Times | Charles Dickens | 1854
+Little Dorrit | Charles Dickens | 1857
+Our Mutual Friend | Charles Dickens | 1865
+The Pickwick Papers | Charles Dickens | 1837
+Nicholas Nickleby | Charles Dickens | 1839
+The Old Curiosity Shop | Charles Dickens | 1841
+Moby-Dick | Herman Melville | 1851
+Bartleby, the Scrivener | Herman Melville | 1853
+The Adventures of Tom Sawyer | Mark Twain | 1876
+Adventures of Huckleberry Finn | Mark Twain | 1884
+The Prince and the Pauper | Mark Twain | 1881
+A Connecticut Yankee in King Arthur's Court | Mark Twain | 1889
+Little Women | Louisa May Alcott | 1868
+Good Wives | Louisa May Alcott | 1869
+Anne of Green Gables | L. M. Montgomery | 1908
+Anne of Avonlea | L. M. Montgomery | 1909
+The Secret Garden | Frances Hodgson Burnett | 1911
+A Little Princess | Frances Hodgson Burnett | 1905
+Little Lord Fauntleroy | Frances Hodgson Burnett | 1886
+Heidi | Johanna Spyri | 1881
+Black Beauty | Anna Sewell | 1877
+Treasure Island | Robert Louis Stevenson | 1883
+Kidnapped | Robert Louis Stevenson | 1886
+Strange Case of Dr Jekyll and Mr Hyde | Robert Louis Stevenson | 1886
+Dracula | Bram Stoker | 1897
+Frankenstein | Mary Shelley | 1818
+The Picture of Dorian Gray | Oscar Wilde | 1890
+The Time Machine | H. G. Wells | 1895
+The War of the Worlds | H. G. Wells | 1898
+The Invisible Man | H. G. Wells | 1897
+The Island of Doctor Moreau | H. G. Wells | 1896
+Twenty Thousand Leagues Under the Seas | Jules Verne | 1870
+Journey to the Center of the Earth | Jules Verne | 1864
+Around the World in Eighty Days | Jules Verne | 1872
+The Count of Monte Cristo | Alexandre Dumas | 1844
+The Three Musketeers | Alexandre Dumas | 1844
+Les Misérables | Victor Hugo | 1862
+The Hunchback of Notre-Dame | Victor Hugo | 1831
+Madame Bovary | Gustave Flaubert | 1856
+The Stranger | Albert Camus | 1942
+The Plague | Albert Camus | 1947
+The Little Prince | Antoine de Saint-Exupéry | 1943
+Candide | Voltaire | 1759
+Crime and Punishment | Fyodor Dostoevsky | 1866
+The Brothers Karamazov | Fyodor Dostoevsky | 1880
+The Idiot | Fyodor Dostoevsky | 1869
+Notes from Underground | Fyodor Dostoevsky | 1864
+Demons | Fyodor Dostoevsky | 1872
+War and Peace | Leo Tolstoy | 1869
+Anna Karenina | Leo Tolstoy | 1878
+The Death of Ivan Ilyich | Leo Tolstoy | 1886
+Dead Souls | Nikolai Gogol | 1842
+Fathers and Sons | Ivan Turgenev | 1862
+Doctor Zhivago | Boris Pasternak | 1957
+The Master and Margarita | Mikhail Bulgakov | 1967
+One Day in the Life of Ivan Denisovich | Aleksandr Solzhenitsyn | 1962
+The Gulag Archipelago | Aleksandr Solzhenitsyn | 1973
+Lolita | Vladimir Nabokov | 1955
+Pale Fire | Vladimir Nabokov | 1962
+We | Yevgeny Zamyatin | 1924
+The Metamorphosis | Franz Kafka | 1915
+The Trial | Franz Kafka | 1925
+The Castle | Franz Kafka | 1926
+Steppenwolf | Hermann Hesse | 1927
+Siddhartha | Hermann Hesse | 1922
+Demian | Hermann Hesse | 1919
+The Glass Bead Game | Hermann Hesse | 1943
+All Quiet on the Western Front | Erich Maria Remarque | 1929
+Perfume | Patrick Süskind | 1985
+The Name of the Rose | Umberto Eco | 1980
+Foucault's Pendulum | Umberto Eco | 1988
+One Hundred Years of Solitude | Gabriel García Márquez | 1967
+Love in the Time of Cholera | Gabriel García Márquez | 1985
+Chronicle of a Death Foretold | Gabriel García Márquez | 1981
+The Autumn of the Patriarch | Gabriel García Márquez | 1975
+The House of the Spirits | Isabel Allende | 1982
+Eva Luna | Isabel Allende | 1987
+Like Water for Chocolate | Laura Esquivel | 1989
+Ficciones | Jorge Luis Borges | 1944
+Pedro Páramo | Juan Rulfo | 1955
+The Aleph | Jorge Luis Borges | 1949
+The Alchemist | Paulo Coelho | 1988
+Veronika Decides to Die | Paulo Coelho | 1998
+Eleven Minutes | Paulo Coelho | 2003
+The Shadow of the Wind | Carlos Ruiz Zafón | 2001
+Don Quixote | Miguel de Cervantes | 1605
+Things Fall Apart | Chinua Achebe | 1958
+Half of a Yellow Sun | Chimamanda Ngozi Adichie | 2006
+Americanah | Chimamanda Ngozi Adichie | 2013
+Purple Hibiscus | Chimamanda Ngozi Adichie | 2003
+Beloved | Toni Morrison | 1987
+Song of Solomon | Toni Morrison | 1977
+The Bluest Eye | Toni Morrison | 1970
+Sula | Toni Morrison | 1973
+Jazz | Toni Morrison | 1992
+A Mercy | Toni Morrison | 2008
+Their Eyes Were Watching God | Zora Neale Hurston | 1937
+Native Son | Richard Wright | 1940
+Invisible Man | Ralph Ellison | 1952
+Go Tell It on the Mountain | James Baldwin | 1953
+Giovanni's Room | James Baldwin | 1956
+The Fire Next Time | James Baldwin | 1963
+If Beale Street Could Talk | James Baldwin | 1974
+The Color Purple | Alice Walker | 1982
+I Know Why the Caged Bird Sings | Maya Angelou | 1969
+Roots | Alex Haley | 1976
+The Autobiography of Malcolm X | Malcolm X and Alex Haley | 1965
+Between the World and Me | Ta-Nehisi Coates | 2015
+The Underground Railroad | Colson Whitehead | 2016
+The Nickel Boys | Colson Whitehead | 2019
+The Catcher in the Rye | J. D. Salinger | 1951
+Franny and Zooey | J. D. Salinger | 1961
+Nine Stories | J. D. Salinger | 1953
+Of Mice and Men | John Steinbeck | 1937
+The Grapes of Wrath | John Steinbeck | 1939
+East of Eden | John Steinbeck | 1952
+Cannery Row | John Steinbeck | 1945
+Tortilla Flat | John Steinbeck | 1935
+The Pearl | John Steinbeck | 1947
+Travels with Charley | John Steinbeck | 1962
+The Old Man and the Sea | Ernest Hemingway | 1952
+A Farewell to Arms | Ernest Hemingway | 1929
+For Whom the Bell Tolls | Ernest Hemingway | 1940
+The Sun Also Rises | Ernest Hemingway | 1926
+A Moveable Feast | Ernest Hemingway | 1964
+The Sound and the Fury | William Faulkner | 1929
+As I Lay Dying | William Faulkner | 1930
+Absalom, Absalom! | William Faulkner | 1936
+Light in August | William Faulkner | 1932
+On the Road | Jack Kerouac | 1957
+The Dharma Bums | Jack Kerouac | 1958
+Naked Lunch | William S. Burroughs | 1959
+Howl and Other Poems | Allen Ginsberg | 1956
+Slaughterhouse-Five | Kurt Vonnegut | 1969
+Cat's Cradle | Kurt Vonnegut | 1963
+Breakfast of Champions | Kurt Vonnegut | 1973
+The Sirens of Titan | Kurt Vonnegut | 1959
+Mother Night | Kurt Vonnegut | 1961
+Player Piano | Kurt Vonnegut | 1952
+Galápagos | Kurt Vonnegut | 1985
+Catch-22 | Joseph Heller | 1961
+A Confederacy of Dunces | John Kennedy Toole | 1980
+Lord of the Flies | William Golding | 1954
+The Inheritors | William Golding | 1955
+Brave New World | Aldous Huxley | 1932
+The Doors of Perception | Aldous Huxley | 1954
+Island | Aldous Huxley | 1962
+Fahrenheit 451 | Ray Bradbury | 1953
+The Martian Chronicles | Ray Bradbury | 1950
+Something Wicked This Way Comes | Ray Bradbury | 1962
+Dandelion Wine | Ray Bradbury | 1957
+The Illustrated Man | Ray Bradbury | 1951
+Dune | Frank Herbert | 1965
+Dune Messiah | Frank Herbert | 1969
+Children of Dune | Frank Herbert | 1976
+God Emperor of Dune | Frank Herbert | 1981
+Foundation | Isaac Asimov | 1951
+Foundation and Empire | Isaac Asimov | 1952
+Second Foundation | Isaac Asimov | 1953
+I, Robot | Isaac Asimov | 1950
+The Caves of Steel | Isaac Asimov | 1954
+The Gods Themselves | Isaac Asimov | 1972
+Childhood's End | Arthur C. Clarke | 1953
+2001: A Space Odyssey | Arthur C. Clarke | 1968
+Rendezvous with Rama | Arthur C. Clarke | 1973
+Ender's Game | Orson Scott Card | 1985
+Speaker for the Dead | Orson Scott Card | 1986
+Starship Troopers | Robert A. Heinlein | 1959
+Stranger in a Strange Land | Robert A. Heinlein | 1961
+The Moon Is a Harsh Mistress | Robert A. Heinlein | 1966
+Do Androids Dream of Electric Sheep? | Philip K. Dick | 1968
+The Man in the High Castle | Philip K. Dick | 1962
+A Scanner Darkly | Philip K. Dick | 1977
+Ubik | Philip K. Dick | 1969
+Neuromancer | William Gibson | 1984
+Snow Crash | Neal Stephenson | 1992
+Cryptonomicon | Neal Stephenson | 1999
+Ready Player One | Ernest Cline | 2011
+The Hitchhiker's Guide to the Galaxy | Douglas Adams | 1979
+The Restaurant at the End of the Universe | Douglas Adams | 1980
+Life, the Universe and Everything | Douglas Adams | 1982
+So Long, and Thanks for All the Fish | Douglas Adams | 1984
+Dirk Gently's Holistic Detective Agency | Douglas Adams | 1987
+The Left Hand of Darkness | Ursula K. Le Guin | 1969
+The Dispossessed | Ursula K. Le Guin | 1974
+A Wizard of Earthsea | Ursula K. Le Guin | 1968
+The Tombs of Atuan | Ursula K. Le Guin | 1971
+The Farthest Shore | Ursula K. Le Guin | 1972
+The Lathe of Heaven | Ursula K. Le Guin | 1971
+The Handmaid's Tale | Margaret Atwood | 1985
+The Testaments | Margaret Atwood | 2019
+Oryx and Crake | Margaret Atwood | 2003
+Alias Grace | Margaret Atwood | 1996
+Cat's Eye | Margaret Atwood | 1988
+The Blind Assassin | Margaret Atwood | 2000
+Never Let Me Go | Kazuo Ishiguro | 2005
+The Remains of the Day | Kazuo Ishiguro | 1989
+Klara and the Sun | Kazuo Ishiguro | 2021
+The Buried Giant | Kazuo Ishiguro | 2015
+Atonement | Ian McEwan | 2001
+Enduring Love | Ian McEwan | 1997
+Amsterdam | Ian McEwan | 1998
+Saturday | Ian McEwan | 2005
+On Chesil Beach | Ian McEwan | 2007
+Life of Pi | Yann Martel | 2001
+The Kite Runner | Khaled Hosseini | 2003
+A Thousand Splendid Suns | Khaled Hosseini | 2007
+And the Mountains Echoed | Khaled Hosseini | 2013
+The God of Small Things | Arundhati Roy | 1997
+Midnight's Children | Salman Rushdie | 1981
+The Satanic Verses | Salman Rushdie | 1988
+Shalimar the Clown | Salman Rushdie | 2005
+The Namesake | Jhumpa Lahiri | 2003
+Interpreter of Maladies | Jhumpa Lahiri | 1999
+A Suitable Boy | Vikram Seth | 1993
+The White Tiger | Aravind Adiga | 2008
+Shantaram | Gregory David Roberts | 2003
+Norwegian Wood | Haruki Murakami | 1987
+Kafka on the Shore | Haruki Murakami | 2002
+The Wind-Up Bird Chronicle | Haruki Murakami | 1994
+1Q84 | Haruki Murakami | 2009
+Hard-Boiled Wonderland and the End of the World | Haruki Murakami | 1985
+A Wild Sheep Chase | Haruki Murakami | 1982
+South of the Border, West of the Sun | Haruki Murakami | 1992
+Colorless Tsukuru Tazaki and His Years of Pilgrimage | Haruki Murakami | 2013
+Killing Commendatore | Haruki Murakami | 2017
+The City and Its Uncertain Walls | Haruki Murakami | 2023
+Kitchen | Banana Yoshimoto | 1988
+Snow Country | Yasunari Kawabata | 1948
+The Tale of Genji | Murasaki Shikibu | 
+Convenience Store Woman | Sayaka Murata | 2016
+The Housekeeper and the Professor | Yōko Ogawa | 2003
+Memoirs of a Geisha | Arthur Golden | 1997
+Dream of the Red Chamber | Cao Xueqin | 1791
+The Vegetarian | Han Kang | 2007
+Human Acts | Han Kang | 2014
+Pachinko | Min Jin Lee | 2017
+The Shining | Stephen King | 1977
+Carrie | Stephen King | 1974
+'Salem's Lot | Stephen King | 1975
+The Stand | Stephen King | 1978
+The Dead Zone | Stephen King | 1979
+Firestarter | Stephen King | 1980
+Cujo | Stephen King | 1981
+Christine | Stephen King | 1983
+Pet Sematary | Stephen King | 1983
+It | Stephen King | 1986
+Misery | Stephen King | 1987
+The Tommyknockers | Stephen King | 1987
+The Dark Half | Stephen King | 1989
+Needful Things | Stephen King | 1991
+Dolores Claiborne | Stephen King | 1992
+Insomnia | Stephen King | 1994
+Rose Madder | Stephen King | 1995
+The Green Mile | Stephen King | 1996
+Bag of Bones | Stephen King | 1998
+Dreamcatcher | Stephen King | 2001
+From a Buick 8 | Stephen King | 2002
+Cell | Stephen King | 2006
+Lisey's Story | Stephen King | 2006
+Duma Key | Stephen King | 2008
+Under the Dome | Stephen King | 2009
+11/22/63 | Stephen King | 2011
+Joyland | Stephen King | 2013
+Doctor Sleep | Stephen King | 2013
+Mr. Mercedes | Stephen King | 2014
+Finders Keepers | Stephen King | 2015
+End of Watch | Stephen King | 2016
+Revival | Stephen King | 2014
+The Outsider | Stephen King | 2018
+The Institute | Stephen King | 2019
+If It Bleeds | Stephen King | 2020
+Billy Summers | Stephen King | 2021
+Fairy Tale | Stephen King | 2022
+Holly | Stephen King | 2023
+You Like It Darker | Stephen King | 2024
+The Gunslinger | Stephen King | 1982
+The Drawing of the Three | Stephen King | 1987
+The Waste Lands | Stephen King | 1991
+Wizard and Glass | Stephen King | 1997
+Wolves of the Calla | Stephen King | 2003
+Song of Susannah | Stephen King | 2004
+The Dark Tower | Stephen King | 2004
+Different Seasons | Stephen King | 1982
+Night Shift | Stephen King | 1978
+Skeleton Crew | Stephen King | 1985
+On Writing | Stephen King | 2000
+Danse Macabre | Stephen King | 1981
+The Running Man | Richard Bachman | 1982
+Thinner | Richard Bachman | 1984
+The Long Walk | Richard Bachman | 1979
+Rage | Richard Bachman | 1977
+Roadwork | Richard Bachman | 1981
+Heart-Shaped Box | Joe Hill | 2007
+NOS4A2 | Joe Hill | 2013
+The Firm | John Grisham | 1991
+The Pelican Brief | John Grisham | 1992
+The Client | John Grisham | 1993
+A Time to Kill | John Grisham | 1989
+The Chamber | John Grisham | 1994
+The Rainmaker | John Grisham | 1995
+The Runaway Jury | John Grisham | 1996
+The Partner | John Grisham | 1997
+The Street Lawyer | John Grisham | 1998
+The Testament | John Grisham | 1999
+The Brethren | John Grisham | 2000
+A Painted House | John Grisham | 2001
+Skipping Christmas | John Grisham | 2001
+The Summons | John Grisham | 2002
+The King of Torts | John Grisham | 2003
+Bleachers | John Grisham | 2003
+The Last Juror | John Grisham | 2004
+The Broker | John Grisham | 2005
+The Innocent Man | John Grisham | 2006
+Playing for Pizza | John Grisham | 2007
+The Appeal | John Grisham | 2008
+The Associate | John Grisham | 2009
+The Confession | John Grisham | 2010
+The Litigators | John Grisham | 2011
+Calico Joe | John Grisham | 2012
+The Racketeer | John Grisham | 2012
+Sycamore Row | John Grisham | 2013
+Gray Mountain | John Grisham | 2014
+Rogue Lawyer | John Grisham | 2015
+The Whistler | John Grisham | 2016
+Camino Island | John Grisham | 2017
+The Rooster Bar | John Grisham | 2017
+The Reckoning | John Grisham | 2018
+The Guardians | John Grisham | 2019
+A Time for Mercy | John Grisham | 2020
+The Judge's List | John Grisham | 2021
+The Boys from Biloxi | John Grisham | 2022
+The Exchange | John Grisham | 2023
+Angels & Demons | Dan Brown | 2000
+The Da Vinci Code | Dan Brown | 2003
+Deception Point | Dan Brown | 2001
+Digital Fortress | Dan Brown | 1998
+The Lost Symbol | Dan Brown | 2009
+Inferno | Dan Brown | 2013
+Origin | Dan Brown | 2017
+The Secret of Secrets | Dan Brown | 2025
+The Girl with the Dragon Tattoo | Stieg Larsson | 2005
+The Girl Who Played with Fire | Stieg Larsson | 2006
+The Girl Who Kicked the Hornets' Nest | Stieg Larsson | 2007
+Gone Girl | Gillian Flynn | 2012
+Sharp Objects | Gillian Flynn | 2006
+Dark Places | Gillian Flynn | 2009
+The Girl on the Train | Paula Hawkins | 2015
+The Silent Patient | Alex Michaelides | 2019
+Verity | Colleen Hoover | 2018
+It Ends with Us | Colleen Hoover | 2016
+It Starts with Us | Colleen Hoover | 2022
+Ugly Love | Colleen Hoover | 2014
+Hopeless | Colleen Hoover | 2012
+Slammed | Colleen Hoover | 2012
+November 9 | Colleen Hoover | 2015
+Reminders of Him | Colleen Hoover | 2022
+Where the Crawdads Sing | Delia Owens | 2018
+The Seven Husbands of Evelyn Hugo | Taylor Jenkins Reid | 2017
+Daisy Jones & The Six | Taylor Jenkins Reid | 2019
+Malibu Rising | Taylor Jenkins Reid | 2021
+Carrie Soto Is Back | Taylor Jenkins Reid | 2022
+The Midnight Library | Matt Haig | 2020
+The Humans | Matt Haig | 2013
+The Thursday Murder Club | Richard Osman | 2020
+The Man Who Died Twice | Richard Osman | 2021
+Big Little Lies | Liane Moriarty | 2014
+The Husband's Secret | Liane Moriarty | 2013
+Nine Perfect Strangers | Liane Moriarty | 2018
+The Lovely Bones | Alice Sebold | 2002
+The Time Traveler's Wife | Audrey Niffenegger | 2003
+Me Before You | Jojo Moyes | 2012
+After You | Jojo Moyes | 2015
+The Notebook | Nicholas Sparks | 1996
+A Walk to Remember | Nicholas Sparks | 1999
+Message in a Bottle | Nicholas Sparks | 1998
+The Last Song | Nicholas Sparks | 2008
+Dear John | Nicholas Sparks | 2006
+Safe Haven | Nicholas Sparks | 2010
+The Best of Me | Nicholas Sparks | 2011
+The Lucky One | Nicholas Sparks | 2008
+Nights in Rodanthe | Nicholas Sparks | 2002
+The Bridges of Madison County | Robert James Waller | 1992
+The Fault in Our Stars | John Green | 2012
+Looking for Alaska | John Green | 2005
+Paper Towns | John Green | 2008
+An Abundance of Katherines | John Green | 2006
+Turtles All the Way Down | John Green | 2017
+Eleanor & Park | Rainbow Rowell | 2013
+Fangirl | Rainbow Rowell | 2013
+Attachments | Rainbow Rowell | 2011
+Simon vs. the Homo Sapiens Agenda | Becky Albertalli | 2015
+The Perks of Being a Wallflower | Stephen Chbosky | 1999
+Thirteen Reasons Why | Jay Asher | 2007
+The Hate U Give | Angie Thomas | 2017
+Speak | Laurie Halse Anderson | 1999
+The Giver | Lois Lowry | 1993
+Gathering Blue | Lois Lowry | 2000
+Number the Stars | Lois Lowry | 1989
+Hatchet | Gary Paulsen | 1986
+The Outsiders | S. E. Hinton | 1967
+That Was Then, This Is Now | S. E. Hinton | 1971
+Rumble Fish | S. E. Hinton | 1975
+The Hunger Games | Suzanne Collins | 2008
+Catching Fire | Suzanne Collins | 2009
+Mockingjay | Suzanne Collins | 2010
+The Ballad of Songbirds and Snakes | Suzanne Collins | 2020
+Sunrise on the Reaping | Suzanne Collins | 2025
+Divergent | Veronica Roth | 2011
+Insurgent | Veronica Roth | 2012
+Allegiant | Veronica Roth | 2013
+The Maze Runner | James Dashner | 2009
+The Scorch Trials | James Dashner | 2010
+The Death Cure | James Dashner | 2011
+Twilight | Stephenie Meyer | 2005
+New Moon | Stephenie Meyer | 2006
+Eclipse | Stephenie Meyer | 2007
+Breaking Dawn | Stephenie Meyer | 2008
+Midnight Sun | Stephenie Meyer | 2020
+The Host | Stephenie Meyer | 2008
+Fifty Shades of Grey | E. L. James | 2011
+Fifty Shades Darker | E. L. James | 2012
+Fifty Shades Freed | E. L. James | 2012
+The Lightning Thief | Rick Riordan | 2005
+The Sea of Monsters | Rick Riordan | 2006
+The Titan's Curse | Rick Riordan | 2007
+The Battle of the Labyrinth | Rick Riordan | 2008
+The Last Olympian | Rick Riordan | 2009
+The Lost Hero | Rick Riordan | 2010
+The Red Pyramid | Rick Riordan | 2010
+The Bad Beginning | Lemony Snicket | 1999
+The Reptile Room | Lemony Snicket | 1999
+The Wide Window | Lemony Snicket | 2000
+Diary of a Wimpy Kid | Jeff Kinney | 2007
+Rodrick Rules | Jeff Kinney | 2008
+The Last Straw | Jeff Kinney | 2009
+Dog Man | Dav Pilkey | 2016
+The Adventures of Captain Underpants | Dav Pilkey | 1997
+Holes | Louis Sachar | 1998
+Wonder | R. J. Palacio | 2012
+Bridge to Terabithia | Katherine Paterson | 1977
+Charlotte's Web | E. B. White | 1952
+Stuart Little | E. B. White | 1945
+The Trumpet of the Swan | E. B. White | 1970
+Matilda | Roald Dahl | 1988
+Charlie and the Chocolate Factory | Roald Dahl | 1964
+Charlie and the Great Glass Elevator | Roald Dahl | 1972
+James and the Giant Peach | Roald Dahl | 1961
+The BFG | Roald Dahl | 1982
+The Witches | Roald Dahl | 1983
+The Twits | Roald Dahl | 1980
+Fantastic Mr Fox | Roald Dahl | 1970
+George's Marvellous Medicine | Roald Dahl | 1981
+Danny, the Champion of the World | Roald Dahl | 1975
+Esio Trot | Roald Dahl | 1990
+Boy: Tales of Childhood | Roald Dahl | 1984
+Going Solo | Roald Dahl | 1986
+Tales of the Unexpected | Roald Dahl | 1979
+Winnie-the-Pooh | A. A. Milne | 1926
+The House at Pooh Corner | A. A. Milne | 1928
+Alice's Adventures in Wonderland | Lewis Carroll | 1865
+Through the Looking-Glass | Lewis Carroll | 1871
+Peter Pan | J. M. Barrie | 1911
+The Wind in the Willows | Kenneth Grahame | 1908
+The Wonderful Wizard of Oz | L. Frank Baum | 1900
+Pippi Longstocking | Astrid Lindgren | 1945
+The Tale of Peter Rabbit | Beatrix Potter | 1902
+The Jungle Book | Rudyard Kipling | 1894
+Just So Stories | Rudyard Kipling | 1902
+Kim | Rudyard Kipling | 1901
+Swallows and Amazons | Arthur Ransome | 1930
+The Borrowers | Mary Norton | 1952
+Mary Poppins | P. L. Travers | 1934
+Where the Wild Things Are | Maurice Sendak | 1963
+The Very Hungry Caterpillar | Eric Carle | 1969
+Goodnight Moon | Margaret Wise Brown | 1947
+The Giving Tree | Shel Silverstein | 1964
+Where the Sidewalk Ends | Shel Silverstein | 1974
+A Light in the Attic | Shel Silverstein | 1981
+The Cat in the Hat | Dr. Seuss | 1957
+Green Eggs and Ham | Dr. Seuss | 1960
+How the Grinch Stole Christmas! | Dr. Seuss | 1957
+Oh, the Places You'll Go! | Dr. Seuss | 1990
+Horton Hears a Who! | Dr. Seuss | 1954
+The Lorax | Dr. Seuss | 1971
+One Fish Two Fish Red Fish Blue Fish | Dr. Seuss | 1960
+Fox in Socks | Dr. Seuss | 1965
+Hop on Pop | Dr. Seuss | 1963
+And to Think That I Saw It on Mulberry Street | Dr. Seuss | 1937
+Yertle the Turtle and Other Stories | Dr. Seuss | 1958
+The Sneetches and Other Stories | Dr. Seuss | 1961
+Harold and the Purple Crayon | Crockett Johnson | 1955
+Curious George | H. A. Rey and Margret Rey | 1941
+Make Way for Ducklings | Robert McCloskey | 1941
+Corduroy | Don Freeman | 1968
+The Snowy Day | Ezra Jack Keats | 1962
+Strega Nona | Tomie dePaola | 1975
+Guess How Much I Love You | Sam McBratney | 1994
+The Polar Express | Chris Van Allsburg | 1985
+Jumanji | Chris Van Allsburg | 1981
+Chicka Chicka Boom Boom | Bill Martin Jr. and John Archambault | 1989
+Brown Bear, Brown Bear, What Do You See? | Bill Martin Jr. | 1967
+The Gruffalo | Julia Donaldson | 1999
+Room on the Broom | Julia Donaldson | 2001
+Goodnight Gorilla | Peggy Rathmann | 1994
+Don't Let the Pigeon Drive the Bus! | Mo Willems | 2003
+The Day the Crayons Quit | Drew Daywalt | 2013
+Pete the Cat: I Love My White Shoes | Eric Litwin | 2010
+Llama Llama Red Pajama | Anna Dewdney | 2005
+A Game of Thrones | George R. R. Martin | 1996
+A Clash of Kings | George R. R. Martin | 1998
+A Storm of Swords | George R. R. Martin | 2000
+A Feast for Crows | George R. R. Martin | 2005
+A Dance with Dragons | George R. R. Martin | 2011
+Fire & Blood | George R. R. Martin | 2018
+The Eye of the World | Robert Jordan | 1990
+The Great Hunt | Robert Jordan | 1990
+The Dragon Reborn | Robert Jordan | 1991
+The Shadow Rising | Robert Jordan | 1992
+The Name of the Wind | Patrick Rothfuss | 2007
+The Wise Man's Fear | Patrick Rothfuss | 2011
+The Way of Kings | Brandon Sanderson | 2010
+Words of Radiance | Brandon Sanderson | 2014
+Oathbringer | Brandon Sanderson | 2017
+Rhythm of War | Brandon Sanderson | 2020
+Mistborn: The Final Empire | Brandon Sanderson | 2006
+The Well of Ascension | Brandon Sanderson | 2007
+The Hero of Ages | Brandon Sanderson | 2008
+Elantris | Brandon Sanderson | 2005
+Warbreaker | Brandon Sanderson | 2009
+The Lies of Locke Lamora | Scott Lynch | 2006
+Assassin's Apprentice | Robin Hobb | 1995
+Royal Assassin | Robin Hobb | 1996
+Assassin's Quest | Robin Hobb | 1997
+Magician | Raymond E. Feist | 1982
+The Sword of Shannara | Terry Brooks | 1977
+Dragonflight | Anne McCaffrey | 1968
+The Mists of Avalon | Marion Zimmer Bradley | 1983
+The Once and Future King | T. H. White | 1958
+The Princess Bride | William Goldman | 1973
+The Neverending Story | Michael Ende | 1979
+Good Omens | Terry Pratchett and Neil Gaiman | 1990
+The Colour of Magic | Terry Pratchett | 1983
+The Light Fantastic | Terry Pratchett | 1986
+Mort | Terry Pratchett | 1987
+Guards! Guards! | Terry Pratchett | 1989
+Small Gods | Terry Pratchett | 1992
+Going Postal | Terry Pratchett | 2004
+Night Watch | Terry Pratchett | 2002
+Hogfather | Terry Pratchett | 1996
+Wyrd Sisters | Terry Pratchett | 1988
+Equal Rites | Terry Pratchett | 1987
+Reaper Man | Terry Pratchett | 1991
+Men at Arms | Terry Pratchett | 1993
+Feet of Clay | Terry Pratchett | 1996
+The Fifth Elephant | Terry Pratchett | 1999
+Thud! | Terry Pratchett | 2005
+Making Money | Terry Pratchett | 2007
+Snuff | Terry Pratchett | 2011
+The Wee Free Men | Terry Pratchett | 2003
+A Hat Full of Sky | Terry Pratchett | 2004
+Wintersmith | Terry Pratchett | 2006
+I Shall Wear Midnight | Terry Pratchett | 2010
+The Shepherd's Crown | Terry Pratchett | 2015
+American Gods | Neil Gaiman | 2001
+Neverwhere | Neil Gaiman | 1996
+Coraline | Neil Gaiman | 2002
+The Graveyard Book | Neil Gaiman | 2008
+Stardust | Neil Gaiman | 1999
+The Ocean at the End of the Lane | Neil Gaiman | 2013
+Anansi Boys | Neil Gaiman | 2005
+Norse Mythology | Neil Gaiman | 2017
+The Sandman: Preludes & Nocturnes | Neil Gaiman | 1991
+Fragile Things | Neil Gaiman | 2006
+Smoke and Mirrors | Neil Gaiman | 1998
+Trigger Warning | Neil Gaiman | 2015
+The Golden Compass | Philip Pullman | 1995
+The Subtle Knife | Philip Pullman | 1997
+The Amber Spyglass | Philip Pullman | 2000
+La Belle Sauvage | Philip Pullman | 2017
+The Secret Commonwealth | Philip Pullman | 2019
+Eragon | Christopher Paolini | 2002
+Eldest | Christopher Paolini | 2005
+Brisingr | Christopher Paolini | 2008
+Inheritance | Christopher Paolini | 2011
+Artemis Fowl | Eoin Colfer | 2001
+The Amulet of Samarkand | Jonathan Stroud | 2003
+Inkheart | Cornelia Funke | 2003
+Howl's Moving Castle | Diana Wynne Jones | 1986
+A Wrinkle in Time | Madeleine L'Engle | 1962
+A Wind in the Door | Madeleine L'Engle | 1973
+The Phantom Tollbooth | Norton Juster | 1961
+From the Mixed-Up Files of Mrs. Basil E. Frankweiler | E. L. Konigsburg | 1967
+Island of the Blue Dolphins | Scott O'Dell | 1960
+Where the Red Fern Grows | Wilson Rawls | 1961
+Sounder | William H. Armstrong | 1969
+Roll of Thunder, Hear My Cry | Mildred D. Taylor | 1976
+Tuck Everlasting | Natalie Babbitt | 1975
+Ella Enchanted | Gail Carson Levine | 1997
+The Westing Game | Ellen Raskin | 1978
+Redwall | Brian Jacques | 1986
+Watership Down | Richard Adams | 1972
+The Black Stallion | Walter Farley | 1941
+Old Yeller | Fred Gipson | 1956
+The Call of the Wild | Jack London | 1903
+White Fang | Jack London | 1906
+Little House in the Big Woods | Laura Ingalls Wilder | 1932
+Little House on the Prairie | Laura Ingalls Wilder | 1935
+Ramona the Pest | Beverly Cleary | 1968
+Beezus and Ramona | Beverly Cleary | 1955
+The Mouse and the Motorcycle | Beverly Cleary | 1965
+Harriet the Spy | Louise Fitzhugh | 1964
+Are You There God? It's Me, Margaret. | Judy Blume | 1970
+Tales of a Fourth Grade Nothing | Judy Blume | 1972
+Superfudge | Judy Blume | 1980
+Forever... | Judy Blume | 1975
+Blubber | Judy Blume | 1974
+Freak the Mighty | Rodman Philbrick | 1993
+Flowers for Algernon | Daniel Keyes | 1966
+The Bell Jar | Sylvia Plath | 1963
+Ariel | Sylvia Plath | 1965
+Prozac Nation | Elizabeth Wurtzel | 1994
+Girl, Interrupted | Susanna Kaysen | 1993
+Fear and Loathing in Las Vegas | Hunter S. Thompson | 1971
+Hell's Angels | Hunter S. Thompson | 1967
+Trainspotting | Irvine Welsh | 1993
+A Clockwork Orange | Anthony Burgess | 1962
+American Psycho | Bret Easton Ellis | 1991
+Less Than Zero | Bret Easton Ellis | 1985
+Fight Club | Chuck Palahniuk | 1996
+Choke | Chuck Palahniuk | 2001
+Survivor | Chuck Palahniuk | 1999
+Invisible Monsters | Chuck Palahniuk | 1999
+High Fidelity | Nick Hornby | 1995
+About a Boy | Nick Hornby | 1998
+Fever Pitch | Nick Hornby | 1992
+Bridget Jones's Diary | Helen Fielding | 1996
+Confessions of a Shopaholic | Sophie Kinsella | 2000
+The Devil Wears Prada | Lauren Weisberger | 2003
+The Princess Diaries | Meg Cabot | 2000
+Sisterhood of the Traveling Pants | Ann Brashares | 2001
+Gossip Girl | Cecily von Ziegesar | 2002
+Pretty Little Liars | Sara Shepard | 2006
+Outlander | Diana Gabaldon | 1991
+Dragonfly in Amber | Diana Gabaldon | 1992
+Voyager | Diana Gabaldon | 1993
+Drums of Autumn | Diana Gabaldon | 1996
+The Fiery Cross | Diana Gabaldon | 2001
+A Breath of Snow and Ashes | Diana Gabaldon | 2005
+An Echo in the Bone | Diana Gabaldon | 2009
+Written in My Own Heart's Blood | Diana Gabaldon | 2014
+Go Tell the Bees That I Am Gone | Diana Gabaldon | 2021
+The Thorn Birds | Colleen McCullough | 1977
+Gone with the Wind | Margaret Mitchell | 1936
+Rebecca | Daphne du Maurier | 1938
+Jamaica Inn | Daphne du Maurier | 1936
+My Cousin Rachel | Daphne du Maurier | 1951
+The Birds and Other Stories | Daphne du Maurier | 1952
+Wide Sargasso Sea | Jean Rhys | 1966
+Middlemarch | George Eliot | 1871
+The Mill on the Floss | George Eliot | 1860
+Silas Marner | George Eliot | 1861
+Tess of the d'Urbervilles | Thomas Hardy | 1891
+Far from the Madding Crowd | Thomas Hardy | 1874
+Jude the Obscure | Thomas Hardy | 1895
+The Mayor of Casterbridge | Thomas Hardy | 1886
+The Return of the Native | Thomas Hardy | 1878
+Vanity Fair | William Makepeace Thackeray | 1848
+The Woman in White | Wilkie Collins | 1859
+The Moonstone | Wilkie Collins | 1868
+Cranford | Elizabeth Gaskell | 1853
+North and South | Elizabeth Gaskell | 1855
+The Importance of Being Earnest | Oscar Wilde | 1895
+Heart of Darkness | Joseph Conrad | 1899
+Lord Jim | Joseph Conrad | 1900
+Nostromo | Joseph Conrad | 1904
+The Secret Agent | Joseph Conrad | 1907
+Mrs Dalloway | Virginia Woolf | 1925
+To the Lighthouse | Virginia Woolf | 1927
+Orlando | Virginia Woolf | 1928
+A Room of One's Own | Virginia Woolf | 1929
+The Waves | Virginia Woolf | 1931
+Ulysses | James Joyce | 1922
+Dubliners | James Joyce | 1914
+A Portrait of the Artist as a Young Man | James Joyce | 1916
+Finnegans Wake | James Joyce | 1939
+Sons and Lovers | D. H. Lawrence | 1913
+Women in Love | D. H. Lawrence | 1920
+Lady Chatterley's Lover | D. H. Lawrence | 1928
+A Passage to India | E. M. Forster | 1924
+A Room with a View | E. M. Forster | 1908
+Howards End | E. M. Forster | 1910
+Maurice | E. M. Forster | 1971
+Brideshead Revisited | Evelyn Waugh | 1945
+Decline and Fall | Evelyn Waugh | 1928
+A Handful of Dust | Evelyn Waugh | 1934
+Scoop | Evelyn Waugh | 1938
+Cold Comfort Farm | Stella Gibbons | 1932
+I Capture the Castle | Dodie Smith | 1948
+The Hundred and One Dalmatians | Dodie Smith | 1956
+Goodbye, Mr. Chips | James Hilton | 1934
+Lost Horizon | James Hilton | 1933
+The Day of the Triffids | John Wyndham | 1951
+The Midwich Cuckoos | John Wyndham | 1957
+The Chrysalids | John Wyndham | 1955
+The Kraken Wakes | John Wyndham | 1953
+Wolf Hall | Hilary Mantel | 2009
+Bring Up the Bodies | Hilary Mantel | 2012
+The Mirror & the Light | Hilary Mantel | 2020
+The Pillars of the Earth | Ken Follett | 1989
+World Without End | Ken Follett | 2007
+A Column of Fire | Ken Follett | 2017
+The Eye of the Needle | Ken Follett | 1978
+Fall of Giants | Ken Follett | 2010
+Winter of the World | Ken Follett | 2012
+Edge of Eternity | Ken Follett | 2014
+Shōgun | James Clavell | 1975
+Tai-Pan | James Clavell | 1966
+King Rat | James Clavell | 1962
+Exodus | Leon Uris | 1958
+Hawaii | James A. Michener | 1959
+The Source | James A. Michener | 1965
+Centennial | James A. Michener | 1974
+Texas | James A. Michener | 1985
+Tales of the South Pacific | James A. Michener | 1947
+The Caine Mutiny | Herman Wouk | 1951
+The Winds of War | Herman Wouk | 1971
+War and Remembrance | Herman Wouk | 1978
+Marjorie Morningstar | Herman Wouk | 1955
+The Naked and the Dead | Norman Mailer | 1948
+From Here to Eternity | James Jones | 1951
+The Thin Red Line | James Jones | 1962
+Cold Mountain | Charles Frazier | 1997
+Lonesome Dove | Larry McMurtry | 1985
+Streets of Laredo | Larry McMurtry | 1993
+Dead Man's Walk | Larry McMurtry | 1995
+Comanche Moon | Larry McMurtry | 1997
+The Last Picture Show | Larry McMurtry | 1966
+Terms of Endearment | Larry McMurtry | 1975
+Blood Meridian | Cormac McCarthy | 1985
+The Road | Cormac McCarthy | 2006
+No Country for Old Men | Cormac McCarthy | 2005
+All the Pretty Horses | Cormac McCarthy | 1992
+The Crossing | Cormac McCarthy | 1994
+Cities of the Plain | Cormac McCarthy | 1998
+Suttree | Cormac McCarthy | 1979
+Child of God | Cormac McCarthy | 1973
+The Orchard Keeper | Cormac McCarthy | 1965
+Outer Dark | Cormac McCarthy | 1968
+The Passenger | Cormac McCarthy | 2022
+Stella Maris | Cormac McCarthy | 2022
+Jurassic Park | Michael Crichton | 1990
+The Lost World | Michael Crichton | 1995
+The Andromeda Strain | Michael Crichton | 1969
+Sphere | Michael Crichton | 1987
+Congo | Michael Crichton | 1980
+Timeline | Michael Crichton | 1999
+Prey | Michael Crichton | 2002
+Rising Sun | Michael Crichton | 1992
+Disclosure | Michael Crichton | 1994
+The Great Train Robbery | Michael Crichton | 1975
+State of Fear | Michael Crichton | 2004
+The Hunt for Red October | Tom Clancy | 1984
+Patriot Games | Tom Clancy | 1987
+Clear and Present Danger | Tom Clancy | 1989
+The Sum of All Fears | Tom Clancy | 1991
+Without Remorse | Tom Clancy | 1993
+Debt of Honor | Tom Clancy | 1994
+Executive Orders | Tom Clancy | 1996
+Rainbow Six | Tom Clancy | 1998
+The Cardinal of the Kremlin | Tom Clancy | 1988
+Red Storm Rising | Tom Clancy | 1986
+Killing Floor | Lee Child | 1997
+Die Trying | Lee Child | 1998
+Tripwire | Lee Child | 1999
+Persuader | Lee Child | 2003
+One Shot | Lee Child | 2005
+The Enemy | Lee Child | 2004
+Bad Luck and Trouble | Lee Child | 2007
+Never Go Back | Lee Child | 2013
+Along Came a Spider | James Patterson | 1993
+Kiss the Girls | James Patterson | 1995
+Roses Are Red | James Patterson | 2000
+1st to Die | James Patterson | 2001
+Cross | James Patterson | 2006
+Double Cross | James Patterson | 2007
+Maximum Ride: The Angel Experiment | James Patterson | 2005
+The Bourne Identity | Robert Ludlum | 1980
+The Bourne Supremacy | Robert Ludlum | 1986
+The Bourne Ultimatum | Robert Ludlum | 1990
+The Matarese Circle | Robert Ludlum | 1979
+The Osterman Weekend | Robert Ludlum | 1972
+Sahara | Clive Cussler | 1992
+Raise the Titanic! | Clive Cussler | 1976
+Treasure | Clive Cussler | 1988
+Absolute Power | David Baldacci | 1996
+Total Control | David Baldacci | 1997
+The Winner | David Baldacci | 1997
+The Simple Truth | David Baldacci | 1998
+Saving Faith | David Baldacci | 1999
+The Camel Club | David Baldacci | 2005
+The Black Echo | Michael Connelly | 1992
+The Black Ice | Michael Connelly | 1993
+The Concrete Blonde | Michael Connelly | 1994
+The Last Coyote | Michael Connelly | 1995
+Trunk Music | Michael Connelly | 1997
+Angels Flight | Michael Connelly | 1999
+A Darkness More Than Night | Michael Connelly | 2001
+City of Bones | Michael Connelly | 2002
+Lost Light | Michael Connelly | 2003
+The Narrows | Michael Connelly | 2004
+The Closers | Michael Connelly | 2005
+Echo Park | Michael Connelly | 2006
+The Overlook | Michael Connelly | 2007
+The Brass Verdict | Michael Connelly | 2008
+The Lincoln Lawyer | Michael Connelly | 2005
+The Reversal | Michael Connelly | 2010
+The Fifth Witness | Michael Connelly | 2011
+The Gods of Guilt | Michael Connelly | 2013
+The Burning Room | Michael Connelly | 2014
+The Crossing | Michael Connelly | 2015
+The Wrong Side of Goodbye | Michael Connelly | 2016
+Two Kinds of Truth | Michael Connelly | 2017
+Dark Sacred Night | Michael Connelly | 2018
+The Night Fire | Michael Connelly | 2019
+Tell No One | Harlan Coben | 2001
+Gone for Good | Harlan Coben | 2002
+The Woods | Harlan Coben | 2007
+Caught | Harlan Coben | 2010
+Missing You | Harlan Coben | 2014
+Fool Me Once | Harlan Coben | 2016
+Murder on the Orient Express | Agatha Christie | 1934
+And Then There Were None | Agatha Christie | 1939
+The Murder of Roger Ackroyd | Agatha Christie | 1926
+Death on the Nile | Agatha Christie | 1937
+The ABC Murders | Agatha Christie | 1936
+Murder at the Vicarage | Agatha Christie | 1930
+The Mysterious Affair at Styles | Agatha Christie | 1920
+Evil Under the Sun | Agatha Christie | 1941
+Five Little Pigs | Agatha Christie | 1942
+The Murder on the Links | Agatha Christie | 1923
+Peril at End House | Agatha Christie | 1932
+Lord Edgware Dies | Agatha Christie | 1933
+Cards on the Table | Agatha Christie | 1936
+Appointment with Death | Agatha Christie | 1938
+Hercule Poirot's Christmas | Agatha Christie | 1938
+Sad Cypress | Agatha Christie | 1940
+One, Two, Buckle My Shoe | Agatha Christie | 1940
+Sparkling Cyanide | Agatha Christie | 1945
+The Hollow | Agatha Christie | 1946
+Taken at the Flood | Agatha Christie | 1948
+Mrs McGinty's Dead | Agatha Christie | 1952
+After the Funeral | Agatha Christie | 1953
+Hickory Dickory Dock | Agatha Christie | 1955
+Dead Man's Folly | Agatha Christie | 1956
+Cat Among the Pigeons | Agatha Christie | 1959
+The Clocks | Agatha Christie | 1963
+Third Girl | Agatha Christie | 1966
+Hallowe'en Party | Agatha Christie | 1969
+Elephants Can Remember | Agatha Christie | 1972
+Curtain | Agatha Christie | 1975
+4.50 from Paddington | Agatha Christie | 1957
+A Murder Is Announced | Agatha Christie | 1950
+The Body in the Library | Agatha Christie | 1942
+The Moving Finger | Agatha Christie | 1943
+A Pocket Full of Rye | Agatha Christie | 1953
+They Do It with Mirrors | Agatha Christie | 1952
+Nemesis | Agatha Christie | 1971
+Sleeping Murder | Agatha Christie | 1976
+The Secret Adversary | Agatha Christie | 1922
+N or M? | Agatha Christie | 1941
+Crooked House | Agatha Christie | 1949
+Ordeal by Innocence | Agatha Christie | 1958
+The Pale Horse | Agatha Christie | 1961
+Endless Night | Agatha Christie | 1967
+A Study in Scarlet | Arthur Conan Doyle | 1887
+The Sign of the Four | Arthur Conan Doyle | 1890
+The Hound of the Baskervilles | Arthur Conan Doyle | 1902
+The Valley of Fear | Arthur Conan Doyle | 1915
+The Adventures of Sherlock Holmes | Arthur Conan Doyle | 1892
+The Memoirs of Sherlock Holmes | Arthur Conan Doyle | 1893
+The Return of Sherlock Holmes | Arthur Conan Doyle | 1905
+The Lost World | Arthur Conan Doyle | 1912
+The Big Sleep | Raymond Chandler | 1939
+Farewell, My Lovely | Raymond Chandler | 1940
+The Long Goodbye | Raymond Chandler | 1953
+The High Window | Raymond Chandler | 1942
+The Lady in the Lake | Raymond Chandler | 1943
+The Maltese Falcon | Dashiell Hammett | 1930
+The Thin Man | Dashiell Hammett | 1934
+Red Harvest | Dashiell Hammett | 1929
+The Glass Key | Dashiell Hammett | 1931
+The Postman Always Rings Twice | James M. Cain | 1934
+Double Indemnity | James M. Cain | 1936
+The Talented Mr. Ripley | Patricia Highsmith | 1955
+Strangers on a Train | Patricia Highsmith | 1950
+In Cold Blood | Truman Capote | 1966
+Breakfast at Tiffany's | Truman Capote | 1958
+The Godfather | Mario Puzo | 1969
+The Sicilian | Mario Puzo | 1984
+The Last Don | Mario Puzo | 1996
+The French Connection | Robin Moore | 1969
+Jaws | Peter Benchley | 1974
+The Exorcist | William Peter Blatty | 1971
+Rosemary's Baby | Ira Levin | 1967
+The Stepford Wives | Ira Levin | 1972
+The Boys from Brazil | Ira Levin | 1976
+The Omen | David Seltzer | 1976
+The Silence of the Lambs | Thomas Harris | 1988
+Red Dragon | Thomas Harris | 1981
+Hannibal | Thomas Harris | 1999
+Black Sunday | Thomas Harris | 1975
+Psycho | Robert Bloch | 1959
+I Am Legend | Richard Matheson | 1954
+The Haunting of Hill House | Shirley Jackson | 1959
+We Have Always Lived in the Castle | Shirley Jackson | 1962
+The Lottery and Other Stories | Shirley Jackson | 1949
+Interview with the Vampire | Anne Rice | 1976
+The Vampire Lestat | Anne Rice | 1985
+The Queen of the Damned | Anne Rice | 1988
+The Witching Hour | Anne Rice | 1990
+Sapiens: A Brief History of Humankind | Yuval Noah Harari | 2011
+Homo Deus | Yuval Noah Harari | 2015
+21 Lessons for the 21st Century | Yuval Noah Harari | 2018
+Educated | Tara Westover | 2018
+Becoming | Michelle Obama | 2018
+The Light We Lost | Jill Santopolo | 2017
+Atomic Habits | James Clear | 2018
+The 7 Habits of Highly Effective People | Stephen R. Covey | 1989
+How to Win Friends and Influence People | Dale Carnegie | 1936
+Think and Grow Rich | Napoleon Hill | 1937
+The Power of Now | Eckhart Tolle | 1997
+The Secret | Rhonda Byrne | 2006
+Rich Dad Poor Dad | Robert T. Kiyosaki | 1997
+The Total Money Makeover | Dave Ramsey | 2003
+The Intelligent Investor | Benjamin Graham | 1949
+The Millionaire Next Door | Thomas J. Stanley and William D. Danko | 1996
+Good to Great | Jim Collins | 2001
+The Lean Startup | Eric Ries | 2011
+Zero to One | Peter Thiel | 2014
+The 4-Hour Workweek | Timothy Ferriss | 2007
+Thinking, Fast and Slow | Daniel Kahneman | 2011
+Outliers | Malcolm Gladwell | 2008
+The Tipping Point | Malcolm Gladwell | 2000
+Blink | Malcolm Gladwell | 2005
+David and Goliath | Malcolm Gladwell | 2013
+Freakonomics | Steven D. Levitt and Stephen J. Dubner | 2005
+Quiet | Susan Cain | 2012
+Grit | Angela Duckworth | 2016
+Mindset | Carol S. Dweck | 2006
+Drive | Daniel H. Pink | 2009
+Man's Search for Meaning | Viktor E. Frankl | 1946
+The Subtle Art of Not Giving a F*ck | Mark Manson | 2016
+The Four Agreements | Don Miguel Ruiz | 1997
+The Road Less Traveled | M. Scott Peck | 1978
+Men Are from Mars, Women Are from Venus | John Gray | 1992
+The Gifts of Imperfection | Brené Brown | 2010
+Daring Greatly | Brené Brown | 2012
+Eat, Pray, Love | Elizabeth Gilbert | 2006
+Big Magic | Elizabeth Gilbert | 2015
+Bird by Bird | Anne Lamott | 1994
+Wild | Cheryl Strayed | 2012
+Tuesdays with Morrie | Mitch Albom | 1997
+The Five People You Meet in Heaven | Mitch Albom | 2003
+The Last Lecture | Randy Pausch | 2008
+When Breath Becomes Air | Paul Kalanithi | 2016
+Into the Wild | Jon Krakauer | 1996
+Into Thin Air | Jon Krakauer | 1997
+Under the Banner of Heaven | Jon Krakauer | 2003
+Seabiscuit | Laura Hillenbrand | 2001
+Unbroken | Laura Hillenbrand | 2010
+The Immortal Life of Henrietta Lacks | Rebecca Skloot | 2010
+The Boys in the Boat | Daniel James Brown | 2013
+The Devil in the White City | Erik Larson | 2003
+In the Garden of Beasts | Erik Larson | 2011
+Dead Wake | Erik Larson | 2015
+The Splendid and the Vile | Erik Larson | 2020
+The Diary of a Young Girl | Anne Frank | 1947
+Night | Elie Wiesel | 1956
+Maus | Art Spiegelman | 1986
+Persepolis | Marjane Satrapi | 2000
+Fun Home | Alison Bechdel | 2006
+The Glass Castle | Jeannette Walls | 2005
+A Million Little Pieces | James Frey | 2003
+Angela's Ashes | Frank McCourt | 1996
+Running with Scissors | Augusten Burroughs | 2002
+Born a Crime | Trevor Noah | 2016
+Spare | Prince Harry | 2023
+Open | Andre Agassi | 2009
+Steve Jobs | Walter Isaacson | 2011
+Elon Musk | Walter Isaacson | 2023
+Leonardo da Vinci | Walter Isaacson | 2017
+Benjamin Franklin: An American Life | Walter Isaacson | 2003
+Einstein: His Life and Universe | Walter Isaacson | 2007
+Alexander Hamilton | Ron Chernow | 2004
+Washington: A Life | Ron Chernow | 2010
+Grant | Ron Chernow | 2017
+Titan: The Life of John D. Rockefeller, Sr. | Ron Chernow | 1998
+John Adams | David McCullough | 2001
+1776 | David McCullough | 2005
+Truman | David McCullough | 1992
+The Wright Brothers | David McCullough | 2015
+The Path Between the Seas | David McCullough | 1977
+Team of Rivals | Doris Kearns Goodwin | 2005
+No Ordinary Time | Doris Kearns Goodwin | 1994
+Killing Lincoln | Bill O'Reilly and Martin Dugard | 2011
+Killing Kennedy | Bill O'Reilly and Martin Dugard | 2012
+Guns, Germs, and Steel | Jared Diamond | 1997
+Collapse | Jared Diamond | 2005
+A Brief History of Time | Stephen Hawking | 1988
+The Universe in a Nutshell | Stephen Hawking | 2001
+Cosmos | Carl Sagan | 1980
+Pale Blue Dot | Carl Sagan | 1994
+Contact | Carl Sagan | 1985
+The Demon-Haunted World | Carl Sagan | 1995
+The Selfish Gene | Richard Dawkins | 1976
+The God Delusion | Richard Dawkins | 2006
+On the Origin of Species | Charles Darwin | 1859
+Silent Spring | Rachel Carson | 1962
+The Elegant Universe | Brian Greene | 1999
+Astrophysics for People in a Hurry | Neil deGrasse Tyson | 2017
+The Emperor of All Maladies | Siddhartha Mukherjee | 2010
+The Gene | Siddhartha Mukherjee | 2016
+Being Mortal | Atul Gawande | 2014
+The Body Keeps the Score | Bessel van der Kolk | 2014
+Why We Sleep | Matthew Walker | 2017
+Gödel, Escher, Bach | Douglas Hofstadter | 1979
+The Structure of Scientific Revolutions | Thomas S. Kuhn | 1962
+A People's History of the United States | Howard Zinn | 1980
+The Wealth of Nations | Adam Smith | 1776
+The Communist Manifesto | Karl Marx and Friedrich Engels | 1848
+Walden | Henry David Thoreau | 1854
+Leaves of Grass | Walt Whitman | 1855
+The Prince | Niccolò Machiavelli | 1532
+The Art of War | Sun Tzu |
+Meditations | Marcus Aurelius |
+The Republic | Plato |
+The Odyssey | Homer |
+The Iliad | Homer |
+Beowulf | Unknown |
+The Canterbury Tales | Geoffrey Chaucer | 1400
+Paradise Lost | John Milton | 1667
+Gulliver's Travels | Jonathan Swift | 1726
+Robinson Crusoe | Daniel Defoe | 1719
+Hamlet | William Shakespeare | 1603
+Macbeth | William Shakespeare | 1623
+Romeo and Juliet | William Shakespeare | 1597
+Othello | William Shakespeare | 1622
+King Lear | William Shakespeare | 1608
+A Midsummer Night's Dream | William Shakespeare | 1600
+The Tempest | William Shakespeare | 1623
+Twelfth Night | William Shakespeare | 1623
+Julius Caesar | William Shakespeare | 1623
+The Merchant of Venice | William Shakespeare | 1600
+Much Ado About Nothing | William Shakespeare | 1600
+Death of a Salesman | Arthur Miller | 1949
+The Crucible | Arthur Miller | 1953
+A Streetcar Named Desire | Tennessee Williams | 1947
+The Glass Menagerie | Tennessee Williams | 1944
+Our Town | Thornton Wilder | 1938
+Waiting for Godot | Samuel Beckett | 1953
+A Raisin in the Sun | Lorraine Hansberry | 1959
+The Road to Wigan Pier | George Orwell | 1937
+The Divine Comedy | Dante Alighieri | 

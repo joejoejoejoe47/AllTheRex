@@ -30,6 +30,14 @@ step('connect to database', function () { return db()->query('SELECT VERSION()')
 if (isset($_GET['fix'])) {
     step('FIX: create/upgrade tables (adds missing columns, keeps all data)', function () { rex_install(db()); return 'done'; });
 }
+if (isset($_GET['seed'])) {
+    step('IMPORT top titles from data/*.txt (safe to repeat)', function () {
+        require_once __DIR__ . '/lib/seed.php';
+        rex_install(db());
+        $s = rex_seed_bulk();
+        return "added {$s['added']}, ranked {$s['ranked']} existing, skipped {$s['skipped']}, bad lines {$s['bad']}";
+    });
+}
 if (isset($_GET['missing'])) {
     step('TITLES WITHOUT AN IMAGE', function () {
         $r = q('SELECT category, title, year FROM items WHERE image_url IS NULL ORDER BY category, title');

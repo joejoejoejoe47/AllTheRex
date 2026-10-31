@@ -13,6 +13,11 @@ if (!$it) {
     exit;
 }
 
+if (empty($it['image_url']) && (int)(q1('SELECT image_tried t FROM items WHERE id = ?', [$id])['t'] ?? 1) === 0) {
+    rex_fetch_image_for($id);                        // one-time cover lookup the first time a title is opened
+    $it = catalog_get($id, $u ? (int)$u['id'] : null) ?? $it;
+}
+
 $similar = rec_similar_items($id, 6, $u ? (int)$u['id'] : null);
 $dist = array_fill(1, 5, 0);
 foreach (q('SELECT rating, COUNT(*) AS c FROM ratings WHERE item_id = ? GROUP BY rating', [$id]) as $r) {

@@ -127,7 +127,7 @@ function catalog_popular(?string $category, int $limit, ?int $userId, bool $excl
     if ($excludeRated && $userId) {
         $sql .= ' HAVING MAX(m.rating) IS NULL';
     }
-    $sql .= ' ORDER BY ' . bayes_sql(rex_global_mean()) . ' DESC, COUNT(r.id) DESC, i.id DESC LIMIT ?';
+    $sql .= ' ORDER BY ' . bayes_sql(rex_global_mean()) . ' DESC, COUNT(r.id) DESC, COALESCE(i.seed_rank, 999999) ASC, i.id DESC LIMIT ?';
     $params[] = $limit;
     return q($sql, $params);
 }
@@ -155,8 +155,8 @@ function catalog_list(?string $category, string $search, string $sort, int $page
     $order = match ($sort) {
         'new'   => 'i.id DESC',
         'az'    => 'i.title ASC',
-        'top'   => bayes_sql(rex_global_mean()) . ' DESC, COUNT(r.id) DESC',
-        default => 'COUNT(r.id) DESC, ' . bayes_sql(rex_global_mean()) . ' DESC',
+        'top'   => bayes_sql(rex_global_mean()) . ' DESC, COUNT(r.id) DESC, COALESCE(i.seed_rank, 999999) ASC',
+        default => 'COUNT(r.id) DESC, ' . bayes_sql(rex_global_mean()) . ' DESC, COALESCE(i.seed_rank, 999999) ASC',
     };
     $page = max(1, $page);
     $rows = q(

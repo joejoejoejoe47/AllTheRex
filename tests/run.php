@@ -283,6 +283,19 @@ check('supplied image from an unknown host is ignored', q1('SELECT image_url u F
 check('existing-title match tolerates a 1-year difference, not 5', catalog_find_existing('movie', 'The Godfather', '', 1973) === id_of('The Godfather') && catalog_find_existing('movie', 'The Godfather', '', 1980) === null);
 unset($GLOBALS['REX_HTTP']);
 
+echo "Bulk top-list import\n";
+$bd = sys_get_temp_dir().'/rexseed'.getmypid(); @mkdir($bd);
+file_put_contents("$bd/movies.txt", "Test Film One | Dir A | 2001\nTest Film Two | Dir B | 2002\n\nThe Godfather | Francis Ford Coppola | 1972\n");
+file_put_contents("$bd/albums.txt", "Test Album | Band | 1999\n");
+file_put_contents("$bd/books.txt", "Test Book | Author | 1950\nTest Book | Author | 1950\n");
+$r = rex_seed_bulk($bd);
+check('bulk adds new titles '.json_encode($r), $r['added'] === 4);
+check('bulk ranks by line order', (int)q1("SELECT seed_rank r FROM items WHERE title='Test Film Two'")['r'] > (int)q1("SELECT seed_rank r FROM items WHERE title='Test Film One'")['r']);
+check('bulk ranks existing titles', q1("SELECT seed_rank r FROM items WHERE title='The Godfather'")['r'] !== null);
+$r2 = rex_seed_bulk($bd);
+check('bulk import is idempotent', $r2['added'] === 0);
+array_map('unlink', glob("$bd/*")); @rmdir($bd);
+
 echo "Upgrading an older database\n";
 $old = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $old->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, category TEXT, title TEXT, creator TEXT, year INTEGER, dedupe_key TEXT, created_by INTEGER, created_at TEXT)');
