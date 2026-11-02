@@ -62,7 +62,7 @@ final class FootballMatch
 
     public static function register(): void
     {
-        foreach (['sendFootballChallenge', 'footballSync', 'sendFootballMove', 'resignFootball'] as $name) {
+        foreach (['sendFootballChallenge', 'footballSync', 'sendFootballMove', 'resignFootball', 'recordFootball'] as $name) {
             Rpc::register($name, [self::class, $name]);
         }
     }
@@ -165,6 +165,7 @@ final class FootballMatch
             'drive' => [],
             'over' => '',
             'winner' => null,
+            'ot' => false,
             'createdAt' => $now,
             'seq' => 0,
             'events' => [],
@@ -295,6 +296,160 @@ final class FootballMatch
             'UPDATE football_games SET state = ?, rev = ?, status = ?, updated_at = ? WHERE id = ?',
             [json_encode($s), $rev + 1, $s['over'] !== '' ? 'done' : 'active', Db::now(), $gameId]
         );
+        if ($s['over'] !== '') {
+            self::archive($gameId, $s);
+        }
+    }
+
+    /** One History row per finished football game. The id is the live game id, so a second save does nothing. @param array<string,mixed> $s */
+    private static function archive(string $gameId, array $s): void
+    {
+        if (Db::one('SELECT id FROM football_history WHERE id = ? LIMIT 1', [$gameId]) !== null) {
+            return;
+        }
+        $row = Db::one('SELECT white_user_id, black_user_id FROM football_games WHERE id = ? LIMIT 1', [$gameId]);
+        if ($row === null) {
+            return;
+        }
+        $white = (string) $row['white_user_id'];
+        $black = (string) $row['black_user_id'];
+        $home = self::teamLabel($white, 'Home');
+        $away = self::teamLabel($black, 'Away');
+        $why = in_array($s['over'], ['time', 'resign', 'forfeit', 'kings'], true) ? (string) $s['over'] : 'time';
+        $winner = $s['winner'] === 'w' || $s['winner'] === 'b' ? $s['winner'] : null;
+        Db::insertIgnore('football_history', [
+            'id' => $gameId,
+            'white_user_id' => $white,
+            'black_user_id' => $black,
+            'white_team' => $home,
+            'black_team' => $away,
+            'score_w' => (int) ($s['score']['w'] ?? 0),
+            'score_b' => (int) ($s['score']['b'] ?? 0),
+            'winner' => $winner,
+            'why' => $why,
+            'plays' => json_encode(self::playLines($s, $home, $away), JSON_UNESCAPED_UNICODE),
+            'created_at' => Db::now(),
+        ]);
+    }
+
+    /**
+     * A finished game vs the bot (it never lived in football_games). The caller is home.
+     * A repeat of the same score and plays inside two minutes returns the row already stored.
+     * @param array<string,mixed> $data
+     * @return array{ok:bool,id:string}
+     */
+    public static function recordFootball(string $userId, array $data): array
+    {
+        $scoreW = max(0, min(200, (int) (is_numeric($data['scoreW'] ?? null) ? $data['scoreW'] : 0)));
+        $scoreB = max(0, min(200, (int) (is_numeric($data['scoreB'] ?? null) ? $data['scoreB'] : 0)));
+        $whyRaw = (string) (is_scalar($data['why'] ?? null) ? $data['why'] : 'time');
+        $why = in_array($whyRaw, ['time', 'resign', 'forfeit', 'kings'], true) ? $whyRaw : 'time';
+        $winIn = $data['winner'] ?? null;
+        $winner = $winIn === 'w' || $winIn === 'b' ? $winIn : ($scoreW === $scoreB ? null : ($scoreW > $scoreB ? 'w' : 'b'));
+        $plays = self::cleanPlays($data['plays'] ?? []);
+        $home = self::clip(is_scalar($data['team'] ?? null) ? (string) $data['team'] : '', 64);
+        $away = self::clip(is_scalar($data['opponent'] ?? null) ? (string) $data['opponent'] : '', 64);
+        if ($home === '') {
+            $home = self::teamLabel($userId, 'Home');
+        }
+        if ($away === '') {
+            $away = 'Phantoms';
+        }
+        $playsJson = json_encode($plays, JSON_UNESCAPED_UNICODE);
+        $dup = Db::one(
+            'SELECT id, plays, why, winner FROM football_history WHERE white_user_id = ? AND black_user_id = ? AND score_w = ? AND score_b = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1',
+            [$userId, Constants::BOT_USER_ID, $scoreW, $scoreB, Db::ts(Db::nowMs() - 120000)]
+        );
+        if ($dup !== null && (string) $dup['plays'] === $playsJson && (string) $dup['why'] === $why && (string) ($dup['winner'] ?? '') === (string) ($winner ?? '')) {
+            return ['ok' => true, 'id' => (string) $dup['id']];
+        }
+        $id = Util::uuid();
+        Db::insertIgnore('football_history', [
+            'id' => $id,
+            'white_user_id' => $userId,
+            'black_user_id' => Constants::BOT_USER_ID,
+            'white_team' => $home,
+            'black_team' => $away,
+            'score_w' => $scoreW,
+            'score_b' => $scoreB,
+            'winner' => $winner,
+            'why' => $why,
+            'plays' => $playsJson,
+            'created_at' => Db::now(),
+        ]);
+        return ['ok' => true, 'id' => $id];
+    }
+
+    /** @param array<string,mixed> $s @return list<string> */
+    private static function playLines(array $s, string $home, string $away): array
+    {
+        $book = is_array($s['book'] ?? null) ? $s['book'] : [];
+        $lines = [];
+        foreach ($book as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $side = ($row['side'] ?? '') === 'b' ? 'b' : 'w';
+            $who = $side === 'w' ? $home : $away;
+            $kind = self::clip((string) ($row['kind'] ?? 'Score'), 24);
+            $w = (int) ($row['w'] ?? 0);
+            $b = (int) ($row['b'] ?? 0);
+            $lines[] = self::clip($who . ' · ' . $kind . ' · ' . $w . '–' . $b, 80);
+            if (count($lines) >= 40) {
+                break;
+            }
+        }
+        return $lines;
+    }
+
+    /** @return list<string> */
+    private static function cleanPlays(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $line) {
+            if (!is_scalar($line)) {
+                continue;
+            }
+            $s = self::clip((string) $line, 80);
+            if ($s === '') {
+                continue;
+            }
+            $out[] = $s;
+            if (count($out) >= 40) {
+                break;
+            }
+        }
+        return $out;
+    }
+
+    private static function teamLabel(string $userId, string $fallback): string
+    {
+        if (Constants::isBotUserId($userId)) {
+            return 'Phantoms';
+        }
+        $p = Db::one('SELECT username, football_json FROM profiles WHERE user_id = ? LIMIT 1', [$userId]);
+        if ($p === null) {
+            return $fallback;
+        }
+        $j = json_decode((string) ($p['football_json'] ?? ''), true);
+        $name = is_array($j) && is_array($j['team'] ?? null) ? self::clip((string) ($j['team']['name'] ?? ''), 64) : '';
+        if ($name !== '') {
+            return $name;
+        }
+        $user = self::clip((string) ($p['username'] ?? ''), 64);
+        return $user !== '' ? $user : $fallback;
+    }
+
+    private static function clip(string $s, int $n): string
+    {
+        $s = trim(preg_replace('/\s+/u', ' ', $s) ?? '');
+        if (function_exists('mb_substr')) {
+            return mb_substr($s, 0, $n);
+        }
+        return strlen($s) > $n ? substr($s, 0, $n) : $s;
     }
 
     /** @param array<string,mixed> $row @param array<string,mixed> $s */
@@ -302,12 +457,14 @@ final class FootballMatch
     {
         $names = [];
         $teams = [];
+        $looks = [];
         foreach (['w' => 'white_user_id', 'b' => 'black_user_id'] as $sd => $col) {
-            $p = Db::one('SELECT username, football_json FROM profiles WHERE user_id = ? LIMIT 1', [(string) $row[$col]]);
+            $p = Db::one('SELECT username, football_json, avatar_json FROM profiles WHERE user_id = ? LIMIT 1', [(string) $row[$col]]);
             $names[$sd] = (string) ($p['username'] ?? 'Player');
             $j = json_decode((string) ($p['football_json'] ?? ''), true);
             $t = is_array($j) && is_array($j['team'] ?? null) ? $j['team'] : null;
             $teams[$sd] = $t !== null && isset($t['name'], $t['color']) ? ['name' => (string) $t['name'], 'color' => (string) $t['color']] : null;
+            $looks[$sd] = (string) ($p['avatar_json'] ?? '');
         }
         $events = $s['events'];
         $oldest = $events === [] ? $s['seq'] + 1 : (int) $events[0]['seq'];
@@ -322,6 +479,7 @@ final class FootballMatch
             'side' => $side,
             'names' => $names,
             'teams' => $teams,
+            'looks' => $looks,
             'seq' => (int) $s['seq'],
             // the browser missed events that were already dropped: it jumps to the board as it is
             'gap' => $since > 0 && $since + 1 < $oldest,
@@ -333,13 +491,14 @@ final class FootballMatch
             'phase' => $s['phase'],
             'until' => (int) $s['until'],
             'clockMs' => max(0, $clock),
-            'clockRunning' => $s['phase'] === 'play' && $s['over'] === '',
+            'clockRunning' => $s['phase'] === 'play' && $s['over'] === '' && empty($s['ot']),
             'turnAt' => (int) $s['turnAt'],
             'bonus' => (int) $s['bonus'],
             'skip' => $s['skip'],
             'ready' => $s['ready'],
             'over' => $s['over'],
             'winner' => $s['winner'],
+            'ot' => !empty($s['ot']),
         ];
     }
 
@@ -661,10 +820,62 @@ final class FootballMatch
     /** @param array<string,mixed> $s @param array<string,mixed> $extra */
     private static function event(array &$s, string $type, int $at, array $extra = []): void
     {
+        self::noteScore($s, $type, $extra);
         $s['seq']++;
         $s['events'][] = ['seq' => $s['seq'], 't' => $type, 'at' => $at, 'board' => $s['board'], 'loose' => $s['loose'], 'score' => $s['score'], 'turn' => $s['turn']] + $extra;
         if (count($s['events']) > self::KEEP_EVENTS) {
             $s['events'] = array_slice($s['events'], -self::KEEP_EVENTS);
+        }
+    }
+
+    /**
+     * A slim score book that survives the event trim (the board snapshots do not).
+     * Games already in progress before the book existed start from the score they have now.
+     * @param array<string,mixed> $s
+     * @param array<string,mixed> $extra
+     */
+    private static function noteScore(array &$s, string $type, array $extra): void
+    {
+        $w = (int) ($s['score']['w'] ?? 0);
+        $b = (int) ($s['score']['b'] ?? 0);
+        if (!array_key_exists('bookW', $s)) {
+            $s['book'] = [];
+            if ($type === 'td') {
+                $side = ($extra['scorer'] ?? 'w') === 'b' ? 'b' : 'w';
+                $s['bookW'] = max(0, $w - ($side === 'w' ? 6 : 0));
+                $s['bookB'] = max(0, $b - ($side === 'b' ? 6 : 0));
+            } elseif ($type === 'goal' && !empty($extra['good'])) {
+                $cue = is_array($extra['cue'] ?? null) ? $extra['cue'] : [];
+                $side = ($cue['side'] ?? 'w') === 'b' ? 'b' : 'w';
+                $s['bookW'] = max(0, $w - ($side === 'w' ? 3 : 0));
+                $s['bookB'] = max(0, $b - ($side === 'b' ? 3 : 0));
+            } else {
+                $s['bookW'] = $w;
+                $s['bookB'] = $b;
+                return;
+            }
+        }
+        $pw = (int) $s['bookW'];
+        $pb = (int) $s['bookB'];
+        if ($w === $pw && $b === $pb) {
+            return;
+        }
+        $dw = $w - $pw;
+        $db = $b - $pb;
+        $side = $dw >= $db ? 'w' : 'b';
+        $pts = max($dw, $db);
+        $s['bookW'] = $w;
+        $s['bookB'] = $b;
+        if ($pts <= 0) {
+            return;
+        }
+        $kind = $pts >= 6 ? 'Touchdown' : ($pts === 3 ? 'Field goal' : ($pts === 2 ? 'Two points' : ($pts === 1 ? 'Extra point' : ($pts . ' points'))));
+        if (!is_array($s['book'] ?? null)) {
+            $s['book'] = [];
+        }
+        $s['book'][] = ['side' => $side, 'pts' => $pts, 'w' => $w, 'b' => $b, 'kind' => $kind];
+        if (count($s['book']) > 40) {
+            $s['book'] = array_slice($s['book'], -40);
         }
     }
 
@@ -718,8 +929,13 @@ final class FootballMatch
                 return;
             }
             if ($ph === 'play') {
-                if ((int) $s['clockMs'] - ($now - (int) $s['clockAt']) <= 0) {
-                    self::gameOver($s, (int) $s['clockAt'] + (int) $s['clockMs'], 'time', null);
+                if (empty($s['ot']) && (int) $s['clockMs'] - ($now - (int) $s['clockAt']) <= 0) {
+                    $at = (int) $s['clockAt'] + (int) $s['clockMs'];
+                    if ($s['score']['w'] === $s['score']['b']) {
+                        self::beginOvertime($s, $at);
+                    } else {
+                        self::gameOver($s, $at, 'time', null);
+                    }
                 }
                 return;
             }
@@ -761,7 +977,11 @@ final class FootballMatch
             } elseif ($ph === 'goal') {
                 self::kickoff($s, (string) $next['first'], $at, 'goal');
             } elseif ($ph === 'celebrate') {
-                self::kickoff($s, (string) $next['first'], $at, 'td');
+                if (!empty($next['win'])) {
+                    self::gameOver($s, $at, 'time', (string) $next['first']);
+                } else {
+                    self::kickoff($s, (string) $next['first'], $at, 'td');
+                }
             } else {
                 return;
             }
@@ -780,6 +1000,23 @@ final class FootballMatch
         $s['next'] = null;
         self::startPlay($s, $at);
         self::event($s, 'kickoff', $at, ['first' => $first, 'after' => $after]);
+    }
+
+    /** Clock died on a tie: everyone back in the middle. The next touchdown wins. */
+    private static function beginOvertime(array &$s, int $at): void
+    {
+        self::stopClock($s, $at);
+        $s['ot'] = true;
+        $s['clockMs'] = 0;
+        $s['board'] = self::formation('w');
+        $s['loose'] = null;
+        $s['turn'] = 'w';
+        $s['drive'] = [];
+        $s['flight'] = null;
+        $s['skip'] = ['w' => false, 'b' => false];
+        $s['next'] = null;
+        self::startPlay($s, $at);
+        self::event($s, 'overtime', $at);
     }
 
     private static function deadBall(array &$s, int $at, int $wait, int $row, string $holder, string $first, string $text, string $mover, bool $all = false): void
@@ -819,13 +1056,15 @@ final class FootballMatch
     private static function touchdown(array &$s, string $scorer, string $carrier, int $at): void
     {
         self::stopClock($s, $at);
-        $s['score'][$scorer] += 6;
+        $s['score'][$scorer] += 7;
         $s['loose'] = null;
         $s['phase'] = 'celebrate';
         $s['skip'] = ['w' => false, 'b' => false];
         $s['flight'] = null;
         $s['until'] = $at + self::replayMs($s['drive']);
-        $s['next'] = ['first' => self::other($scorer)];
+        $s['next'] = !empty($s['ot'])
+            ? ['first' => $scorer, 'win' => true]
+            : ['first' => self::other($scorer)];
         self::event($s, 'td', $at, ['scorer' => $scorer, 'carrier' => $carrier]);
     }
 
@@ -886,7 +1125,11 @@ final class FootballMatch
                 self::event($s, 'skip', $now, ['side' => $side]);
             }
             if ($s['skip']['w'] && $s['skip']['b']) {
-                self::kickoff($s, (string) $s['next']['first'], $now, 'td');
+                if (!empty($s['next']['win'])) {
+                    self::gameOver($s, $now, 'time', (string) $s['next']['first']);
+                } else {
+                    self::kickoff($s, (string) $s['next']['first'], $now, 'td');
+                }
             }
             return null;
         }
@@ -970,13 +1213,21 @@ final class FootballMatch
             self::finishTurn($s, $side, $bonus, $now);
             return null;
         }
-        if ($t !== 'move') {
+        if ($t !== 'move' && $t !== 'step') {
             return 'Unknown move.';
         }
-        if (!in_array($to, self::moves($b, $from[0], $from[1]), true)) {
+        $victim = $b[$to[0]][$to[1]];
+        if ($t === 'step') {
+            // direct control: one square forward, back, left or right, whatever the piece
+            if (abs($to[0] - $from[0]) + abs($to[1] - $from[1]) !== 1) {
+                return 'He cannot go there.';
+            }
+            if ($victim !== null && $victim['side'] === $side) {
+                return 'Your man is there.';
+            }
+        } elseif (!in_array($to, self::moves($b, $from[0], $from[1]), true)) {
             return 'He cannot go there.';
         }
-        $victim = $b[$to[0]][$to[1]];
         $loose = $s['loose'];
         $carry = !empty($u['ball']) || ($loose !== null && $loose[0] === $to[0] && $loose[1] === $to[1]) || !empty($victim['ball']);
         // owner t237u: tackling the carrier only MAYBE wins the ball (a fumble); a run near defenders may fumble too
@@ -1092,6 +1343,9 @@ final class FootballMatch
             self::touchdown($s, $side, $id, $now + 700);
             return;
         }
-        self::deadBall($s, $now, 650 + 1500, $pick['r'], $side, $side, 'Interception!', $side, true);
+        // Intercept in own end zone: touchback to the 20
+        $ownEnd = $side === 'w' ? $pick['r'] <= 1 : $pick['r'] >= self::ROWS - 2;
+        $lineRow = $ownEnd ? ($side === 'w' ? 2 : self::ROWS - 3) : $pick['r'];
+        self::deadBall($s, $now, 650 + 1500, $lineRow, $side, $side, 'Interception!', $side, true);
     }
 }
