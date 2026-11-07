@@ -4,6 +4,10 @@ DirectoryIndex index.php index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteRule ^app(/|$) - [F,L]
+  RewriteRule ^tests(/|$) - [F,L]
+  RewriteRule ^install\.php$ - [F,L]
+  RewriteRule \.(env|sqlite|sql)$ - [F,L]
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
@@ -24,3 +28,9 @@ DirectoryIndex index.php index.html
   AddType text/javascript .js
   AddType application/json .json
 </IfModule>
+
+<FilesMatch "\.(env|sqlite|sql)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>

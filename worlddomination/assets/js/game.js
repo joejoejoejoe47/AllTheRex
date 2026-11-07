@@ -30,7 +30,7 @@ let selected = null;
 let hover = null;
 let mode = 'boot'; // boot | world | arena | ending
 let setupRequired = false;
-let cam = { tx: 18, tz: 32, dist: 105, pitch: 0.95, yaw: 0.08, fov: 0.92 };
+let cam = { tx: 18, tz: 32, dist: 118, pitch: 0.8, yaw: 0.08, fov: 0.9 };
 let match = null;
 let flash = 0;
 let hintT = 6;
@@ -178,54 +178,90 @@ function fillProjected(c, points, w, h, y = 0) {
   return started;
 }
 
+function estimateHorizonY(c, w, h) {
+  let y = null;
+  for (const far of [50, 110, 200, 340, 520]) {
+    const p = project(c, c.tx - Math.sin(c.yaw) * far, 0, c.tz + Math.cos(c.yaw) * far, w, h);
+    if (p) y = p.y;
+  }
+  if (y == null) {
+    const look = project(c, c.tx, 0, c.tz, w, h);
+    y = look ? look.y - h * 0.24 : h * 0.36;
+  }
+  return clamp(y, h * 0.18, h * 0.58);
+}
+
 function drawSky(w, h) {
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, '#49b7ff');
-  g.addColorStop(0.42, '#7ec8ff');
-  g.addColorStop(0.58, '#cfe9ff');
-  g.addColorStop(1, '#f2d9a0');
+  g.addColorStop(0, '#1c86e0');
+  g.addColorStop(0.28, '#3aa4f0');
+  g.addColorStop(0.55, '#7ec8ff');
+  g.addColorStop(0.78, '#c5e6ff');
+  g.addColorStop(1, '#eaf6ff');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
-  const sun = { x: w * 0.78, y: h * 0.16 };
-  const sg = ctx.createRadialGradient(sun.x, sun.y, 8, sun.x, sun.y, 90);
-  sg.addColorStop(0, 'rgba(255,244,180,0.95)');
-  sg.addColorStop(0.35, 'rgba(255,220,80,0.45)');
+  const sun = { x: w * 0.8, y: h * 0.13 };
+  const sg = ctx.createRadialGradient(sun.x, sun.y, 6, sun.x, sun.y, 110);
+  sg.addColorStop(0, 'rgba(255,248,210,1)');
+  sg.addColorStop(0.28, 'rgba(255,226,110,0.5)');
   sg.addColorStop(1, 'rgba(255,220,80,0)');
   ctx.fillStyle = sg;
   ctx.beginPath();
-  ctx.arc(sun.x, sun.y, 90, 0, Math.PI * 2);
+  ctx.arc(sun.x, sun.y, 110, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#fff4b8';
   ctx.beginPath();
-  ctx.arc(sun.x, sun.y, 22, 0, Math.PI * 2);
+  ctx.arc(sun.x, sun.y, 20, 0, Math.PI * 2);
   ctx.fill();
-  // soft clouds
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
   for (const cl of [
-    [w * 0.18, h * 0.14, 50],
-    [w * 0.42, h * 0.1, 36],
-    [w * 0.12, h * 0.2, 28],
+    [w * 0.16, h * 0.12, 58],
+    [w * 0.22, h * 0.145, 40],
+    [w * 0.4, h * 0.09, 44],
+    [w * 0.46, h * 0.11, 28],
+    [w * 0.62, h * 0.16, 36],
   ]) {
     ctx.beginPath();
-    ctx.ellipse(cl[0], cl[1], cl[2], cl[2] * 0.38, 0, 0, Math.PI * 2);
+    ctx.ellipse(cl[0], cl[1], cl[2], cl[2] * 0.36, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
-function drawOcean(c, w, h) {
-  const ring = [
-    [-200, -110],
-    [200, -110],
-    [200, 110],
-    [-200, 110],
-  ];
-  if (fillProjected(c, ring, w, h, -0.4)) {
-    const g = ctx.createLinearGradient(0, h * 0.4, 0, h);
-    g.addColorStop(0, '#1b6fa8');
-    g.addColorStop(1, '#0d3f6b');
-    ctx.fillStyle = g;
-    ctx.fill();
+function drawHorizonSea(c, w, h) {
+  const hy = estimateHorizonY(c, w, h);
+  const g = ctx.createLinearGradient(0, hy - 18, 0, h);
+  g.addColorStop(0, '#9fd0ef');
+  g.addColorStop(0.08, '#4aa3d6');
+  g.addColorStop(0.4, '#1b6fa8');
+  g.addColorStop(1, '#0c3a66');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, hy, w, h - hy + 2);
+  const haze = ctx.createLinearGradient(0, hy - 36, 0, hy + 22);
+  haze.addColorStop(0, 'rgba(180,220,255,0)');
+  haze.addColorStop(0.55, 'rgba(255,250,230,0.42)');
+  haze.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, hy - 36, w, 58);
+}
+
+function drawWorldRim(c, w, h) {
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i <= 72; i++) {
+    const a = (i / 72) * Math.PI * 2;
+    const p = project(c, Math.cos(a) * 186, 0, Math.sin(a) * 94, w, h);
+    if (!p) {
+      started = false;
+      continue;
+    }
+    if (!started) {
+      ctx.moveTo(p.x, p.y);
+      started = true;
+    } else ctx.lineTo(p.x, p.y);
   }
+  ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
 }
 
 function drawCountryPoly(c, rings, w, h, fill, stroke, width = 1.2) {
@@ -247,7 +283,8 @@ function drawCountryPoly(c, rings, w, h, fill, stroke, width = 1.2) {
 function renderWorld(dt) {
   const { w, h } = viewSize();
   drawSky(w, h);
-  drawOcean(cam, w, h);
+  drawHorizonSea(cam, w, h);
+  drawWorldRim(cam, w, h);
   const hoverId = hover && hover.id;
   const selId = selected && selected.id;
   for (const country of mapData.countries) {
@@ -324,7 +361,9 @@ function startArena(country, tokenInfo) {
   const grid = ras.grid;
   const playable = playableCount(grid);
   const botCount = playable > 5200 ? 3 : 2;
-  const playerSpawn = findSpawn(grid);
+  const playerSpawn = (tokenInfo.spawn && Number.isFinite(tokenInfo.spawn.x) && Number.isFinite(tokenInfo.spawn.y))
+    ? { x: tokenInfo.spawn.x | 0, y: tokenInfo.spawn.y | 0 }
+    : findSpawn(grid);
   paintDisk(grid, playerSpawn.x, playerSpawn.y, START_RADIUS, PLAYER_ID);
   const player = actorBase({
     id: PLAYER_ID,
@@ -362,12 +401,17 @@ function startArena(country, tokenInfo) {
     durationMs: tokenInfo.durationMs || MATCH_MS,
     winPct: tokenInfo.winPct || WIN_PCT,
     ending: false,
+    heartbeats: [{ t: 0, x: player.x, y: player.y }],
+    captures: [],
+    lastHb: 0,
+    capturePulse: 0,
   };
   cam.tx = player.x;
   cam.tz = player.y;
-  cam.dist = 36;
-  cam.pitch = 1.02;
-  cam.yaw = 0.15;
+  cam.dist = 22;
+  cam.pitch = 0.7;
+  cam.yaw = 0.2;
+  cam.fov = 0.86;
   mode = 'arena';
   hintT = 7;
   ui.arenaHud.hidden = false;
@@ -425,13 +469,18 @@ function trailHas(actor, x, y, ignoreTail = TAIL_SAFE) {
 
 function closeCapture(actor) {
   if (!actor.trail.length) return;
+  const trailCopy = actor.trail.map((cell) => [cell[0], cell[1]]);
   const result = attemptCapture(match.grid, actor.id, actor.trail);
   actor.trail = [];
   if (result.ok) {
     match.grid = result.grid;
     if (result.captured > 0) {
-      flash = 0.28;
-      if (!actor.isBot) sfx('capture');
+      flash = actor.isBot ? 0.18 : 0.5;
+      if (!actor.isBot) {
+        sfx('capture');
+        match.capturePulse = 1;
+        match.captures.push({ t: now - match.startedAt, trail: trailCopy });
+      }
     }
   }
 }
@@ -541,6 +590,7 @@ function updateBot(bot, dt) {
   dy = bot.goal.y - bot.y;
   const m = Math.hypot(dx, dy) || 1;
   bot.dir = { x: dx / m, y: dy / m };
+  bot.moving = true;
   tryMove(bot, bot.x + bot.dir.x * SPEED * 0.86 * dt, bot.y + bot.dir.y * SPEED * 0.86 * dt);
 }
 
@@ -585,7 +635,7 @@ function maybeEndMatch() {
   if (pctOf(match.player) >= match.winPct) outcome = 'win';
   else if (leader.actor !== match.player && leader.pct >= match.winPct) outcome = 'lose';
   else if (elapsed >= match.durationMs) {
-    outcome = leader.actor === match.player ? 'win' : 'timeout';
+    outcome = 'timeout';
   }
   if (outcome) finishArena(outcome);
 }
@@ -594,25 +644,28 @@ async function finishArena(outcome) {
   if (!match || match.ending) return;
   match.ending = true;
   mode = 'ending';
-  const playerPct = pctOf(match.player);
-  const bots = match.actors.filter((a) => a.isBot).map((a) => ({
-    slug: a.slug,
-    name: a.name,
-    pct: +pctOf(a).toFixed(2),
-    outcome: pctOf(a) >= match.winPct && outcome !== 'win' ? 'win' : 'lose',
-  }));
+  let playerPct = pctOf(match.player);
   if (outcome === 'win') sfx('win');
   let saved = null;
   let saveError = '';
   try {
+    if (match.player && !match.player.dead) {
+      match.heartbeats.push({
+        t: now - match.startedAt,
+        x: +match.player.x.toFixed(3),
+        y: +match.player.y.toFixed(3),
+      });
+    }
     saved = await api.finishMatch({
       token: match.token,
-      country: match.country.id,
-      playerPct: +playerPct.toFixed(2),
-      outcome: outcome === 'win' ? 'win' : outcome === 'timeout' ? 'timeout' : outcome,
-      durationMs: Math.round(now - match.startedAt),
-      bots,
+      intent: outcome === 'quit' ? 'quit' : 'finish',
+      heartbeats: match.heartbeats || [],
+      captures: match.captures || [],
     });
+    if (saved && saved.player) {
+      if (Number.isFinite(saved.player.pct)) playerPct = saved.player.pct;
+      if (saved.player.outcome) outcome = saved.player.outcome;
+    }
     podium = saved.podium || podium;
     renderPodium();
   } catch (err) {
@@ -649,7 +702,7 @@ function leaveArena(submitQuit) {
   }
   match = null;
   mode = 'world';
-  cam = { tx: selected ? countryCentroid(selected).lng : 18, tz: selected ? countryCentroid(selected).lat : 32, dist: 90, pitch: 0.95, yaw: 0.08, fov: 0.92 };
+  cam = { tx: selected ? countryCentroid(selected).lng : 18, tz: selected ? countryCentroid(selected).lat : 32, dist: 118, pitch: 0.8, yaw: 0.08, fov: 0.9 };
   ui.arenaHud.hidden = true;
   ui.joystick.hidden = true;
   if (selected) {
@@ -676,11 +729,14 @@ function updateArenaHud(elapsed) {
 
 function renderArena(dt) {
   const { w, h } = viewSize();
-  drawSky(w, h);
-  // follow camera
   const p = match.player;
-  cam.tx += (p.x - cam.tx) * Math.min(1, dt * 4);
-  cam.tz += (p.y - cam.tz) * Math.min(1, dt * 4);
+  const follow = 1 - Math.exp(-dt * 7.5);
+  const ahead = p.moving ? 3.2 : 0.6;
+  cam.tx += ((p.x + p.dir.x * ahead) - cam.tx) * follow;
+  cam.tz += ((p.y + p.dir.y * ahead) - cam.tz) * follow;
+  if (match.capturePulse > 0) match.capturePulse = Math.max(0, match.capturePulse - dt * 1.35);
+  drawSky(w, h);
+  drawHorizonSea(cam, w, h);
   drawArenaGround(w, h);
   drawTerritories(w, h);
   for (const actor of match.actors) drawTrail(actor, w, h);
@@ -709,18 +765,6 @@ function renderArena(dt) {
 }
 
 function drawArenaGround(w, h) {
-  const g = match.grid;
-  const corners = [
-    [0, 0],
-    [g[0].length, 0],
-    [g[0].length, g.length],
-    [0, g.length],
-  ];
-  if (fillProjected(cam, corners, w, h, -0.15)) {
-    ctx.fillStyle = '#14608f';
-    ctx.fill();
-  }
-  // land silhouette
   const step = 1;
   ctx.beginPath();
   let started = false;
@@ -730,8 +774,8 @@ function drawArenaGround(w, h) {
   if (fillProjected(cam, pts, w, h, 0)) {
     ctx.fillStyle = match.country.color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(40,28,8,0.65)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(40,28,8,0.75)';
+    ctx.lineWidth = 2.4;
     ctx.stroke();
   }
   void step;
@@ -789,7 +833,11 @@ function drawTerritories(w, h) {
         [x, y + 1],
       ];
       if (fillProjected(cam, quad, w, h, 0.04)) {
-        ctx.fillStyle = actor ? actor.color + 'cc' : 'rgba(255,255,255,0.35)';
+        let fill = actor ? actor.color + 'cc' : 'rgba(255,255,255,0.35)';
+        if (actor && !actor.isBot && match.capturePulse > 0) {
+          fill = mixHex(actor.color, '#fff4b0', 0.35 + match.capturePulse * 0.45);
+        }
+        ctx.fillStyle = fill;
         ctx.fill();
       }
       x = x2;
@@ -799,52 +847,135 @@ function drawTerritories(w, h) {
 
 function drawTrail(actor, w, h) {
   if (!actor.trail.length) return;
-  ctx.beginPath();
-  let started = false;
+  const pts = [];
   for (const [x, y] of actor.trail) {
-    const p = project(cam, x + 0.5, 0.12, y + 0.5, w, h);
-    if (!p) continue;
-    if (!started) {
-      ctx.moveTo(p.x, p.y);
-      started = true;
-    } else ctx.lineTo(p.x, p.y);
+    const p = project(cam, x + 0.5, 0.16, y + 0.5, w, h);
+    if (p) pts.push(p);
   }
-  const head = project(cam, actor.x, 0.12, actor.y, w, h);
-  if (head && started) ctx.lineTo(head.x, head.y);
-  if (!started) return;
-  ctx.strokeStyle = actor.color;
-  ctx.lineWidth = 3.4;
+  const head = project(cam, actor.x, 0.18, actor.y, w, h);
+  if (head) pts.push(head);
+  if (pts.length < 2) return;
+  const tipZ = head ? head.z : pts[pts.length - 1].z;
+  const width = clamp(140 / (tipZ + 6), 6, 16);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.strokeStyle = 'rgba(12, 16, 24, 0.8)';
+  ctx.lineWidth = width + 5;
   ctx.stroke();
+  ctx.strokeStyle = actor.isBot ? 'rgba(255,255,255,0.72)' : '#fff4c2';
+  ctx.lineWidth = width + 1.8;
+  ctx.stroke();
+  ctx.strokeStyle = actor.color;
+  ctx.lineWidth = width * 0.62;
+  ctx.stroke();
+  if (head) {
+    ctx.fillStyle = actor.color;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, width * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff8dc';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+  }
 }
 
 function drawGuy(actor, w, h) {
-  const p = project(cam, actor.x, 0.2, actor.y, w, h);
-  if (!p) return;
-  const s = clamp(220 / (p.z + 6), 8, 26);
-  const bob = Math.sin(now * 0.012 + actor.id) * (actor.trail.length ? 1.2 : 0.4);
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  const feet = project(cam, actor.x, 0, actor.y, w, h);
+  const crown = project(cam, actor.x, 2.35, actor.y, w, h);
+  if (!feet) return;
+  let s = crown ? (feet.y - crown.y) : (320 / (feet.z + 5));
+  s = clamp(s, 34, 120);
+  const yaw = cam.yaw;
+  const side = Math.cos(yaw) * actor.dir.x + Math.sin(yaw) * actor.dir.y;
+  const flip = side < 0 ? -1 : 1;
+  const moving = !!actor.moving;
+  const walk = moving ? Math.sin(now * 0.016 + actor.id * 2) : 0;
+  const bob = moving ? Math.abs(walk) * s * 0.045 : 0;
+  const x = feet.x;
+  const y = feet.y - bob;
+  const skin = actor.isBot ? '#e3b08a' : '#f3c29c';
+  const outfit = actor.color;
+  const pants = mixHex(actor.color, '#243044', 0.48);
+  const boots = '#3b2818';
+  const hair = actor.isBot ? mixHex(actor.color, '#2b160c', 0.5) : '#4a2a12';
+
+  ctx.fillStyle = 'rgba(18, 16, 10, 0.34)';
   ctx.beginPath();
-  ctx.ellipse(p.x, p.y + s * 0.28, s * 0.42, s * 0.16, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, feet.y + s * 0.02, s * 0.3, s * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = mixHex(actor.color, '#000000', 0.15);
-  roundRect(p.x - s * 0.28, p.y - s * 0.15 + bob, s * 0.56, s * 0.5, s * 0.16);
-  ctx.fill();
-  ctx.fillStyle = actor.color;
+
+  ctx.strokeStyle = pants;
+  ctx.lineWidth = Math.max(4, s * 0.11);
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.arc(p.x, p.y - s * 0.28 + bob, s * 0.28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#1a1208';
-  const ex = actor.dir.x * s * 0.08;
+  ctx.moveTo(x - s * 0.07, y - s * 0.4);
+  ctx.lineTo(x - s * 0.12 - walk * s * 0.14, y - s * 0.02);
+  ctx.moveTo(x + s * 0.07, y - s * 0.4);
+  ctx.lineTo(x + s * 0.12 + walk * s * 0.14, y - s * 0.02);
+  ctx.stroke();
+  ctx.strokeStyle = boots;
+  ctx.lineWidth = Math.max(3, s * 0.08);
   ctx.beginPath();
-  ctx.arc(p.x - s * 0.08 + ex, p.y - s * 0.3 + bob, s * 0.05, 0, Math.PI * 2);
-  ctx.arc(p.x + s * 0.1 + ex, p.y - s * 0.3 + bob, s * 0.05, 0, Math.PI * 2);
+  ctx.moveTo(x - s * 0.12 - walk * s * 0.14, y - s * 0.08);
+  ctx.lineTo(x - s * 0.12 - walk * s * 0.14 + flip * s * 0.07, y + s * 0.01);
+  ctx.moveTo(x + s * 0.12 + walk * s * 0.14, y - s * 0.08);
+  ctx.lineTo(x + s * 0.12 + walk * s * 0.14 + flip * s * 0.07, y + s * 0.01);
+  ctx.stroke();
+
+  ctx.fillStyle = outfit;
+  roundRect(x - s * 0.2, y - s * 0.76, s * 0.4, s * 0.4, s * 0.09);
   ctx.fill();
-  ctx.fillStyle = 'rgba(10,20,30,0.78)';
-  ctx.font = `700 ${Math.max(11, s * 0.55)}px Nunito, Trebuchet MS, sans-serif`;
+  ctx.fillStyle = mixHex(outfit, '#fff1b0', 0.38);
+  ctx.fillRect(x - s * 0.2, y - s * 0.44, s * 0.4, s * 0.06);
+
+  ctx.strokeStyle = mixHex(outfit, '#000000', 0.18);
+  ctx.lineWidth = Math.max(3, s * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.2, y - s * 0.68);
+  ctx.lineTo(x - s * 0.32, y - s * 0.44 + walk * s * 0.08);
+  ctx.moveTo(x + s * 0.2, y - s * 0.68);
+  ctx.lineTo(x + s * 0.34, y - s * 0.5 - walk * s * 0.08);
+  ctx.stroke();
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(x - s * 0.32, y - s * 0.44 + walk * s * 0.08, s * 0.055, 0, Math.PI * 2);
+  ctx.arc(x + s * 0.34, y - s * 0.5 - walk * s * 0.08, s * 0.055, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(x + flip * s * 0.03, y - s * 0.88, s * 0.155, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = hair;
+  ctx.beginPath();
+  ctx.ellipse(x + flip * s * 0.025, y - s * 0.97, s * 0.165, s * 0.11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1a120c';
+  ctx.beginPath();
+  ctx.arc(x + flip * s * 0.07, y - s * 0.89, s * 0.03, 0, Math.PI * 2);
+  ctx.arc(x + flip * s * 0.14, y - s * 0.89, s * 0.03, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#b36b4d';
+  ctx.lineWidth = Math.max(1.2, s * 0.025);
+  ctx.beginPath();
+  ctx.arc(x + flip * s * 0.1, y - s * 0.84, s * 0.055, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  const label = actor.name;
+  ctx.font = `700 ${Math.max(13, Math.round(s * 0.2))}px Nunito, Trebuchet MS, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(actor.isBot ? actor.name : actor.name, p.x, p.y - s * 0.85);
+  ctx.textBaseline = 'bottom';
+  const tw = ctx.measureText(label).width;
+  const ny = y - s * 1.12;
+  ctx.fillStyle = 'rgba(10, 18, 30, 0.74)';
+  roundRect(x - tw / 2 - 8, ny - Math.max(18, s * 0.26), tw + 16, Math.max(18, s * 0.26), 9);
+  ctx.fill();
+  ctx.fillStyle = '#fff8e8';
+  ctx.fillText(label, x, ny - 3);
+  ctx.textBaseline = 'alphabetic';
 }
 
 function roundRect(x, y, w, h, r) {
@@ -887,9 +1018,14 @@ function updateArena(dt) {
   const player = match.player;
   if (!player.dead) {
     const mv = readMoveVector();
+    player.moving = !!mv;
     if (mv) {
       player.dir = mv;
       tryMove(player, player.x + mv.x * SPEED * dt, player.y + mv.y * SPEED * dt);
+    }
+    if (now - match.lastHb > 280) {
+      match.heartbeats.push({ t: now - match.startedAt, x: +player.x.toFixed(3), y: +player.y.toFixed(3) });
+      match.lastHb = now;
     }
   }
   for (const actor of match.actors) {
@@ -976,7 +1112,7 @@ function onWheel(e) {
   if (mode === 'world') {
     cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.08 : 0.92), 28, 230);
   } else if (mode === 'arena') {
-    cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.06 : 0.94), 18, 70);
+    cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.06 : 0.94), 14, 52);
   }
 }
 
@@ -1188,17 +1324,15 @@ export async function boot() {
     $('attr-line').textContent = world.attribution || '';
     podium = board.podium || [];
     renderPodium();
-    setupRequired = !!session.setupRequired;
-    if (setupRequired) {
-      showModal(`<div class="card"><h2>Almost ready</h2><p>The world map is here, but the score-keeping database still needs a one-time setup on the server (<code>install.php</code>). You can look around locally once a database is configured.</p></div>`);
-    }
+    setupRequired = false;
     if (session.user) {
       user = session.user;
       afterLogin();
-    } else if (!setupRequired) {
+    } else {
       showAuth('signup');
     }
   } catch (err) {
-    showModal(`<div class="card"><h2>Could not load World Domination</h2><p>${escapeHtml(err.message || 'Network error')}</p></div>`);
+    const dbDown = err && err.status === 503;
+    showModal(`<div class="card"><h2>${dbDown ? 'Database not ready' : 'Could not load World Domination'}</h2><p>${escapeHtml(err.message || 'Network error')}</p>${dbDown ? '<p>There is no public installer. The host needs the existing Morse Chess <code>DB_*</code> contract, <code>WD_DB_*</code> environment variables, or a private guarded <code>app/.env</code>.</p>' : ''}</div>`);
   }
 }

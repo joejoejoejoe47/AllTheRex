@@ -39,7 +39,11 @@ jobs:
         run: |
           set -euo pipefail
           git ls-files worlddomination > /tmp/wd-all.txt
-          grep -v -E '(^|/)\.env$|(^|/)worlddomination/tests/|(^|/)worlddomination/app/storage/|(^|/)\.git|(^|/)\._' /tmp/wd-all.txt > /tmp/upload.txt || true
+          grep -v -E '(^|/)\.env$|(^|/)install\.php$|(^|/)worlddomination/tests/|(^|/)worlddomination/app/storage/|(^|/)\.git|(^|/)\._' /tmp/wd-all.txt > /tmp/upload.txt || true
+          if grep -E '(^|/)install\.php$' /tmp/upload.txt; then
+            echo "::error::install.php must not be uploaded"
+            exit 1
+          fi
           if [ ! -s /tmp/upload.txt ]; then
             echo "::error::no worlddomination files to upload"
             exit 1
@@ -94,9 +98,25 @@ jobs:
           assert isinstance(data.get("countries"), list) and len(data["countries"]) >= 150
           print("countries ok", data["count"])
           PY
-          health=$(curl -sS -m 30 -w ' %{http_code}' "$SITE/api/health")
-          case "$health" in
-            *" 200") echo "api health ok: $health";;
-            *) echo "::error::api/health -> $health"; bad=1;;
-          esac
+          health_code=$(curl -sS -o /tmp/wd-health -w '%{http_code}' -m 30 "$SITE/api/health" || true)
+          if [ "$health_code" != 200 ]; then
+            echo "::error::api/health HTTP $health_code (refusing to treat an unhealthy database as success)"
+            echo "body: $(cat /tmp/wd-health 2>/dev/null)"
+            bad=1
+          else
+            python3 - <<'PY' || { echo "::error::api/health was 200 but db was not healthy"; bad=1; }
+          import json
+          data=json.load(open("/tmp/wd-health"))
+          assert data.get("ok") is True, data
+          assert data.get("db") is True, data
+          print("api health ok", data)
+          PY
+          fi
+          for priv in install.php app/.env app/src/Auth.php app/storage/worlddom.sqlite tests/AuthTest.php; do
+            code=$(curl -sS -o /tmp/wd-priv -w '%{http_code}' -m 20 "$SITE/$priv" || true)
+            case "$code" in
+              403|404) echo "private $priv -> $code";;
+              *) echo "::error::$priv was publicly reachable (HTTP $code)"; bad=1;;
+            esac
+          done
           [ "$bad" = 0 ]

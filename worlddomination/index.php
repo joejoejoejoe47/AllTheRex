@@ -13,6 +13,14 @@ require $appDir . '/src/bootstrap.php';
 
 $uriPath = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 
+if (\WorldDomination\PublicGuard::isForbidden($uriPath)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    echo "Forbidden\n";
+    exit;
+}
+
 // The built-in server sends every request here. Serve real static files from the
 // original URL so a request like /assets/data/countries.json is not rewritten.
 if (PHP_SAPI === 'cli-server') {

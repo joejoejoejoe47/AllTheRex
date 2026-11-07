@@ -1,5 +1,5 @@
 :root {
-  --sky: #49b7ff;
+  --sky: #3aa4f0;
   --ink: #122033;
   --gold: #f0c14b;
   --gold-deep: #c4921b;
@@ -9,7 +9,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: #2a7fd4; color: #f4f0e4; }
+html, body { margin: 0; height: 100%; background: #2b94e4; color: #f4f0e4; }
 body { overflow: hidden; }
 
 #stage {

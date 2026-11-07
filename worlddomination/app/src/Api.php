@@ -16,32 +16,22 @@ final class Api
             if ($ready) {
                 try {
                     Db::ensureSchema();
+                    Db::value('SELECT 1');
                 } catch (Throwable $e) {
                     error_log('[worlddomination api schema] ' . $e->getMessage());
-                    if ($path === '/api/health') {
-                        Http::json(['ok' => true, 'db' => false, 'setupRequired' => true], 200);
-                    }
                     $ready = false;
                 }
             }
 
             if ($path === '/api/health') {
                 if (!$ready) {
-                    Http::json(['ok' => true, 'db' => false, 'setupRequired' => true]);
+                    Http::json(['ok' => false, 'db' => false, 'setupRequired' => true], 503);
                 }
-                Db::value('SELECT 1');
                 Http::json(['ok' => true, 'db' => true, 'driver' => Db::driver()]);
             }
 
             if (!$ready) {
-                if ($path === '/api/auth/session' && Http::method() === 'GET') {
-                    Http::json([
-                        'user' => null,
-                        'csrf' => Auth::csrfToken(),
-                        'setupRequired' => true,
-                    ]);
-                }
-                throw new HttpError('World Domination still needs a one-time database setup.', 503);
+                throw new HttpError('World Domination database is not ready.', 503);
             }
 
             match ($path) {

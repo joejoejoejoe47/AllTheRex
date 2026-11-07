@@ -1,0 +1,41 @@
+name: Test worlddomination
+
+# Runs World Domination unit tests only. It never deploys and never touches
+# Morse Chess, goblin, or other site paths.
+
+on:
+  pull_request:
+    paths:
+      - "worlddomination/**"
+      - ".github/workflows/test-worlddomination.yml"
+      - ".github/workflows/deploy-worlddomination.yml"
+  push:
+    branches: [main]
+    paths:
+      - "worlddomination/**"
+      - ".github/workflows/test-worlddomination.yml"
+      - ".github/workflows/deploy-worlddomination.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-worlddomination-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP extensions for isolated tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-cli php-sqlite3 php-mbstring php-xml
+
+      - name: PHP tests
+        run: php worlddomination/tests/run.php
+
+      - name: Capture parity tests
+        run: node worlddomination/tests/capture.test.mjs
