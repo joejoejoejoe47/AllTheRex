@@ -3,7 +3,9 @@ name: Build Morse Chess site
 # Builds the React client from joejoejoejoe47/morse-chess (php-port), assembles the PHP
 # site and commits it into chess/. Run it by hand whenever the source branch changes.
 # Push a change to chess/BUILD_TRIGGER (or this file) on the php-chess-site branch to rebuild.
-# It never touches main, so nothing is uploaded to Plesk until you merge.
+# It never touches main when run from php-chess-site. workflow_dispatch on main
+# commits into chess/ on that branch. Full-precision Kokoro weights (325 MB)
+# are stripped before commit and fetched at deploy time; they are not stored here.
 
 on:
   push:
@@ -43,12 +45,22 @@ jobs:
       - name: PHP tests
         working-directory: mc
         run: for t in php/tests/*Test.php; do php "$t"; done
+      - name: Test Kokoro fp32 delivery helpers
+        run: bash .github/scripts/test_kokoro_fp32_delivery.sh
       - name: Copy into chess/
         run: |
           cp -R mc/site/. chess/
           rm -f chess/index.html
           rm -f chess/site.zip
+          # 325 MB fp32 weights must not be committed (GitHub 100 MB limit).
+          # Prefer the morse-chess helper when present; always run the local strip too.
+          if [ -f mc/scripts/strip_kokoro_onnx_for_git.sh ]; then
+            bash mc/scripts/strip_kokoro_onnx_for_git.sh chess
+          fi
+          bash .github/scripts/strip_kokoro_onnx_for_git.sh chess
           rm -rf mc
+      - name: Guard no oversized files in chess/
+        run: bash .github/scripts/guard_chess_git_size.sh chess
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"

@@ -1,3 +1,6 @@
 app/.env
 app/storage/*
 !app/storage/.gitignore
+
+# Full-precision Kokoro weights are fetched at deploy time (325 MB; GitHub limit is 100 MB).
+bots/kokoro/models/**/onnx/*.onnx
