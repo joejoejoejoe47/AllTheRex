@@ -6,7 +6,7 @@ declare(strict_types=1);
  *   movies -> Wikipedia (film articles)   albums -> MusicBrainz + Deezer   books -> Open Library
  * Returns candidates: [category, title, creator, year, image, existing_id].
  */
-function rex_external_search(string $category, string $q, int $limit = 8): array
+function rex_external_search(string $category, string $q, int $limit = 12): array
 {
     $q = clean_text($q, 80);
     $res = ['results' => [], 'failed' => false];
@@ -158,11 +158,21 @@ function rex_ext_albums_deezer(string $q): array
 
 function rex_ext_books(string $q): array
 {
-    $body = rex_http_get('https://openlibrary.org/search.json?' . http_build_query([
-        'q' => $q, 'limit' => 12, 'fields' => 'title,author_name,first_publish_year,cover_i',
-    ]));
+    $fields = 'title,author_name,first_publish_year,cover_i,edition_count';
+    $docs = [];
+    // 1) title search (finds "North and South" even when the author is not typed), best-known editions first
+    // 2) general search (finds author names and "title + author" queries)
+    foreach ([
+        ['title' => $q, 'limit' => 25, 'sort' => 'editions', 'fields' => $fields],
+        ['q' => $q, 'limit' => 25, 'fields' => $fields],
+    ] as $params) {
+        $body = rex_http_get('https://openlibrary.org/search.json?' . http_build_query($params));
+        foreach ((json_decode((string)$body, true)['docs'] ?? []) as $r) {
+            $docs[] = $r;
+        }
+    }
     $out = [];
-    foreach ((json_decode((string)$body, true)['docs'] ?? []) as $r) {
+    foreach ($docs as $r) {
         $out[] = [
             'title'   => trim((string)($r['title'] ?? '')),
             'creator' => trim((string)(($r['author_name'] ?? [''])[0] ?? '')),

@@ -18,7 +18,7 @@ if (empty($it['image_url']) && (int)(q1('SELECT image_tried t FROM items WHERE i
     $it = catalog_get($id, $u ? (int)$u['id'] : null) ?? $it;
 }
 
-$similar = rec_similar_items($id, 6, $u ? (int)$u['id'] : null);
+$similar = rec_related($id, 8, $u ? (int)$u['id'] : null);
 $dist = array_fill(1, 5, 0);
 foreach (q('SELECT rating, COUNT(*) AS c FROM ratings WHERE item_id = ? GROUP BY rating', [$id]) as $r) {
     $dist[(int)$r['rating']] = (int)$r['c'];
@@ -71,12 +71,21 @@ page_head($it['title'], $it['category']);
 <?php if ($similar): ?>
   <div class="grid">
     <?php foreach ($similar as $s):
-        $extra = '<p class="why"><span class="pred">' . (int)round($s['sim'] * 100) . '% match</span> · ' . (int)$s['n'] . ' shared rater' . ((int)$s['n'] === 1 ? '' : 's') . '</p>';
+        if ($s['kind'] === 'match') {
+            $extra = '<p class="why"><span class="pred">' . (int)round($s['sim'] * 100) . '% match</span> · ' . (int)$s['n'] . ' shared rater' . ((int)$s['n'] === 1 ? '' : 's') . '</p>';
+        } elseif ($s['kind'] === 'creator') {
+            $extra = '<p class="why">Same ' . ($it['category'] === 'album' ? 'artist' : ($it['category'] === 'book' ? 'author' : 'director')) . '</p>';
+        } else {
+            $extra = '<p class="why">Popular pick</p>';
+        }
         item_card($s, $back, $extra);
     endforeach; ?>
   </div>
+  <?php if (!array_filter($similar, fn($s) => $s['kind'] === 'match')): ?>
+    <p class="muted small">Rating-based matches appear here once at least two people have rated this and the same other titles. Until then you will see related picks.</p>
+  <?php endif; ?>
 <?php else: ?>
-  <div class="empty small"><p>Not enough overlapping ratings yet. When at least two people rate this and the same other titles, matches appear here.</p></div>
+  <div class="empty small"><p>No related titles yet.</p></div>
 <?php endif;
 
 page_foot();

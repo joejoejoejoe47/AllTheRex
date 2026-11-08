@@ -282,3 +282,50 @@ function rec_similar_items(int $itemId, int $limit = 6, ?int $userId = null): ar
     }
     return $out;
 }
+
+
+/**
+ * Related titles for a title page: rating-correlated titles first, then (until there is enough rating
+ * data) other titles by the same creator, then the most popular titles in the category.
+ * Each row carries 'kind' = 'match' | 'creator' | 'popular'.
+ */
+function rec_related(int $itemId, int $limit = 8, ?int $userId = null): array
+{
+    $out  = [];
+    $seen = [$itemId => true];
+    foreach (rec_similar_items($itemId, $limit, $userId) as $r) {
+        $r['kind'] = 'match';
+        $out[] = $r;
+        $seen[(int)$r['id']] = true;
+    }
+    if (count($out) >= $limit) {
+        return $out;
+    }
+    $me = q1('SELECT category, creator FROM items WHERE id = ?', [$itemId]);
+    if (!$me) {
+        return $out;
+    }
+    $ids = [];
+    if (trim((string)$me['creator']) !== '') {
+        foreach (q('SELECT id FROM items WHERE category = ? AND creator = ? AND id <> ? ORDER BY COALESCE(year, 9999), id LIMIT ?',
+                   [$me['category'], $me['creator'], $itemId, $limit]) as $r) {
+            $ids[(int)$r['id']] = 'creator';
+        }
+    }
+    foreach (q('SELECT id FROM items WHERE category = ? AND id <> ? ORDER BY COALESCE(seed_rank, 999999), id LIMIT ?',
+               [$me['category'], $itemId, $limit * 2]) as $r) {
+        $ids[(int)$r['id']] ??= 'popular';
+    }
+    $items = catalog_items_by_ids(array_keys($ids), $userId);
+    foreach ($ids as $id => $kind) {
+        if (count($out) >= $limit) {
+            break;
+        }
+        if (isset($seen[$id]) || !isset($items[$id])) {
+            continue;
+        }
+        $seen[$id] = true;
+        $out[] = $items[$id] + ['kind' => $kind, 'sim' => 0.0, 'n' => 0];
+    }
+    return $out;
+}

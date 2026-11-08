@@ -296,6 +296,20 @@ $r2 = rex_seed_bulk($bd);
 check('bulk import is idempotent', $r2['added'] === 0);
 array_map('unlink', glob("$bd/*")); @rmdir($bd);
 
+echo "Related titles and book search\n";
+rex_seed();
+$gid = id_of('The Godfather');
+$rel = rec_related($gid, 8);
+check('related fills with popular picks when no ratings exist', count($rel) === 8 && !in_array($gid, array_column($rel, 'id')));
+$GLOBALS['REX_HTTP'] = function (string $url) {
+    return str_contains($url, 'title=')
+        ? '{"docs":[{"title":"North and South","author_name":["John Jakes"],"first_publish_year":1982,"edition_count":40}]}'
+        : '{"docs":[{"title":"North and South","author_name":["John Jakes"],"first_publish_year":1982},{"title":"North and South","author_name":["Elizabeth Gaskell"],"first_publish_year":1855}]}';
+};
+$bk = rex_external_search('book', 'North and South');
+check('book search merges title + general queries without duplicates', count($bk['results']) === 2 && $bk['results'][0]['creator'] === 'John Jakes');
+unset($GLOBALS['REX_HTTP']);
+
 echo "Upgrading an older database\n";
 $old = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $old->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, category TEXT, title TEXT, creator TEXT, year INTEGER, dedupe_key TEXT, created_by INTEGER, created_at TEXT)');
