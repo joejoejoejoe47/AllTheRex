@@ -38,6 +38,13 @@ if (isset($_GET['seed'])) {
         return "added {$s['added']}, ranked {$s['ranked']} existing, skipped {$s['skipped']}, bad lines {$s['bad']}";
     });
 }
+if (isset($_GET['rebuild'])) {
+    step('REBUILD all title-to-title similarities from ratings', function () {
+        $t = microtime(true);
+        $n = rec_rebuild_all();
+        return $n . ' pairs in ' . round(microtime(true) - $t, 1) . 's';
+    });
+}
 if (isset($_GET['missing'])) {
     step('TITLES WITHOUT AN IMAGE', function () {
         $r = q('SELECT category, title, year FROM items WHERE image_url IS NULL ORDER BY category, title');
