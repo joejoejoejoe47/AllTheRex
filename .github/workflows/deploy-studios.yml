@@ -28,7 +28,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq lftp
-          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 3; set cmd:fail-exit yes; mirror -R --verbose --exclude-glob ._* studios studios; bye" "$FTP_HOST"
+          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set ftp:use-site-chmod no; set net:max-retries 3; set cmd:fail-exit yes; mirror -R --no-perms --verbose --exclude-glob ._* studios studios; bye" "$FTP_HOST"
       - name: Smoke test
         run: |
           sleep 8
