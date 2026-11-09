@@ -1,0 +1,344 @@
+:root {
+  --sky: #3aa4f0;
+  --ink: #122033;
+  --gold: #f0c14b;
+  --gold-deep: #c4921b;
+  --panel: rgba(10, 28, 48, 0.72);
+  --line: rgba(255, 232, 176, 0.28);
+  font-family: "Nunito", "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #2b94e4; color: #f4f0e4; }
+body { overflow: hidden; }
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+#topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  pointer-events: none;
+}
+#topbar > * { pointer-events: auto; }
+
+.brand {
+  font-family: "Fredoka", "Trebuchet MS", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-size: 1.15rem;
+  text-shadow: 0 2px 0 rgba(18, 40, 70, 0.35);
+}
+.brand small {
+  display: block;
+  letter-spacing: 0.18em;
+  font-size: 0.62rem;
+  opacity: 0.8;
+  font-weight: 600;
+}
+
+#user-slot { display: flex; gap: 12px; align-items: center; }
+.hello { background: var(--panel); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; backdrop-filter: blur(8px); }
+
+#podium {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  width: min(280px, 34vw);
+  z-index: 5;
+  background: linear-gradient(180deg, rgba(16, 38, 64, 0.8), rgba(10, 24, 42, 0.78));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 18px 40px rgba(8, 20, 40, 0.28);
+  backdrop-filter: blur(10px);
+}
+#podium h2 {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe7a3;
+}
+#podium-list {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: 8px;
+  align-items: end;
+  min-height: 168px;
+}
+.stand { text-align: center; }
+.stand .figure {
+  width: 28px; height: 28px; margin: 0 auto 6px;
+  border-radius: 50% 50% 40% 40%;
+  background: #ffd24a;
+  box-shadow: 0 6px 0 #c4921b;
+}
+.stand .figure.bot { background: #7b6cff; box-shadow: 0 6px 0 #4636c4; }
+.stand .plinth {
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(180deg, #efe2b5, #c9b06a);
+  box-shadow: inset 0 1px 0 #fff6d0, 0 8px 0 #8a7030;
+}
+.stand.s0 .plinth { height: 52px; }
+.stand.s1 .plinth { height: 84px; background: linear-gradient(180deg, #ffe27a, #e0b23a); }
+.stand.s2 .plinth { height: 40px; }
+.stand .place { margin: 8px 0 0; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: #ffe7a3; }
+.stand .who { margin: 2px 0 0; font-weight: 800; font-size: 0.86rem; }
+.stand .pts { margin: 0; font-size: 0.75rem; opacity: 0.8; }
+.stand em, .bar-row em, .end-bots em { font-style: normal; font-size: 0.68em; margin-left: 5px; padding: 1px 5px; border-radius: 999px; background: #7b6cff; color: white; vertical-align: middle; }
+#podium-empty { margin: 10px 0 0; font-size: 0.82rem; color: #d7e7f6; }
+
+#select-card {
+  position: fixed;
+  left: 18px;
+  bottom: 22px;
+  width: min(360px, calc(100vw - 36px));
+  z-index: 5;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 18px 18px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 36px rgba(8, 20, 40, 0.3);
+}
+#select-card .kicker { margin: 0; letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.72rem; color: #9fd2ff; }
+#select-card h2 { margin: 4px 0 8px; font-family: "Fredoka", "Trebuchet MS", sans-serif; font-size: 1.6rem; }
+#select-card p { margin: 0 0 14px; color: #e6eef8; line-height: 1.45; }
+
+#arena-hud {
+  position: fixed;
+  top: 70px;
+  left: 16px;
+  z-index: 5;
+  width: min(340px, calc(100vw - 32px));
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  backdrop-filter: blur(10px);
+}
+.match-top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.92rem; margin-bottom: 8px; }
+.bar-row { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 2px 8px; margin: 6px 0; }
+.bar-row .who { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.bar-row .who i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.bar-row .track { grid-column: 1 / -1; height: 7px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden; }
+.bar-row .track span { display: block; height: 100%; }
+#leave-btn { margin-top: 10px; width: 100%; }
+
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font: 800 1rem "Fredoka", "Trebuchet MS", sans-serif;
+  cursor: pointer;
+  background: rgba(255,255,255,0.12);
+  color: inherit;
+}
+.btn.primary {
+  background: linear-gradient(180deg, #ffd86b, #e2a824);
+  color: #2a1a04;
+  box-shadow: 0 6px 0 #9a6c10;
+}
+.btn.primary:hover { filter: brightness(1.05); }
+.btn.primary:active { transform: translateY(2px); box-shadow: 0 4px 0 #9a6c10; }
+.btn.primary:disabled { filter: grayscale(0.3); cursor: wait; }
+.link { background: none; border: 0; color: #ffe27a; text-decoration: underline; cursor: pointer; font: inherit; }
+
+#joystick {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: rgba(10, 24, 42, 0.35);
+  border: 2px solid rgba(255,255,255,0.22);
+  z-index: 6;
+  touch-action: none;
+}
+#joystick .nub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  border-radius: 50%;
+  background: rgba(255, 210, 74, 0.92);
+  box-shadow: 0 6px 0 rgba(160, 110, 20, 0.55);
+}
+
+#modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 24, 48, 0.45);
+  padding: 20px;
+}
+#modal[hidden], #select-card[hidden], #arena-hud[hidden], #joystick[hidden], #notice[hidden], #fatal[hidden], #podium-empty[hidden], #tutorial-banner[hidden], #controls-guide[hidden] { display: none !important; }
+.card {
+  width: min(420px, 100%);
+  background: #14324f;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px 22px 20px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+}
+.card h2 { margin: 0 0 8px; font-family: "Fredoka", "Trebuchet MS", sans-serif; }
+.lead { color: #d5e6f6; margin-top: 0; }
+.card label { display: block; margin: 10px 0; font-weight: 700; }
+.card input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #3b6f9d;
+  background: #0c2238;
+  color: inherit;
+  font: inherit;
+}
+.card small { display: block; font-weight: 500; opacity: 0.7; margin-top: 4px; }
+.err { color: #ffb4b4; }
+.ok { color: #baf5c8; }
+.swap { margin-bottom: 0; }
+.end-bots { list-style: none; padding: 0; }
+.end-bots li { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+#notice, #fatal {
+  position: fixed;
+  left: 50%;
+  top: 20px;
+  transform: translateX(-50%);
+  z-index: 30;
+  background: #3a1b1b;
+  border: 1px solid #7a3333;
+  padding: 10px 16px;
+  border-radius: 12px;
+  max-width: min(90vw, 420px);
+}
+
+#attr-line {
+  position: fixed;
+  left: 12px;
+  bottom: 8px;
+  font-size: 11px;
+  opacity: 0.7;
+  z-index: 4;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+}
+
+#tutorial-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 640px));
+  min-width: min(320px, calc(100vw - 32px));
+  background: rgba(10, 24, 42, 0.86);
+  border: 2px solid #ffd24a;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(8, 20, 40, 0.35);
+  pointer-events: none;
+}
+#tutorial-banner .step { display: inline-block; background: #ffd24a; color: #2a1a04; font-weight: 800; border-radius: 999px; padding: 1px 9px; margin-right: 6px; }
+#tutorial-banner .flagnote { color: #cfe3f5; font-size: 0.88em; }
+#tutorial-banner strong { color: #ffe27a; }
+#controls-guide {
+  position: fixed;
+  right: 16px;
+  bottom: 30px;
+  z-index: 5;
+  width: min(280px, 34vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  backdrop-filter: blur(8px);
+}
+#controls-guide h3 { margin: 0 0 6px; font-family: "Fredoka", "Trebuchet MS", sans-serif; font-size: 1rem; color: #ffe27a; }
+#controls-guide ul { margin: 0; padding-left: 16px; }
+#controls-guide li { margin: 3px 0; }
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 1px 5px;
+  margin: 0 1px;
+  border-radius: 5px;
+  background: #f4f0e4;
+  color: #122033;
+  font: 800 0.8rem "Nunito", sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 0 #9aa7b5;
+}
+.bar-row .rank { color: #ffe27a; margin-right: 2px; }
+.muted { color: #b8cadb; font-size: 0.86rem; }
+
+@media (max-width: 760px) {
+  #controls-guide { left: 10px; right: 10px; bottom: auto; top: 64px; width: auto; font-size: 0.8rem; padding: 6px 10px; }
+  #controls-guide h3 { display: inline; font-size: 0.85rem; margin-right: 6px; }
+  #controls-guide p { display: inline; margin: 0; }
+  body.in-arena #podium { display: none; }
+  body.in-arena #controls-guide { top: auto; bottom: 22px; left: auto; right: 10px; width: calc(100vw - 170px); }
+  body.in-arena #arena-hud { top: 64px; }
+  body.in-arena #arena-hud { font-size: 0.78rem; padding: 8px 10px; width: min(230px, calc(100vw - 20px)); }
+  body.in-arena #arena-hud .bar-row { margin: 3px 0; }
+  body.in-arena #arena-hud .bar-row em { font-size: 0.6rem; padding: 0 4px; }
+  body.in-arena #leave-btn { padding: 6px 10px; font-size: 0.85rem; margin-top: 6px; }
+  #tutorial-banner { bottom: 160px; max-width: calc(100vw - 24px); font-size: 0.9rem; }
+  #podium { width: min(250px, 46vw); top: auto; bottom: 170px; right: 10px; padding: 10px; }
+  #podium-list { min-height: 120px; }
+  #select-card { bottom: 18px; }
+  #arena-hud { width: min(280px, calc(100vw - 150px)); }
+}
+
+/* end-of-match and leave dialogs */
+.end-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.leave-card { max-width: 420px; }
+.leave-card p { line-height: 1.45; }
+.end-card [data-rank] { margin: 4px 0 10px; }
+.hud-out { font-size: 0.72rem; color: #ffb4a8; margin-left: 6px; }
+
+/* arena minimap (replaces the podium while you play) */
+body.in-arena #podium { display: none; }
+#minimap-wrap {
+  position: fixed; top: 64px; right: 16px; margin: 0; z-index: 6;
+  background: rgba(14, 34, 58, 0.82); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+#minimap-wrap[hidden] { display: none !important; }
+#minimap { display: block; width: 200px; height: 200px; border-radius: 8px; image-rendering: pixelated; }
+#minimap-wrap figcaption { color: #dbeafe; font-size: 0.72rem; margin-top: 6px; max-width: 200px; }
+#minimap-wrap .mm-name { font-weight: 800; color: #fff; }
+@media (max-width: 760px) {
+  #minimap-wrap { top: 64px; right: 8px; padding: 5px; }
+  #minimap { width: 104px; height: 104px; }
+  #minimap-wrap figcaption { display: none; }
+}

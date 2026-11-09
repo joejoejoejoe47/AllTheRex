@@ -1,0 +1,122 @@
+name: Deploy worlddomination to Plesk
+
+# Uploads only worlddomination/ files. It never uploads chess/, goblin/, or
+# any other site path. Credentials remain the existing PLESK_FTP_HOST,
+# PLESK_FTP_USER, and PLESK_FTP_PASSWORD secrets.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worlddomination/**"
+      - ".github/workflows/deploy-worlddomination.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worlddomination
+  cancel-in-progress: false
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    env:
+      FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+      FTP_USER: ${{ secrets.PLESK_FTP_USER }}
+      FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
+      SITE: https://alltherex.com/worlddomination
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Build an upload list of World Domination files only
+        run: |
+          set -euo pipefail
+          git ls-files worlddomination > /tmp/wd-all.txt
+          grep -v -E '(^|/)\.env$|(^|/)install\.php$|(^|/)worlddomination/tests/|(^|/)worlddomination/app/storage/|(^|/)\.git|(^|/)\._' /tmp/wd-all.txt > /tmp/upload.txt || true
+          if grep -E '(^|/)install\.php$' /tmp/upload.txt; then
+            echo "::error::install.php must not be uploaded"
+            exit 1
+          fi
+          if [ ! -s /tmp/upload.txt ]; then
+            echo "::error::no worlddomination files to upload"
+            exit 1
+          fi
+          echo "$(wc -l < /tmp/upload.txt) files to send"
+          python3 - <<'PY'
+          import os, shlex
+          files = [l.strip() for l in open("/tmp/upload.txt") if l.strip()]
+          page = "worlddomination/app.html"
+          rest = [f for f in files if f != page]
+          ordered = rest + ([page] if page in files else [])
+          for dest in ("worlddomination", "alltherex/worlddomination"):
+              lines = ["set ftp:ssl-allow no", "set net:max-retries 4", "set net:reconnect-interval-base 5", "set cmd:fail-exit yes"]
+              made = set()
+              for f in ordered:
+                  rel = f[len("worlddomination/"):]
+                  d = os.path.dirname(rel)
+                  remote_dir = dest + ("/" + d if d else "")
+                  if d and remote_dir not in made:
+                      lines.append("mkdir -p -f " + shlex.quote(remote_dir))
+                      made.add(remote_dir)
+                  lines.append("put " + shlex.quote(f) + " -o " + shlex.quote(dest + "/" + rel))
+              lines.append("bye")
+              open("/tmp/lftp-" + dest.replace("/", "_") + ".txt", "w").write("\n".join(lines) + "\n")
+          PY
+
+      - name: Upload (World Domination only, page last)
+        run: |
+          for dest in worlddomination alltherex_worlddomination; do
+            echo "== $dest"
+            lftp -u "$FTP_USER","$FTP_PASS" -e "source /tmp/lftp-$dest.txt" "$FTP_HOST" || \
+              { sleep 20; lftp -u "$FTP_USER","$FTP_PASS" -e "source /tmp/lftp-$dest.txt" "$FTP_HOST"; }
+          done
+
+      - name: Smoke test
+        run: |
+          set -u
+          bad=0
+          sleep 5
+          page=$(curl -fsS -m 30 "$SITE/?smoke=$GITHUB_RUN_ID") || { echo "::error::/worlddomination/ did not load"; bad=1; page=""; }
+          echo "$page" | grep -q "World Domination" || { echo "::error::live page is missing the World Domination title"; bad=1; }
+          echo "$page" | grep -q "assets/js/main.js" || { echo "::error::live page does not point at the game script"; bad=1; }
+          for a in assets/js/main.js assets/js/game.js assets/js/capture.js assets/js/camera.js assets/js/guide.js assets/js/terrain.js assets/css/game.css assets/data/countries.json; do
+            code=$(curl -s -o /tmp/wd-asset -w '%{http_code}' -m 60 "$SITE/$a")
+            [ "$code" = 200 ] || { echo "::error::$a -> $code"; bad=1; }
+          done
+          python3 - <<'PY' || { echo "::error::countries.json is not valid Natural Earth data"; exit 1; }
+          import json,sys
+          data=json.load(open("/tmp/wd-asset"))
+          assert data.get("count",0) >= 150
+          assert "Natural Earth" in (data.get("attribution") or data.get("source") or "")
+          assert isinstance(data.get("countries"), list) and len(data["countries"]) >= 150
+          print("countries ok", data["count"])
+          PY
+          health_code=$(curl -sS -o /tmp/wd-health -w '%{http_code}' -m 30 "$SITE/api/health" || true)
+          if [ "$health_code" != 200 ]; then
+            echo "::error::api/health HTTP $health_code (refusing to treat an unhealthy database as success)"
+            echo "body: $(cat /tmp/wd-health 2>/dev/null)"
+            bad=1
+          else
+            python3 - <<'PY' || { echo "::error::api/health was 200 but db was not healthy"; bad=1; }
+          import json
+          data=json.load(open("/tmp/wd-health"))
+          assert data.get("ok") is True, data
+          assert data.get("db") is True, data
+          print("api health ok", data)
+          PY
+          fi
+          for priv in install.php app/.env app/src/Auth.php app/storage/worlddom.sqlite tests/AuthTest.php; do
+            code=$(curl -sS -o /tmp/wd-priv -w '%{http_code}' -m 20 "$SITE/$priv" || true)
+            case "$code" in
+              403|404) echo "private $priv -> $code";;
+              *) echo "::error::$priv was publicly reachable (HTTP $code)"; bad=1;;
+            esac
+          done
+          [ "$bad" = 0 ]

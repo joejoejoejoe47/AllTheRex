@@ -1,0 +1,42 @@
+# Apache / LiteSpeed / Plesk.
+Options -Indexes
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^app(/|$) - [F,L]
+  RewriteRule ^tests(/|$) - [F,L]
+  RewriteRule ^install\.php$ - [F,L]
+  RewriteRule \.(env|sqlite|sql)$ - [F,L]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Game code and map data are ES modules that import each other by plain
+  # URL, so they must revalidate: a long max-age could mix old and new
+  # modules after a deploy (e.g. a stale picking/camera module).
+  <FilesMatch "\.(js|mjs|css|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(woff2?|png|jpe?g|svg)$">
+    Header set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+  <FilesMatch "^(index\.html|app\.html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType text/javascript .mjs
+  AddType text/javascript .js
+  AddType application/json .json
+</IfModule>
+
+<FilesMatch "\.(env|sqlite|sql)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>

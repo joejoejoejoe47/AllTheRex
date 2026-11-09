@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!--WD_BASE-->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>World Domination</title>
+  <meta name="description" content="Create an account, explore a flat Earth under a blue sky, and claim countries by walking a trail around land.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2349b7ff'/%3E%3Cellipse cx='32' cy='38' rx='22' ry='14' fill='%23146a3c'/%3E%3Cpath d='M10 38c8-10 36-10 44 0' fill='none' stroke='%23f0c14b' stroke-width='2'/%3E%3Ccircle cx='48' cy='16' r='6' fill='%23fff4b8'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/game.css">
+</head>
+<body>
+  <canvas id="stage" aria-label="World Domination map"></canvas>
+  <header id="topbar">
+    <div class="brand">WORLD DOMINATION<small>ALLTHEREX</small></div>
+    <div id="user-slot"></div>
+  </header>
+  <aside id="podium" aria-label="Top three explorers">
+    <h2>The podium</h2>
+    <div id="podium-list"></div>
+    <p id="podium-empty">The stands are empty. Finish a match to take the podium. Only real explorer accounts appear here — practice bots never do.</p>
+  </aside>
+  <section id="select-card" hidden></section>
+  <section id="arena-hud" hidden>
+    <div id="match-info"></div>
+    <button class="btn" id="leave-btn" type="button">Leave country</button>
+  </section>
+  <figure id="minimap-wrap" hidden aria-label="Map of the country"><canvas id="minimap" width="200" height="200"></canvas><figcaption><span class="mm-name"></span> · you are the white-ringed dot</figcaption></figure>
+  <div id="tutorial-banner" role="status" aria-live="polite" hidden></div>
+  <aside id="controls-guide" aria-label="Controls" hidden></aside>
+  <div id="joystick" hidden aria-hidden="true"><div class="nub"></div></div>
+  <div id="modal" hidden></div>
+  <div id="notice" hidden></div>
+  <div id="fatal" hidden></div>
+  <p id="attr-line"></p>
+  <script type="module" src="assets/js/main.js"></script>
+</body>
+</html>
