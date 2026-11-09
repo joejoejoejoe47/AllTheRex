@@ -1,0 +1,42 @@
+name: Deploy studios page to Plesk
+
+# Uploads the static Morse Studios build to the FTP-root studios/ folder
+# so it is served at https://alltherex.com/studios/
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "studios/**"
+      - ".github/workflows/deploy-studios.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-studios
+  cancel-in-progress: false
+
+jobs:
+  ftp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload studios/
+        env:
+          FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          FTP_USER: ${{ secrets.PLESK_FTP_USER }}
+          FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 3; set cmd:fail-exit yes; mirror -R --verbose --exclude-glob ._* studios studios; bye" "$FTP_HOST"
+      - name: Smoke test
+        run: |
+          sleep 8
+          code=$(curl -s -o /tmp/studios.html -w '%{http_code}' -m 30 "https://alltherex.com/studios/?smoke=$GITHUB_RUN_ID")
+          echo "page $code"
+          [ "$code" = "200" ]
+          grep -q "Morse Studios" /tmp/studios.html
+          asset=$(grep -o 'assets/index-[^"]*\.js' /tmp/studios.html | head -1)
+          acode=$(curl -s -o /dev/null -w '%{http_code}' -m 30 "https://alltherex.com/studios/$asset")
+          echo "$asset $acode"
+          [ "$acode" = "200" ]
