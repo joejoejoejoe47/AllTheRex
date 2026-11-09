@@ -13,21 +13,43 @@ final class Api
     {
         try {
             $ready = Config::dbConfigured();
+            $reason = $ready ? null : 'no_config';
+            $code = null;
             if ($ready) {
+                $stage = 'connect';
                 try {
+                    Db::pdo();
+                    $stage = 'schema';
                     Db::ensureSchema();
+                    $stage = 'query';
                     Db::value('SELECT 1');
                 } catch (Throwable $e) {
-                    error_log('[worlddomination api schema] ' . $e->getMessage());
+                    // Full detail goes to the server log only.
+                    error_log('[worlddomination db ' . $stage . '] ' . $e::class . ': ' . $e->getMessage());
                     $ready = false;
+                    $reason = $stage . '_failed';
+                    $code = self::driverCode($e);
                 }
             }
 
             if ($path === '/api/health') {
                 if (!$ready) {
-                    Http::json(['ok' => false, 'db' => false, 'setupRequired' => true], 503);
+                    $diag = Config::diagnose();
+                    if ($reason === 'no_config' && in_array($diag['chess'], ['open_basedir', 'unreadable'], true)) {
+                        $reason = 'chess_env_unreadable';
+                    }
+                    error_log('[worlddomination health] not ready: ' . $reason . ($code !== null ? ' (' . $code . ')' : '') . ' source=' . ($diag['source'] ?? 'none') . ' chess=' . $diag['chess']);
+                    Http::json([
+                        'ok' => false,
+                        'db' => false,
+                        'setupRequired' => true,
+                        'reason' => $reason,
+                        'code' => $code,
+                        'source' => $diag['source'],
+                        'chessEnv' => $diag['chess'],
+                    ], 503);
                 }
-                Http::json(['ok' => true, 'db' => true, 'driver' => Db::driver()]);
+                Http::json(['ok' => true, 'db' => true, 'driver' => Db::driver(), 'source' => Config::diagnose()['source']]);
             }
 
             if (!$ready) {
@@ -51,6 +73,28 @@ final class Api
             $message = Config::bool('APP_DEBUG') ? $e->getMessage() : 'Server error. Try once more.';
             Http::json(['ok' => false, 'error' => $message, 'status' => 500], 500);
         }
+    }
+
+    /** Numeric driver/SQLSTATE code only (e.g. 1045, 2002, 1142); never the message. */
+    private static function driverCode(Throwable $e): int|string|null
+    {
+        if ($e instanceof \PDOException) {
+            $n = $e->errorInfo[1] ?? null;
+            if (is_int($n) || (is_string($n) && ctype_digit($n))) {
+                return (int) $n;
+            }
+            $c = $e->getCode();
+            if (is_int($c) && $c !== 0) {
+                return $c;
+            }
+            if (is_string($c) && preg_match('/^[0-9A-Z]{5}$/', $c)) {
+                return $c;
+            }
+            if (preg_match('/SQLSTATE\[([0-9A-Z]{5})\][^0-9]*\[?(\d{3,5})?/', $e->getMessage(), $m)) {
+                return isset($m[2]) && $m[2] !== '' ? (int) $m[2] : $m[1];
+            }
+        }
+        return null;
     }
 
     /** @param callable():never $fn */
