@@ -57,7 +57,9 @@ jobs:
           ordered = rest + ([page] if page in files else [])
           for dest in ("worlddomination", "alltherex/worlddomination"):
               lines = ["set ftp:ssl-allow no", "set net:max-retries 4", "set net:reconnect-interval-base 5", "set cmd:fail-exit yes"]
-              made = set()
+              # First deploy: the site folder itself may not exist yet.
+              lines.append("mkdir -p -f " + shlex.quote(dest))
+              made = {dest}
               for f in ordered:
                   rel = f[len("worlddomination/"):]
                   d = os.path.dirname(rel)
