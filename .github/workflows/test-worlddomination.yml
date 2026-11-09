@@ -48,3 +48,12 @@ jobs:
         env:
           PHP_BIN: php
         run: node worlddomination/tests/view.test.mjs
+
+      - name: Real-pointer browser test (mouse clicks, touch taps, guided loop)
+        env:
+          PHP_BIN: php
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright-core@1.65.0
+          export PLAYWRIGHT_CORE="$RUNNER_TEMP/pw/node_modules/playwright-core/index.mjs"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node worlddomination/tests/browser/pointer.e2e.mjs

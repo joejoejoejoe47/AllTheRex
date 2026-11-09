@@ -15,7 +15,13 @@ DirectoryIndex index.php index.html
 </IfModule>
 
 <IfModule mod_headers.c>
-  <FilesMatch "\.(js|mjs|css|woff2?|png|jpe?g|svg|json)$">
+  # Game code and map data are ES modules that import each other by plain
+  # URL, so they must revalidate: a long max-age could mix old and new
+  # modules after a deploy (e.g. a stale picking/camera module).
+  <FilesMatch "\.(js|mjs|css|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(woff2?|png|jpe?g|svg)$">
     Header set Cache-Control "public, max-age=3600"
   </FilesMatch>
   <FilesMatch "^(index\.html|app\.html)$">

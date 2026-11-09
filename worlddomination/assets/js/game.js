@@ -18,7 +18,7 @@ const BOT_ROSTER = [
 ];
 
 const keys = new Set();
-const pointer = { down: false, id: null, x: 0, y: 0, lx: 0, ly: 0, dragging: false };
+const pointer = { down: false, id: null, x: 0, y: 0, lx: 0, ly: 0, t0: 0, dragging: false, handled: false, lastUpAt: 0 };
 const joy = { active: false, x: 0, y: 0, px: 0, py: 0 };
 let pinchDist = null;
 
@@ -1068,57 +1068,147 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
+// Country picking works in screen space against the exact polygons that
+// were drawn, so a click lands on whatever the player sees under the cursor.
+// If the click is just off a coast (or on a tiny island) the nearest drawn
+// country within a few pixels wins.
+const PICK_SLOP_PX = 10;
+const CLICK_MOVE_PX = 8;
+const CLICK_MOVE_QUICK_PX = 16;
+const CLICK_QUICK_MS = 350;
+
 function pickAt(sx, sy) {
+  if (!mapData) return null;
   const { w, h } = viewSize();
   const hit = unproject(cam, sx, sy, w, h);
-  if (!hit) return null;
-  return pickCountry(hit.x, hit.z, mapData.countries);
+  if (hit) {
+    const exact = pickCountry(hit.x, hit.z, mapData.countries);
+    if (exact) return exact;
+  }
+  return pickNearScreen(sx, sy, w, h);
+}
+
+function pickNearScreen(sx, sy, w, h) {
+  let best = null;
+  let bestD = PICK_SLOP_PX * PICK_SLOP_PX;
+  for (const country of mapData.countries) {
+    for (const ring of country.overview) {
+      let prev = null;
+      for (const [lng, lat] of ring) {
+        const q = project(cam, lng, 0, lat, w, h);
+        if (q && prev) {
+          const d = segDist2(sx, sy, prev.x, prev.y, q.x, q.y);
+          if (d < bestD) {
+            bestD = d;
+            best = country;
+          }
+        }
+        prev = q;
+      }
+    }
+  }
+  return best;
+}
+
+function segDist2(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = dx * dx + dy * dy;
+  let t = len ? ((px - ax) * dx + (py - ay) * dy) / len : 0;
+  t = Math.max(0, Math.min(1, t));
+  const ex = ax + dx * t - px;
+  const ey = ay + dy * t - py;
+  return ex * ex + ey * ey;
+}
+
+function selectCountry(country) {
+  if (!country) return false;
+  selected = country;
+  fillSelectCard();
+  ui.selectCard.hidden = false;
+  sfx('select');
+  return true;
+}
+
+// Our own on-screen UI keeps its clicks. Anything else (the canvas, or a
+// transparent layer some browser extension injects above it) is the map.
+function isUiTarget(target) {
+  return !!(target && target.closest && target.closest('#joystick,#select-card,#arena-hud,#podium,#controls-guide,#topbar a,#topbar button,#user-slot,#modal,#notice,#fatal,#tutorial-banner,button,input,a,label,select,textarea'));
+}
+
+function resetPointer() {
+  pointer.down = false;
+  pointer.id = null;
+  pointer.dragging = false;
 }
 
 function onPointerDown(e) {
-  if (e.target.closest && e.target.closest('#joystick,.card,button,input,aside,a')) return;
+  if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
+  if (isUiTarget(e.target)) return;
+  if (!ui.modal.hidden) return;
   pointer.down = true;
   pointer.id = e.pointerId;
   pointer.x = pointer.lx = e.clientX;
   pointer.y = pointer.ly = e.clientY;
+  pointer.t0 = performance.now();
   pointer.dragging = false;
-  try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  pointer.handled = false;
+  if (e.target === canvas) {
+    try { canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
 }
 
 function onPointerMove(e) {
   if (!pointer.down || e.pointerId !== pointer.id) {
-    if (mode === 'world' && !pointer.down) {
+    if (mode === 'world' && !pointer.down && e.pointerType !== 'touch') {
       hover = pickAt(e.clientX, e.clientY);
       canvas.style.cursor = hover ? 'pointer' : 'grab';
     }
     return;
   }
+  const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y);
+  if (!pointer.dragging && moved > CLICK_MOVE_PX) {
+    pointer.dragging = true;
+    // pan from where the press started so the map does not jump
+    pointer.lx = pointer.x;
+    pointer.ly = pointer.y;
+  }
+  if (!pointer.dragging) return;
   const dx = e.clientX - pointer.lx;
   const dy = e.clientY - pointer.ly;
   pointer.lx = e.clientX;
   pointer.ly = e.clientY;
-  if (Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) > 6) pointer.dragging = true;
   if (mode === 'world') {
-    if (pointer.dragging) worldCamTouched = true;
+    worldCamTouched = true;
     const k = cam.dist * 0.0032;
     cam.tx -= dx * k;
     cam.tz += dy * k;
   }
 }
 
+function isClick(e) {
+  const moved = Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y);
+  const quick = performance.now() - (pointer.t0 || 0) < CLICK_QUICK_MS;
+  return moved <= CLICK_MOVE_PX || (quick && moved <= CLICK_MOVE_QUICK_PX);
+}
+
 function onPointerUp(e) {
-  if (e.pointerId !== pointer.id) return;
-  const wasDrag = pointer.dragging;
+  if (!pointer.down || e.pointerId !== pointer.id) return;
+  const click = isClick(e);
   pointer.down = false;
-  if (mode === 'world' && !wasDrag) {
-    const hit = pickAt(e.clientX, e.clientY);
-    if (hit) {
-      selected = hit;
-      fillSelectCard();
-      ui.selectCard.hidden = false;
-      sfx('select');
-    }
+  pointer.dragging = false;
+  if (mode === 'world' && click) {
+    pointer.handled = selectCountry(pickAt(e.clientX, e.clientY));
+    pointer.lastUpAt = performance.now();
   }
+}
+
+// Belt and braces: if a browser or input tool delivers a click without a
+// matching pointerdown/pointerup pair on the map, still select.
+function onMapClick(e) {
+  if (mode !== 'world' || isUiTarget(e.target) || !ui.modal.hidden) return;
+  if (performance.now() - (pointer.lastUpAt || 0) < 400) return;
+  selectCountry(pickAt(e.clientX, e.clientY));
 }
 
 function onWheel(e) {
@@ -1315,10 +1405,13 @@ function bindInput() {
     if (e.code === 'Escape' && mode === 'arena') $('leave-btn').click();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  canvas.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('wheel', onWheel, { passive: false });
+  window.addEventListener('pointercancel', resetPointer);
+  window.addEventListener('blur', resetPointer);
+  window.addEventListener('click', onMapClick);
+  window.addEventListener('wheel', (e) => { if (!isUiTarget(e.target) && ui.modal.hidden) onWheel(e); }, { passive: false });
   window.addEventListener('resize', () => {
     resize();
     if (mode === 'world' && !worldCamTouched && !selected) fitWorldCamera();

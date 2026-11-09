@@ -18,6 +18,8 @@ final class Db
 {
     private static ?PDO $pdo = null;
     private static string $driver = 'mysql';
+    /** Which database the schema marker belongs to (DSN only, never credentials). */
+    private static string $identity = '';
 
     public static function driver(): string
     {
@@ -34,12 +36,14 @@ final class Db
     {
         self::$pdo = $pdo;
         self::$driver = $driver;
+        self::$identity = 'injected:' . spl_object_id($pdo);
     }
 
     public static function reset(): void
     {
         self::$pdo = null;
         self::$driver = 'mysql';
+        self::$identity = '';
     }
 
     public static function pdo(): PDO
@@ -61,6 +65,7 @@ final class Db
             $pdo->exec('PRAGMA journal_mode = WAL');
             $pdo->exec('PRAGMA busy_timeout = 5000');
             self::$driver = 'sqlite';
+            self::$identity = 'sqlite:' . $path;
         } else {
             $socket = Config::get('DB_SOCKET');
             $dsn = $socket
@@ -71,6 +76,7 @@ final class Db
                     Config::get('DB_PORT', '3306'),
                     Config::get('DB_NAME', 'world_domination')
                 );
+            self::$identity = $dsn;
             $opts = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -227,7 +233,9 @@ final class Db
     {
         $file = Config::root() . '/sql/schema.sql';
         $sql = (string) file_get_contents($file);
-        $hash = sha1($sql . self::driver());
+        // The marker is per database, so pointing the app at a new or empty
+        // database (another DB_SQLITE file, another DB_NAME) still migrates it.
+        $hash = sha1($sql . self::driver() . '|' . self::$identity);
         $flag = Config::storagePath('schema-' . substr($hash, 0, 16) . '.ok');
         if (!$force && is_file($flag)) {
             return;
