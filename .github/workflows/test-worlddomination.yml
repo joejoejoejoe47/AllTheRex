@@ -64,3 +64,21 @@ jobs:
           export PLAYWRIGHT_CORE="$RUNNER_TEMP/pw/node_modules/playwright-core/index.mjs"
           export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           node worlddomination/tests/browser/pointer.e2e.mjs
+
+      - name: MySQL end-to-end (same engine family as production)
+        env:
+          PHP_BIN: php
+        run: |
+          set -euo pipefail
+          sudo systemctl start mysql.service
+          mysql -uroot -proot -e "CREATE DATABASE wd_ci CHARACTER SET utf8mb4; CREATE USER 'wd'@'%' IDENTIFIED BY 'wd-ci-pass'; GRANT ALL ON wd_ci.* TO 'wd'@'%';"
+          WD_DB_DRIVER=mysql WD_DB_HOST=127.0.0.1 WD_DB_PORT=3306 WD_DB_NAME=wd_ci WD_DB_USER=wd WD_DB_PASS=wd-ci-pass \
+            php -S 127.0.0.1:8899 -t worlddomination worlddomination/index.php > /tmp/php-mysql.log 2>&1 &
+          sleep 1
+          curl -sS http://127.0.0.1:8899/api/health | tee /tmp/h.json; echo
+          grep -q '"db":true' /tmp/h.json || { cat /tmp/php-mysql.log; exit 1; }
+          mysql -uroot -proot -e "SHOW TABLES FROM wd_ci"
+          export PLAYWRIGHT_CORE="$RUNNER_TEMP/pw/node_modules/playwright-core/index.mjs"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          BASE=http://127.0.0.1:8899 node worlddomination/tests/browser/pointer.e2e.mjs || { tail -50 /tmp/php-mysql.log; exit 1; }
+          mysql -uroot -proot -e "SELECT display_name, points, matches FROM wd_ci.wd_scores"
