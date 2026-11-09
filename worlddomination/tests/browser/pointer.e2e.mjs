@@ -65,7 +65,7 @@ async function signedInPage(opts, initScript = null) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('dialog', (d) => d.accept()); // 'Leave this country?' confirm
+  page.on('dialog', (d) => { errors.push('native dialog shown: ' + d.message()); d.dismiss(); });
   await page.goto(BASE + '/');
   await page.waitForSelector('#auth-form');
   const tapOrClick = async (sel) => {
@@ -246,7 +246,7 @@ console.log('Touch taps at 390x844');
   await ctx.close();
 }
 
-console.log('Guided first loop with real mouse + keyboard (1280x800)');
+console.log('Guided first loop with pauses, blur and the in-game leave dialog (1280x800)');
 {
   const { ctx, page, errors } = await signedInPage({ viewport: { width: 1280, height: 800 } });
   const p = await countryPixel(page, 'US');
@@ -255,10 +255,29 @@ console.log('Guided first loop with real mouse + keyboard (1280x800)');
   const pb = await page.locator('#play-btn').boundingBox();
   await page.mouse.click(pb.x + pb.width / 2, pb.y + pb.height / 2);
   await page.waitForFunction(() => window.__wdDebug().mode === 'arena' && window.__wdDebug().guide, null, { timeout: 15000 });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
+  const look = await page.evaluate(() => ({ t: window.__wdDebug().terrain, mm: !document.getElementById('minimap-wrap').hidden, podium: getComputedStyle(document.getElementById('podium')).display }));
+  ok(look.t && look.t.tiles > 0, `arena draws the country terrain texture (${look.t ? look.t.tiles : 0} tiles)`);
+  ok(look.mm, 'country minimap is shown in the arena');
   const KEY = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' };
   const start = await page.evaluate(() => window.__wdDebug());
   const before = start.player.pct;
+  const botStart = Math.max(...start.bots.map((b) => b.pct));
+
+  // 20 s idle with the tab hidden (another tab in front), like a slow tester
+  const other = await ctx.newPage();
+  await other.goto('about:blank');
+  await other.bringToFront();
+  await other.waitForTimeout(20000);
+  await page.bringToFront();
+  await page.waitForTimeout(500);
+  let botPeak = 0;
+  const sampleBots = async () => {
+    const s = await page.evaluate(() => window.__wdDebug().bots);
+    botPeak = Math.max(botPeak, ...s.map((b) => b.pct));
+  };
+  await sampleBots();
+
   for (let i = 0; i < start.guide.waypoints.length; i++) {
     const wp = start.guide.waypoints[i];
     const key = KEY[wp.screen];
@@ -272,19 +291,48 @@ console.log('Guided first loop with real mouse + keyboard (1280x800)');
       await page.waitForTimeout(8);
     }
     await page.keyboard.up(key);
-    await page.waitForTimeout(100);
+    if (i === 1) {
+      // mid-trail: window loses focus for a while, then comes back
+      await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      await page.waitForTimeout(4000);
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    }
+    await page.waitForTimeout(150);
+    await sampleBots();
   }
   await page.waitForTimeout(400);
   const after = await page.evaluate(() => ({ d: window.__wdDebug(), banner: document.getElementById('tutorial-banner').textContent }));
   ok(after.d.captures >= 1, 'closing the guided loop registers a capture', JSON.stringify(after.d.player));
   ok(after.d.player.pct > before * 3, `land % jumps clearly (${before.toFixed(2)}% → ${after.d.player.pct.toFixed(2)}%)`);
   ok(/Loop closed!/.test(after.banner), 'banner announces the claimed land', after.banner);
+  ok(botPeak > botStart * 1.5, `practice bots keep and grow land (${botStart.toFixed(2)}% → peak ${botPeak.toFixed(2)}%)`);
+
+  // Esc opens the in-game dialog; "Keep playing" closes it without leaving
   await page.keyboard.press('Escape');
-  await page.waitForFunction(() => { const e = document.querySelector('.end-card'); return e && /server-checked/.test(e.textContent); }, null, { timeout: 15000 });
-  const end = await page.evaluate(() => document.querySelector('.end-card').textContent);
+  await page.waitForSelector('.leave-card');
+  const keep = await page.locator('[data-keep]').boundingBox();
+  await page.mouse.click(keep.x + keep.width / 2, keep.y + keep.height / 2);
+  await page.waitForTimeout(300);
+  ok((await page.evaluate(() => window.__wdDebug().mode)) === 'arena' && !(await page.$('.leave-card')), 'Keep playing returns to the match');
+  // leave dialog open for a while (a human reading it), then Leave
+  await page.locator('#leave-btn').click();
+  await page.waitForSelector('.leave-card');
+  await page.waitForTimeout(6000);
+  const leave = await page.locator('[data-leave]').boundingBox();
+  await page.mouse.click(leave.x + leave.width / 2, leave.y + leave.height / 2);
+  await page.waitForSelector('.end-card [data-close-world]', { timeout: 20000 });
+  const end = await page.evaluate(() => document.querySelector('.end-card').innerText);
   const m = end.match(/Official score \(server-checked\): ([\d.]+)%/);
+  ok(/Result saved/.test(end) && !/invalid|not recorded/i.test(end), 'result is saved by the server (no heartbeat error)', end.replace(/\s+/g, ' ').slice(0, 220));
   ok(m && +m[1] > before * 3, `server-checked score keeps the jump (${m ? m[1] : '?'}%)`);
-  ok(errors.length === 0, 'no page errors (loop)', errors.join(' | '));
+  const back = await page.locator('[data-close-world]').boundingBox();
+  await page.mouse.click(back.x + back.width / 2, back.y + back.height / 2);
+  await page.waitForTimeout(500);
+  const pod = await page.evaluate(() => ({ text: document.getElementById('podium').innerText, shown: getComputedStyle(document.getElementById('podium')).display !== 'none' }));
+  ok(pod.shown && pod.text.includes('Pointer Test'), 'the saved score appears on the podium after leaving', pod.text.replace(/\s+/g, ' '));
+  const board = await page.evaluate(async () => (await (await fetch('api/leaderboard', { credentials: 'same-origin' })).json()));
+  ok(Array.isArray(board.podium) && board.podium.some((r) => r.displayName === 'Pointer Test' && r.points > 0 && !r.isBot), 'leaderboard API lists the saved score', JSON.stringify(board.podium));
+  ok(errors.length === 0, 'no page errors or native dialogs (loop)', errors.join(' | '));
   await ctx.close();
 }
 

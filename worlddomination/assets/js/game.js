@@ -3,6 +3,7 @@ import { pickCountry, countryCentroid, rasterizeArena } from './geo.js';
 import * as api from './api.js';
 import { project, unproject, groundAxes, fitGround } from './camera.js';
 import { findGuideLoop } from './guide.js';
+import { buildArenaTexture, drawArenaTexture } from './terrain.js';
 
 const WIN_PCT = 50;
 const MATCH_MS = 180000;
@@ -385,11 +386,17 @@ function startArena(country, tokenInfo) {
     capturePulse: 0,
     lastGain: 0,
   };
+  try {
+    match.terrain = buildArenaTexture(grid, country, mapData.countries);
+  } catch (err) {
+    match.terrain = null; // fall back to the flat fill
+  }
+  match.minimapAt = 0;
   match.guideLoop = findGuideLoop(grid, playerSpawn.x, playerSpawn.y, START_RADIUS);
   tutorial = { step: match.guideLoop ? 'guide' : 'free', waypoint: 0, gainText: '', doneAt: 0 };
   cam.tx = player.x;
   cam.tz = arenaZ(player.y);
-  cam.dist = 26;
+  cam.dist = 30;
   cam.pitch = 0.62;
   cam.yaw = 0;
   cam.fov = 0.9;
@@ -400,6 +407,17 @@ function startArena(country, tokenInfo) {
   updateArenaHud(0);
   renderControls();
   renderTutorial();
+}
+
+// Match clock for the server log. Uses performance.now() (not the frame
+// timestamp, which can be older than the match start or stale while the tab
+// is hidden), never goes backwards, and never runs past the match length.
+function matchT() {
+  if (!match) return 0;
+  const raw = performance.now() - match.startedAt;
+  const t = Math.max(match.lastLogT || 0, Math.min(raw, match.durationMs + 1000));
+  match.lastLogT = t;
+  return Math.round(t * 10) / 10;
 }
 
 function pctOf(actor) {
@@ -433,7 +451,7 @@ function respawn(actor) {
   actor.mode = 'expand';
   actor.goal = null;
   if (!actor.isBot && match) {
-    match.heartbeats.push({ t: now - match.startedAt, x: +actor.x.toFixed(3), y: +actor.y.toFixed(3), respawn: true });
+    match.heartbeats.push({ t: matchT(), x: +actor.x.toFixed(3), y: +actor.y.toFixed(3), respawn: true });
     match.lastHb = now;
     if (tutorial.step === 'guide') tutorial.step = 'free';
     renderTutorial();
@@ -464,6 +482,14 @@ function closeCapture(actor) {
   actor.trail = [];
   if (!result.ok || result.captured <= 0) return;
   match.grid = result.grid;
+  // Anyone whose whole territory was just enclosed is knocked out and
+  // respawns with fresh starter land (instead of wandering at 0% forever).
+  for (const other of match.actors) {
+    if (other !== actor && !other.dead && ownedCount(match.grid, other.id) === 0) {
+      kill(other);
+      if (!other.isBot) showNotice(`${actor.name} enclosed all your land! You respawn with fresh starter land.`);
+    }
+  }
   if (actor.isBot) {
     flash = Math.max(flash, 0.12);
     return;
@@ -472,7 +498,7 @@ function closeCapture(actor) {
   sfx('capture');
   match.capturePulse = 1;
   match.forceHb = true;
-  match.captures.push({ t: now - match.startedAt, trail: trailCopy });
+  match.captures.push({ t: matchT(), trail: trailCopy });
   const after = pctOf(actor);
   match.lastGain = after - before;
   const standings = standingsNow();
@@ -502,7 +528,7 @@ function processCell(actor, cx, cy) {
       if (actor.isBot && other === match.player && tutorial.step === 'guide') {
         // First-capture tutorial: practice bots step around a new explorer's
         // trail instead of cutting it.
-        actor.goal = pickExpandGoal(actor);
+        actor.plan = null;
         return false;
       }
       kill(other);
@@ -568,40 +594,125 @@ function pickExpandGoal(actor) {
   return { x: actor.x + (Math.random() - 0.5) * 20, y: actor.y + (Math.random() - 0.5) * 20 };
 }
 
+// Practice bots claim land the same way a player should: leave home, walk
+// a small rectangle that never crosses itself, and come back. (The old
+// "walk to a random point, then beeline home" retraced its own trail and
+// knocked itself out most of the time, so bots sat at 0%.)
+function makeBotPlan(bot) {
+  const grid = match.grid;
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const bx = Math.floor(bot.x);
+  const by = Math.floor(bot.y);
+  const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  const free = (x, y) => x > 0 && y > 0 && x < cols - 1 && y < rows - 1 && grid[y][x] !== OOB;
+  for (let tries = 0; tries < 24; tries++) {
+    const [dx, dy] = dirs[(Math.random() * 4) | 0];
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const hx = dy !== 0 ? side : 0;
+    const hy = dx !== 0 ? side : 0;
+    // distance to the edge of our own land in that direction
+    let k = 0;
+    while (k < 24 && free(bx + dx * k, by + dy * k) && grid[by + dy * k][bx + dx * k] === bot.id) k++;
+    if (k >= 24) continue;
+    const size = 3 + ((Math.random() * (bot.ambition || 3)) | 0);
+    const out = k + size;
+    const A = [bx + dx * out, by + dy * out];
+    const B = [A[0] + hx * size, A[1] + hy * size];
+    const C = [dx !== 0 ? bx : B[0], dy !== 0 ? by : B[1]];
+    const D = [bx, by];
+    // every cell along the rectangle must be inside the country
+    const legs = [[D, A], [A, B], [B, C], [C, D]];
+    let okPath = true;
+    for (const [[x0, y0], [x1, y1]] of legs) {
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      for (let i = 0; i <= n && okPath; i++) {
+        const x = x0 + Math.sign(x1 - x0) * i;
+        const y = y0 + Math.sign(y1 - y0) * i;
+        if (!free(x, y)) okPath = false;
+      }
+      if (!okPath) break;
+    }
+    if (!okPath) continue;
+    return { points: [A, B, C, D].map(([x, y]) => ({ x: x + 0.5, y: y + 0.5 })), i: 0 };
+  }
+  return null;
+}
+
+function ownTrailAhead(bot, dx, dy) {
+  for (const d of [0.7, 1.4]) {
+    const cx = Math.floor(bot.x + dx * d);
+    const cy = Math.floor(bot.y + dy * d);
+    if (trailHas(bot, cx, cy, TAIL_SAFE)) return true;
+  }
+  return false;
+}
+
 function updateBot(bot, dt) {
   if (bot.dead) return;
   const onHome = cellOwner(bot.x, bot.y) === bot.id;
+  const hadTrail = bot.lastTrailLen > 0;
+  if (hadTrail && bot.trail.length === 0) bot.plan = null; // loop closed
+  bot.lastTrailLen = bot.trail.length;
   bot.think -= dt;
-  if (bot.think <= 0) {
-    bot.think = 0.35 + Math.random() * 0.45;
-    const player = match.player;
-    const nearPlayerTrail = player.trail.some((c) => Math.hypot(c[0] - bot.x, c[1] - bot.y) < 10);
-    if (!onHome && (bot.trail.length >= bot.maxTrail || Math.random() < 0.2)) {
-      bot.mode = 'return';
-      bot.goal = nearestOwned(bot);
-    } else if (nearPlayerTrail && player.trail.length > 4 && tutorial.step !== 'guide') {
-      // practice bots leave a new explorer alone until the first loop is closed
-      bot.mode = 'hunt';
-      const mid = player.trail[(player.trail.length / 2) | 0];
-      bot.goal = { x: mid[0] + 0.5, y: mid[1] + 0.5 };
-    } else if (onHome) {
-      bot.mode = 'expand';
-      bot.goal = pickExpandGoal(bot);
-      bot.maxTrail = 12 + ((Math.random() * 18) | 0);
+  if (onHome && !bot.trail.length && (!bot.plan || bot.plan.done)) {
+    bot.plan = null;
+    if (bot.think <= 0) {
+      bot.think = 0.25 + Math.random() * 0.6;
+      const player = match.player;
+      const nearPlayerTrail = tutorial.step !== 'guide' && player.trail.length > 4
+        && player.trail.some((c) => Math.hypot(c[0] - bot.x, c[1] - bot.y) < 9);
+      if (nearPlayerTrail && Math.random() < 0.6) {
+        // dash at the explorer's open trail, then come home by a side road
+        const mid = player.trail[(player.trail.length / 2) | 0];
+        const hx = mid[0] + 0.5;
+        const hy = mid[1] + 0.5;
+        const bx = bot.x;
+        const by = bot.y;
+        bot.plan = { points: [{ x: hx, y: by }, { x: hx, y: hy }, { x: bx + Math.sign(hx - bx) * 0.01, y: hy }, { x: bx, y: by }], i: 0, hunt: true };
+      } else {
+        bot.plan = makeBotPlan(bot);
+        bot.ambition = Math.min(6, (bot.ambition || 3) + 0.25);
+      }
     }
   }
-  if (!bot.goal) bot.goal = pickExpandGoal(bot);
-  let dx = bot.goal.x - bot.x;
-  let dy = bot.goal.y - bot.y;
-  const mag = Math.hypot(dx, dy) || 1;
-  if (mag < 1.2 && bot.mode === 'expand') bot.mode = 'return';
-  if (bot.mode === 'return') bot.goal = nearestOwned(bot);
-  dx = bot.goal.x - bot.x;
-  dy = bot.goal.y - bot.y;
+  let goal = null;
+  if (bot.plan && !bot.plan.done) {
+    goal = bot.plan.points[bot.plan.i];
+    if (Math.abs(goal.x - bot.x) < 0.3 && Math.abs(goal.y - bot.y) < 0.3) {
+      bot.plan.i++;
+      if (bot.plan.i >= bot.plan.points.length) {
+        bot.plan.done = true;
+        goal = null;
+      } else {
+        goal = bot.plan.points[bot.plan.i];
+      }
+    }
+  }
+  if (!goal && bot.trail.length) goal = nearestOwned(bot); // fallback: head home
+  if (!goal) {
+    bot.moving = false;
+    return;
+  }
+  // axis-aligned walking, one axis at a time, like the guide path
+  let dx = goal.x - bot.x;
+  let dy = goal.y - bot.y;
+  if (Math.abs(dx) > 0.05 && Math.abs(dy) > 0.05) {
+    if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0;
+  }
   const m = Math.hypot(dx, dy) || 1;
-  bot.dir = { x: dx / m, y: dy / m };
+  let ux = dx / m;
+  let uy = dy / m;
+  if (ownTrailAhead(bot, ux, uy)) {
+    // step sideways rather than into our own trail
+    const alts = [[uy, -ux], [-uy, ux]];
+    const alt = alts.find(([ax, ay]) => !ownTrailAhead(bot, ax, ay));
+    if (alt) [ux, uy] = alt;
+  }
+  bot.dir = { x: ux, y: uy };
   bot.moving = true;
-  tryMove(bot, bot.x + bot.dir.x * SPEED * 0.86 * dt, bot.y + bot.dir.y * SPEED * 0.86 * dt);
+  const step = Math.min(SPEED * 0.86 * dt, m);
+  tryMove(bot, bot.x + ux * step, bot.y + uy * step);
 }
 
 function readMoveVector() {
@@ -652,56 +763,121 @@ async function finishArena(outcome) {
   if (!match || match.ending) return;
   match.ending = true;
   mode = 'ending';
+  keys.clear();
   tutorial.step = 'off';
   renderTutorial();
-  let playerPct = pctOf(match.player);
   if (outcome === 'win') sfx('win');
+  if (match.player && !match.player.dead) {
+    match.heartbeats.push({
+      t: matchT(),
+      x: +match.player.x.toFixed(3),
+      y: +match.player.y.toFixed(3),
+    });
+  }
+  match.finishPayload = {
+    token: match.token,
+    intent: outcome === 'quit' ? 'quit' : 'finish',
+    claimedPct: +pctOf(match.player).toFixed(4),
+    heartbeats: match.heartbeats || [],
+    captures: match.captures || [],
+  };
+  match.finishOutcome = outcome;
+  await submitResult();
+}
+
+async function submitResult() {
+  const m = match;
+  if (!m) return;
+  showModal(`<div class="card end-card"><h2>Saving your result…</h2><p class="muted">The server is checking your walk.</p></div>`);
+  let outcome = m.finishOutcome;
+  let playerPct = pctOf(m.player);
   let saved = null;
   let saveError = '';
-  try {
-    if (match.player && !match.player.dead) {
-      match.heartbeats.push({
-        t: now - match.startedAt,
-        x: +match.player.x.toFixed(3),
-        y: +match.player.y.toFixed(3),
-      });
+  let retryable = true;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      saved = await api.finishMatch(m.finishPayload);
+      saveError = '';
+      break;
+    } catch (err) {
+      saveError = err.message || 'Could not save this result.';
+      // 409: already recorded (e.g. an earlier attempt got through)
+      if (err.status === 409) { saveError = ''; saved = { already: true }; break; }
+      retryable = !err.status || err.status >= 500 || err.status === 429;
+      if (!retryable) break;
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
     }
-    saved = await api.finishMatch({
-      token: match.token,
-      intent: outcome === 'quit' ? 'quit' : 'finish',
-      claimedPct: +pctOf(match.player).toFixed(4),
-      heartbeats: match.heartbeats || [],
-      captures: match.captures || [],
-    });
-    if (saved && saved.player) {
-      if (Number.isFinite(saved.player.pct)) playerPct = saved.player.pct;
-      if (saved.player.outcome) outcome = saved.player.outcome;
-    }
-    podium = saved.podium || podium;
-    renderPodium();
-  } catch (err) {
-    saveError = err.message || 'Could not save this result.';
   }
-  const title = outcome === 'win'
-    ? `You dominate ${match.country.name}!`
-    : outcome === 'timeout'
-      ? `Time! You held ${playerPct.toFixed(1)}% of ${match.country.name}`
-      : outcome === 'quit'
-        ? `You left ${match.country.name} with ${playerPct.toFixed(1)}%`
-        : `You held ${playerPct.toFixed(1)}% of ${match.country.name}`;
+  if (match !== m) return;
+  if (saved && saved.player) {
+    if (Number.isFinite(saved.player.pct)) playerPct = saved.player.pct;
+    if (saved.player.outcome) outcome = saved.player.outcome;
+  }
+  if (saved && saved.podium) {
+    podium = saved.podium;
+    renderPodium();
+  } else if (saved && saved.already) {
+    try { const lb = await api.loadPodium(); if (lb && lb.podium) { podium = lb.podium; renderPodium(); } } catch { /* keep */ }
+  }
+  const name = m.country.name;
+  const recorded = !saveError;
+  const title = !recorded
+    ? `Result not recorded yet`
+    : outcome === 'win'
+      ? `You dominate ${name}!`
+      : outcome === 'timeout'
+        ? `Time! You held ${playerPct.toFixed(1)}% of ${name}`
+        : outcome === 'quit'
+          ? `You left ${name} with ${playerPct.toFixed(1)}%`
+          : `You held ${playerPct.toFixed(1)}% of ${name}`;
+  const scoreLine = recorded
+    ? `<p class="lead">Official score (server-checked): <strong data-official-pct>${playerPct.toFixed(1)}%</strong>${saved && saved.player ? ` · <strong>${saved.player.score}</strong> pts` : ''}</p>${saved && saved.player && saved.player.rank ? `<p data-rank>You are <strong>#${saved.player.rank}</strong> on the leaderboard with ${saved.player.totalPoints} pts${saved.player.rank <= 3 ? ' — you are on the podium!' : '.'}</p>` : ''}`
+    : `<p class="lead">You held about <strong>${playerPct.toFixed(1)}%</strong> on screen, but the server has not confirmed it.</p>`;
   showModal(`
     <div class="card end-card">
       <h2>${escapeHtml(title)}</h2>
-      <p class="lead">Official score (server-checked): <strong>${playerPct.toFixed(1)}%</strong></p>
-      <ul class="end-bots">${standingsNow().map(({ actor: a, pct }) => `<li><span class="swatch" style="background:${a.color}"></span>${escapeHtml(a === match.player ? `${a.name} (you)` : a.name)}${a.isBot ? ' <em>practice bot</em>' : ''} — ${pct.toFixed(1)}%</li>`).join('')}</ul>
+      ${scoreLine}
+      <ul class="end-bots">${standingsNow().map(({ actor: a, pct }) => `<li><span class="swatch" style="background:${a.color}"></span>${escapeHtml(a === m.player ? `${a.name} (you)` : a.name)}${a.isBot ? ' <em>practice bot</em>' : ''} — ${pct.toFixed(1)}%</li>`).join('')}</ul>
       <p class="muted">Bots are practice opponents. They cannot take the podium or be named champion.</p>
-      ${saveError ? `<p class="err">${escapeHtml(saveError)}</p>` : '<p class="ok">Result saved. Only real explorer accounts can reach the podium.</p>'}
-      <button class="btn primary" data-close-world>Back to the world</button>
+      ${recorded ? '<p class="ok">Result saved. Only real explorer accounts can reach the podium.</p>' : `<p class="err">${escapeHtml(saveError)}</p>`}
+      <div class="end-actions">
+        ${!recorded && retryable ? '<button class="btn" data-retry-save>Try saving again</button>' : ''}
+        <button class="btn primary" data-close-world>Back to the world</button>
+      </div>
     </div>`);
+  const retry = ui.modal.querySelector('[data-retry-save]');
+  if (retry) retry.addEventListener('click', () => submitResult());
   ui.modal.querySelector('[data-close-world]').addEventListener('click', () => {
     hideModal();
     leaveArena(false);
   });
+}
+
+function openLeaveDialog() {
+  if (mode !== 'arena' || !match || match.ending) return;
+  keys.clear();
+  showModal(`
+    <div class="card leave-card" role="dialog" aria-modal="true" aria-labelledby="leave-title">
+      <h2 id="leave-title">Leave ${escapeHtml(match.country.name)}?</h2>
+      <p>You hold <strong>${pctOf(match.player).toFixed(1)}%</strong> right now. Leaving ends this match and saves it as a retreat with that land.</p>
+      <div class="end-actions">
+        <button class="btn" type="button" data-keep>Keep playing</button>
+        <button class="btn primary" type="button" data-leave>Leave and save</button>
+      </div>
+    </div>`);
+  ui.modal.dataset.kind = 'leave';
+  ui.modal.querySelector('[data-keep]').addEventListener('click', closeLeaveDialog);
+  ui.modal.querySelector('[data-leave]').addEventListener('click', () => {
+    delete ui.modal.dataset.kind;
+    leaveArena(true);
+  });
+  ui.modal.querySelector('[data-keep]').focus();
+}
+
+function closeLeaveDialog() {
+  if (ui.modal.dataset.kind !== 'leave') return;
+  delete ui.modal.dataset.kind;
+  hideModal();
 }
 
 function leaveArena(submitQuit) {
@@ -727,6 +903,73 @@ function leaveArena(submitQuit) {
   }
 }
 
+function drawMinimap() {
+  const mm = ui.minimap;
+  if (!mm || !match || !match.terrain) return;
+  if (now - (match.minimapAt || 0) < 200) return;
+  match.minimapAt = now;
+  const g = mm.getContext('2d');
+  const { cols, rows, small } = match.terrain;
+  const W = mm.width;
+  const H = mm.height;
+  const s = Math.min(W / cols, H / rows);
+  const ox = (W - cols * s) / 2;
+  const oy = (H - rows * s) / 2;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#1f6fae';
+  g.fillRect(0, 0, W, H);
+  if (!match.minimapLand) {
+    // land silhouette (exact playable cells), cached
+    const land = document.createElement('canvas');
+    land.width = cols;
+    land.height = rows;
+    const lg = land.getContext('2d');
+    lg.drawImage(small, 0, 0);
+    const id = lg.getImageData(0, 0, cols, rows);
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) if (match.grid[y][x] === OOB) id.data[(y * cols + x) * 4 + 3] = 0;
+    lg.putImageData(id, 0, 0);
+    match.minimapLand = land;
+    match.minimapOwn = document.createElement('canvas');
+    match.minimapOwn.width = cols;
+    match.minimapOwn.height = rows;
+  }
+  g.imageSmoothingEnabled = false;
+  g.drawImage(match.minimapLand, ox, oy, cols * s, rows * s);
+  const og = match.minimapOwn.getContext('2d');
+  const od = og.createImageData(cols, rows);
+  const colors = new Map(match.actors.map((a) => [a.id, parseInt(a.color.slice(1), 16)]));
+  for (let y = 0; y < rows; y++) {
+    const row = match.grid[y];
+    for (let x = 0; x < cols; x++) {
+      const c = colors.get(row[x]);
+      if (c === undefined) continue;
+      const i = (y * cols + x) * 4;
+      od.data[i] = (c >> 16) & 255;
+      od.data[i + 1] = (c >> 8) & 255;
+      od.data[i + 2] = c & 255;
+      od.data[i + 3] = 235;
+    }
+  }
+  for (const a of match.actors) {
+    for (const [x, y] of a.trail) {
+      const i = (y * cols + x) * 4;
+      od.data[i] = 255; od.data[i + 1] = 255; od.data[i + 2] = 255; od.data[i + 3] = 255;
+    }
+  }
+  og.putImageData(od, 0, 0);
+  g.drawImage(match.minimapOwn, ox, oy, cols * s, rows * s);
+  for (const a of match.actors) {
+    if (a.dead) continue;
+    g.beginPath();
+    g.arc(ox + a.x * s, oy + a.y * s, a === match.player ? 4 : 3, 0, Math.PI * 2);
+    g.fillStyle = a.color;
+    g.fill();
+    g.lineWidth = a === match.player ? 2 : 1;
+    g.strokeStyle = '#fff';
+    g.stroke();
+  }
+}
+
 function updateArenaHud(elapsed) {
   const remain = Math.max(0, match.durationMs - elapsed);
   const s = Math.ceil(remain / 1000);
@@ -735,11 +978,15 @@ function updateArenaHud(elapsed) {
   const rows = standingsNow().map(({ actor: a, pct }, i) => {
     return `<div class="bar-row ${a === match.player ? 'you' : ''}">
       <span class="who"><b class="rank">#${i + 1}</b><i style="background:${a.color}"></i>${escapeHtml(a === match.player ? `${a.name} (you)` : a.name)}${a.isBot ? '<em>practice bot</em>' : ''}</span>
-      <span class="pct">${pct.toFixed(1)}%</span>
+      <span class="pct">${a.dead ? '<span class="hud-out">respawning</span>' : `${pct.toFixed(1)}%`}</span>
       <span class="track"><span style="width:${Math.min(100, pct)}%;background:${a.color}"></span></span>
     </div>`;
   }).join('');
-  ui.matchInfo.innerHTML = `<div class="match-top"><strong>${escapeHtml(match.country.name)}</strong><span>Claim ${match.winPct}% · ${mm}:${ss}</span></div>${rows}`;
+  const html = `<div class="match-top"><strong>${escapeHtml(match.country.name)}</strong><span>Claim ${match.winPct}% · ${mm}:${ss}</span></div>${rows}`;
+  if (html !== match.hudHtml) {
+    match.hudHtml = html;
+    ui.matchInfo.innerHTML = html;
+  }
 }
 
 function renderArena(dt) {
@@ -772,6 +1019,10 @@ function renderArena(dt) {
 }
 
 function drawArenaGround(w, h) {
+  if (match.terrain) {
+    match.tilesDrawn = drawArenaTexture(ctx, cam, match.terrain, w, h, arenaZ);
+    return;
+  }
   const step = 1;
   ctx.beginPath();
   let started = false;
@@ -842,7 +1093,7 @@ function drawTerritories(w, h) {
         [x, arenaZ(y + 1)],
       ];
       if (fillProjected(cam, quad, w, h, 0.04)) {
-        let fill = actor ? actor.color + 'cc' : 'rgba(255,255,255,0.35)';
+        let fill = actor ? actor.color + 'b3' : 'rgba(255,255,255,0.35)';
         if (actor && !actor.isBot && match.capturePulse > 0) {
           fill = mixHex(actor.color, '#fff4b0', 0.35 + match.capturePulse * 0.45);
         }
@@ -1033,7 +1284,7 @@ function updateArena(dt) {
     const turned = dirKey !== match.lastHbDir;
     if (match.forceHb || now - match.lastHb > 250 || (turned && now - match.lastHb > 30)) {
       if (match.heartbeats.length < 3900) {
-        match.heartbeats.push({ t: now - match.startedAt, x: +player.x.toFixed(3), y: +player.y.toFixed(3) });
+        match.heartbeats.push({ t: matchT(), x: +player.x.toFixed(3), y: +player.y.toFixed(3) });
       }
       match.lastHb = now;
       match.lastHbDir = dirKey;
@@ -1047,6 +1298,7 @@ function updateArena(dt) {
   collideHeads();
   const elapsed = now - match.startedAt;
   updateArenaHud(elapsed);
+  drawMinimap();
   maybeEndMatch();
 }
 
@@ -1133,7 +1385,7 @@ function selectCountry(country) {
 // Our own on-screen UI keeps its clicks. Anything else (the canvas, or a
 // transparent layer some browser extension injects above it) is the map.
 function isUiTarget(target) {
-  return !!(target && target.closest && target.closest('#joystick,#select-card,#arena-hud,#podium,#controls-guide,#topbar a,#topbar button,#user-slot,#modal,#notice,#fatal,#tutorial-banner,button,input,a,label,select,textarea'));
+  return !!(target && target.closest && target.closest('#joystick,#select-card,#arena-hud,#podium,#minimap-wrap,#controls-guide,#topbar a,#topbar button,#user-slot,#modal,#notice,#fatal,#tutorial-banner,button,input,a,label,select,textarea'));
 }
 
 function resetPointer() {
@@ -1314,6 +1566,7 @@ function showModal(html) {
 }
 
 function hideModal() {
+  delete ui.modal.dataset.kind;
   ui.modal.hidden = true;
   ui.modal.innerHTML = '';
 }
@@ -1386,24 +1639,31 @@ function bindUi() {
     matchInfo: $('match-info'),
     joystick: $('joystick'),
     modal: $('modal'),
+    minimap: $('minimap'),
+    minimapWrap: $('minimap-wrap'),
     controls: $('controls-guide'),
     tutorial: $('tutorial-banner'),
   };
-  $('leave-btn').addEventListener('click', () => {
-    if (mode !== 'arena') return;
-    if (confirm('Leave this country? Your current match will be recorded as a retreat.')) {
-      leaveArena(true);
-    }
-  });
+  $('leave-btn').addEventListener('click', () => openLeaveDialog());
   bindJoystick();
 }
 
 function bindInput() {
   window.addEventListener('keydown', (e) => {
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+    const typing = e.target && e.target.closest && e.target.closest('input,textarea,select,[contenteditable="true"]');
+    if (typing) return; // let forms keep spaces, arrows and Escape
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key) && ui.modal.hidden) e.preventDefault();
+    if (e.code === 'Escape' && mode === 'arena') {
+      if (ui.modal.dataset.kind === 'leave') closeLeaveDialog();
+      else openLeaveDialog();
+      return;
+    }
+    if (!ui.modal.hidden) return; // dialogs own the keyboard
     keys.add(e.code);
-    if (e.code === 'Escape' && mode === 'arena') $('leave-btn').click();
   });
+  // never leave a key "held" when focus moves away (alt-tab, dialogs)
+  window.addEventListener('blur', () => keys.clear());
+  document.addEventListener('visibilitychange', () => { if (document.hidden) keys.clear(); });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
   window.addEventListener('pointerdown', onPointerDown);
   window.addEventListener('pointermove', onPointerMove);
@@ -1459,6 +1719,10 @@ function renderControls() {
   if (!el) return;
   const inArena = mode === 'arena' || mode === 'ending';
   document.body.classList.toggle('in-arena', inArena);
+  if (ui.minimapWrap) {
+    ui.minimapWrap.hidden = !inArena || !match || !match.terrain;
+    if (match) ui.minimapWrap.querySelector('.mm-name').textContent = match.country.name;
+  }
   if (window.innerWidth <= 760) {
     el.innerHTML = inArena
       ? `<h3>Controls</h3><p>${IS_TOUCH ? 'Drag the joystick (bottom left)' : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows'} to walk. Leave your land and loop back to claim the inside.</p>`
@@ -1586,7 +1850,9 @@ if (typeof window !== 'undefined') {
     guide: match && match.guideLoop ? match.guideLoop : null,
     player: match ? { x: match.player.x, y: match.player.y, dead: match.player.dead, trail: match.player.trail.length, pct: pctOf(match.player) } : null,
     standings: match ? standingsNow().map((s) => ({ name: s.actor.name, isBot: s.actor.isBot, pct: s.pct })) : [],
+    bots: match ? match.actors.filter((a) => a.isBot).map((a) => ({ name: a.name, pct: pctOf(a), dead: a.dead, trail: a.trail.length, mode: a.mode })) : [],
     captures: match ? match.captures.length : 0,
+    terrain: match && match.terrain ? { tiles: match.tilesDrawn || 0, w: match.terrain.canvas.width } : null,
     heartbeats: match ? match.heartbeats.length : 0,
     cam: { ...cam },
     country: match ? match.country.id : (selected ? selected.id : null),

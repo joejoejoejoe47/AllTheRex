@@ -318,3 +318,27 @@ kbd {
   #select-card { bottom: 18px; }
   #arena-hud { width: min(280px, calc(100vw - 150px)); }
 }
+
+/* end-of-match and leave dialogs */
+.end-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+.leave-card { max-width: 420px; }
+.leave-card p { line-height: 1.45; }
+.end-card [data-rank] { margin: 4px 0 10px; }
+.hud-out { font-size: 0.72rem; color: #ffb4a8; margin-left: 6px; }
+
+/* arena minimap (replaces the podium while you play) */
+body.in-arena #podium { display: none; }
+#minimap-wrap {
+  position: fixed; top: 64px; right: 16px; margin: 0; z-index: 6;
+  background: rgba(14, 34, 58, 0.82); border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 14px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+#minimap-wrap[hidden] { display: none !important; }
+#minimap { display: block; width: 200px; height: 200px; border-radius: 8px; image-rendering: pixelated; }
+#minimap-wrap figcaption { color: #dbeafe; font-size: 0.72rem; margin-top: 6px; max-width: 200px; }
+#minimap-wrap .mm-name { font-weight: 800; color: #fff; }
+@media (max-width: 760px) {
+  #minimap-wrap { top: 64px; right: 8px; padding: 5px; }
+  #minimap { width: 104px; height: 104px; }
+  #minimap-wrap figcaption { display: none; }
+}

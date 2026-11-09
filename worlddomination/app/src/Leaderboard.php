@@ -159,10 +159,15 @@ final class Leaderboard
             self::addScore('user:' . $userId, $name, false, $score, $outcome === 'win', $playerPct);
         });
 
+        $mine = Db::one('SELECT points FROM wd_scores WHERE subject_key = ?', ['user:' . $userId]);
+        $total = (int) ($mine['points'] ?? $score);
+        $ahead = Db::one('SELECT COUNT(*) AS n FROM wd_scores WHERE is_bot = 0 AND points > ?', [$total]);
         return [
             'player' => [
                 'pct' => $playerPct,
                 'score' => $score,
+                'totalPoints' => $total,
+                'rank' => (int) ($ahead['n'] ?? 0) + 1,
                 'outcome' => $outcome,
                 'durationMs' => $serverElapsed,
             ],

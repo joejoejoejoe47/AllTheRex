@@ -70,11 +70,21 @@ final class MatchEngine
             $t = (float) ($hb['t'] ?? -1);
             $x = (float) ($hb['x'] ?? NAN);
             $y = (float) ($hb['y'] ?? NAN);
-            if (!is_finite($t) || !is_finite($x) || !is_finite($y) || $t < -20) {
+            if (!is_finite($t) || !is_finite($x) || !is_finite($y)) {
                 return self::fail($grid, 'invalid heartbeat');
             }
-            if ($t > $serverElapsedMs + 2500 || $t > Rules::MATCH_MS + 8000) {
+            // Browsers stamp frames slightly before the match clock starts,
+            // and pauses (hidden tab, dialogs) are fine. An early stamp only
+            // shrinks the movement budget, so clamp it instead of rejecting.
+            if ($t < 0) {
+                $t = 0.0;
+            }
+            if ($t > $serverElapsedMs + 2500) {
                 return self::fail($grid, 'heartbeat ahead of the server clock');
+            }
+            if ($t > Rules::MATCH_MS + 8000) {
+                // Anything after the final whistle simply does not count.
+                break;
             }
             if ($t + 80 < $prevT) {
                 return self::fail($grid, 'heartbeat time went backwards');
@@ -120,6 +130,9 @@ final class MatchEngine
         }
 
         while ($capIndex < count($normalizedCaps)) {
+            if ($normalizedCaps[$capIndex]['t'] > Rules::MATCH_MS + 8000) {
+                break; // after the final whistle
+            }
             // Captures after the last heartbeat are only allowed if the trail was walked.
             $appliedOne = self::applyCapture($grid, $owner, $normalizedCaps[$capIndex]['trail'], $visited);
             if (!$appliedOne['ok']) {

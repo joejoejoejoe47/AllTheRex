@@ -112,4 +112,35 @@ for ($y = $top; $y <= $sy; $y++) {
 }
 check($allInside, 'every cell enclosed by the loop is owned on the server');
 
+
+// Slow / paused play (hidden tab, dialogs, slow testers) must still record.
+$paused = [
+    ['t' => 0, 'x' => 6.5, 'y' => 10.5],
+    ['t' => -11.0, 'x' => 6.5, 'y' => 10.5], // frame stamped just before the match clock
+    ['t' => 20400, 'x' => 6.5, 'y' => 6.5],  // 20 s idle, then walked
+    ['t' => 20700, 'x' => 5.5, 'y' => 6.5],
+    ['t' => 21100, 'x' => 5.5, 'y' => 4.5],
+    ['t' => 21500, 'x' => 7.5, 'y' => 4.5],
+    ['t' => 52000, 'x' => 7.5, 'y' => 4.5],  // 30 s more paused mid-trail (blur)
+    ['t' => 52500, 'x' => 7.5, 'y' => 7.5],
+];
+$slow = MatchEngine::evaluate($base, $spawn, $paused, [['t' => 52500, 'trail' => $trail]], 60000);
+check($slow['ok'] === true, 'slow play with long pauses and an early frame stamp is accepted' . (isset($slow['reason']) ? ' (' . $slow['reason'] . ')' : ''));
+check(($slow['captured'] ?? 0) === ($ok['captured'] ?? -1), 'paused play captures the same land as unpaused play');
+
+$late = MatchEngine::evaluate($base, $spawn, [
+    ['t' => 0, 'x' => 6.5, 'y' => 10.5],
+    ['t' => Rules::MATCH_MS + 60000, 'x' => 6.5, 'y' => 10.5],
+], [], Rules::MATCH_MS + 70000);
+check($late['ok'] === true, 'heartbeats after the final whistle are ignored, not fatal');
+
+$future = MatchEngine::evaluate($base, $spawn, [
+    ['t' => 0, 'x' => 6.5, 'y' => 10.5],
+    ['t' => 9000, 'x' => 6.5, 'y' => 10.5],
+], [], 3000);
+check($future['ok'] === false && str_contains((string) $future['reason'], 'ahead'), 'a heartbeat ahead of the server clock is still rejected');
+
+$nan = MatchEngine::evaluate($base, $spawn, [['t' => 'x', 'x' => 'nope', 'y' => 1]], [], 3000);
+check($nan['ok'] === false, 'garbage heartbeats are still rejected');
+
 finish();
