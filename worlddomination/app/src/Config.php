@@ -148,11 +148,65 @@ final class Config
         return $out;
     }
 
+    /**
+     * Non-sensitive description of where database settings come from, for
+     * the health endpoint. Never includes values, hosts, or paths.
+     *
+     * @return array{source:?string,chess:string}
+     */
+    public static function diagnose(): array
+    {
+        $source = null;
+        if (self::envHasDb()) {
+            $source = 'env';
+        } elseif (self::arrayHasDb(self::loadFile(self::root() . '/.env'))) {
+            $source = 'app_env';
+        } else {
+            $wdConfig = getenv('WD_CONFIG');
+            if (is_string($wdConfig) && $wdConfig !== '' && @is_file($wdConfig) && self::arrayHasDb(self::dbKeysOnly(self::loadFile($wdConfig)))) {
+                $source = 'wd_config';
+            }
+        }
+        $chess = self::siblingState();
+        if ($source === null && $chess === 'ok') {
+            $source = 'chess_env';
+        }
+        return ['source' => $source, 'chess' => $chess];
+    }
+
+    /** 'ok' | 'missing' | 'open_basedir' | 'unreadable' | 'no_db_keys' */
+    private static function siblingState(): string
+    {
+        $path = dirname(self::root(), 2) . '/chess/app/.env';
+        $basedir = (string) ini_get('open_basedir');
+        if ($basedir !== '') {
+            $inside = false;
+            $norm = str_replace('\\', '/', strtolower($path));
+            foreach (explode(PATH_SEPARATOR, $basedir) as $dir) {
+                $dir = str_replace('\\', '/', strtolower(trim($dir)));
+                if ($dir !== '' && str_starts_with($norm, rtrim($dir, '/') . '/')) {
+                    $inside = true;
+                    break;
+                }
+            }
+            if (!$inside) {
+                return 'open_basedir';
+            }
+        }
+        if (!@file_exists($path)) {
+            return 'missing';
+        }
+        if (!@is_readable($path)) {
+            return 'unreadable';
+        }
+        return self::arrayHasDb(self::dbKeysOnly(self::loadFile($path))) ? 'ok' : 'no_db_keys';
+    }
+
     public static function allowedSiblingMorseEnv(): ?string
     {
         $path = dirname(self::root(), 2) . '/chess/app/.env';
-        $real = realpath($path);
-        if ($real === false || !is_readable($real)) {
+        $real = @realpath($path);
+        if ($real === false || !@is_readable($real)) {
             return null;
         }
         $norm = str_replace('\\', '/', $real);
@@ -166,7 +220,7 @@ final class Config
     public static function loadFile(string $path): array
     {
         $out = [];
-        if (!is_file($path) || !is_readable($path)) {
+        if (!@is_file($path) || !@is_readable($path)) {
             return $out;
         }
         foreach (file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {

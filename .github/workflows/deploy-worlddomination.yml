@@ -80,6 +80,62 @@ jobs:
               { sleep 20; lftp -u "$FTP_USER","$FTP_PASS" -e "source /tmp/lftp-$dest.txt" "$FTP_HOST"; }
           done
 
+      - name: Provision database settings (only when the server has none)
+        # World Domination reuses the Morse Chess MySQL database (its own wd_*
+        # tables). PHP on the host cannot always read chess/app/.env from
+        # here (open_basedir), so copy ONLY its DB_* lines into
+        # worlddomination/app/.env. Values are masked, never printed, never
+        # committed; temp files are shredded; an existing
+        # worlddomination/app/.env is never overwritten; chess/app/.env is
+        # only read.
+        run: |
+          set -euo pipefail
+          umask 077
+          work=$(mktemp -d)
+          cleanup() { find "$work" -type f -exec shred -u {} + 2>/dev/null || true; rm -rf "$work"; }
+          trap cleanup EXIT
+          ftp() { lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 3; set cmd:fail-exit yes; $1; bye" "$FTP_HOST"; }
+          echo "FTP root folders: $(ftp 'cls -1' 2>/dev/null | tr -d '\r' | grep '/$' | tr '\n' ' ' || true)"
+          found=""
+          for src in chess/app/.env alltherex/chess/app/.env; do
+            if ftp "get $src -o $work/chess.env" >/dev/null 2>&1 && [ -s "$work/chess.env" ]; then
+              found="$src"; break
+            fi
+          done
+          if [ -z "$found" ]; then
+            echo "::warning::no readable chess/app/.env over FTP; database settings must be set in Plesk"
+            exit 0
+          fi
+          echo "Morse Chess settings file found at $found (DB_* keys will be copied)"
+          tr -d '\r' < "$work/chess.env" \
+            | grep -E '^[[:space:]]*(DB_DRIVER|DB_HOST|DB_PORT|DB_NAME|DB_USER|DB_PASS|DB_SOCKET)[[:space:]]*=' > "$work/db.env" || true
+          shred -u "$work/chess.env"
+          while IFS= read -r line; do
+            v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
+            v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
+            k="${line%%=*}"; k="${k//[[:space:]]/}"
+            case "$k" in DB_DRIVER|DB_PORT) ;; *) if [ -n "$v" ]; then echo "::add-mask::$v"; fi;; esac
+          done < "$work/db.env"
+          keys=$(cut -d= -f1 "$work/db.env" | tr -d ' ' | sort -u | tr '\n' ' ')
+          echo "DB keys present (names only): $keys"
+          if ! grep -qE '^[[:space:]]*DB_NAME[[:space:]]*=' "$work/db.env" || ! grep -qE '^[[:space:]]*DB_USER[[:space:]]*=' "$work/db.env"; then
+            echo "::warning::chess/app/.env has no DB_NAME/DB_USER (Morse may use Plesk environment variables); nothing copied"
+            exit 0
+          fi
+          { echo "# Copied by the deploy workflow: DB_* keys only from the Morse Chess settings."; cat "$work/db.env"; } > "$work/wd.env"
+          for dest in worlddomination alltherex/worlddomination; do
+            if ! ftp "cls -1 $dest/app/" >/dev/null 2>&1; then
+              echo "$dest/app: not on this server, skipped"; continue
+            fi
+            if ftp "get $dest/app/.env -o $work/existing.env" >/dev/null 2>&1; then
+              [ -f "$work/existing.env" ] && shred -u "$work/existing.env"
+              echo "$dest/app/.env already exists: left untouched"
+              continue
+            fi
+            ftp "put $work/wd.env -o $dest/app/.env" >/dev/null
+            echo "$dest/app/.env created (DB_* keys only)"
+          done
+
       - name: Smoke test
         run: |
           set -u
@@ -103,7 +159,7 @@ jobs:
           health_code=$(curl -sS -o /tmp/wd-health -w '%{http_code}' -m 30 "$SITE/api/health" || true)
           if [ "$health_code" != 200 ]; then
             echo "::error::api/health HTTP $health_code (refusing to treat an unhealthy database as success)"
-            echo "body: $(cat /tmp/wd-health 2>/dev/null)"
+            echo "body (reason codes only, no secrets): $(cat /tmp/wd-health 2>/dev/null)"
             bad=1
           else
             python3 - <<'PY' || { echo "::error::api/health was 200 but db was not healthy"; bad=1; }
