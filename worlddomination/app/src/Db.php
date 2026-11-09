@@ -231,7 +231,7 @@ final class Db
 
     public static function ensureSchema(bool $force = false): void
     {
-        $file = Config::root() . '/sql/schema.sql';
+        $file = Config::root() . (self::driver() === 'mysql' ? '/sql/schema.mysql.sql' : '/sql/schema.sql');
         $sql = (string) file_get_contents($file);
         // The marker is per database, so pointing the app at a new or empty
         // database (another DB_SQLITE file, another DB_NAME) still migrates it.
