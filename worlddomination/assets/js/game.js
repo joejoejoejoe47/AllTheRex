@@ -1,6 +1,8 @@
-import { attemptCapture, OOB, EMPTY, playableCount, ownedCount } from './capture.js';
+import { attemptCapture, cellsAlong, OOB, EMPTY, playableCount, ownedCount } from './capture.js';
 import { pickCountry, countryCentroid, rasterizeArena } from './geo.js';
 import * as api from './api.js';
+import { project, unproject, groundAxes, fitGround } from './camera.js';
+import { findGuideLoop } from './guide.js';
 
 const WIN_PCT = 50;
 const MATCH_MS = 180000;
@@ -30,10 +32,13 @@ let selected = null;
 let hover = null;
 let mode = 'boot'; // boot | world | arena | ending
 let setupRequired = false;
-let cam = { tx: 18, tz: 32, dist: 118, pitch: 0.8, yaw: 0.08, fov: 0.9 };
+let cam = { tx: 0, tz: 0, dist: 340, pitch: 0.82, yaw: 0, fov: 0.95 };
+let worldBounds = { minX: -185, maxX: 185, minZ: -92, maxZ: 88 };
+let worldCamTouched = false;
+let tutorial = { step: 'off', waypoint: 0, gainText: '', doneAt: 0 };
+const IS_TOUCH = typeof window !== 'undefined' && (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
 let match = null;
 let flash = 0;
-let hintT = 6;
 let now = performance.now();
 let lastT = now;
 let accTime = 0;
@@ -59,65 +64,6 @@ function mixHex(hex, toward, t) {
   const g = Math.round(a.g + (b.g - a.g) * t);
   const bl = Math.round(a.b + (b.b - a.b) * t);
   return `rgb(${r},${g},${bl})`;
-}
-
-function cameraPos(c) {
-  const cp = Math.cos(c.pitch);
-  const sp = Math.sin(c.pitch);
-  return {
-    x: c.tx + Math.sin(c.yaw) * cp * c.dist,
-    y: sp * c.dist + 6,
-    z: c.tz - Math.cos(c.yaw) * cp * c.dist,
-  };
-}
-
-function cameraBasis(c) {
-  const p = cameraPos(c);
-  const lx = c.tx - p.x;
-  const ly = 0 - p.y;
-  const lz = c.tz - p.z;
-  const fl = Math.hypot(lx, ly, lz) || 1;
-  const fx = lx / fl;
-  const fy = ly / fl;
-  const fz = lz / fl;
-  let rx = fz;
-  let ry = 0;
-  let rz = -fx;
-  const rl = Math.hypot(rx, ry, rz) || 1;
-  rx /= rl;
-  rz /= rl;
-  const ux = ry * fz - rz * fy;
-  const uy = rz * fx - rx * fz;
-  const uz = rx * fy - ry * fx;
-  return { p, fx, fy, fz, rx, ry, rz, ux, uy, uz };
-}
-
-function project(c, x, y, z, w, h) {
-  const b = cameraBasis(c);
-  const dx = x - b.p.x;
-  const dy = y - b.p.y;
-  const dz = z - b.p.z;
-  const vx = dx * b.rx + dy * b.ry + dz * b.rz;
-  const vy = dx * b.ux + dy * b.uy + dz * b.uz;
-  const vz = dx * b.fx + dy * b.fy + dz * b.fz;
-  if (vz < 0.55) return null;
-  const s = (h * 0.62) / (Math.tan(c.fov * 0.5) * vz);
-  return { x: w * 0.5 + vx * s, y: h * 0.56 - vy * s, z: vz };
-}
-
-function unproject(c, sx, sy, w, h) {
-  const b = cameraBasis(c);
-  const s0 = (h * 0.62) / Math.tan(c.fov * 0.5);
-  const vx = (sx - w * 0.5) / s0;
-  const vy = (h * 0.56 - sy) / s0;
-  const vz = 1;
-  const dx = vx * b.rx + vy * b.ux + vz * b.fx;
-  const dy = vx * b.ry + vy * b.uy + vz * b.fy;
-  const dz = vx * b.rz + vy * b.uz + vz * b.fz;
-  if (Math.abs(dy) < 1e-6) return null;
-  const t = -b.p.y / dy;
-  if (t <= 0) return null;
-  return { x: b.p.x + dx * t, z: b.p.z + dz * t };
 }
 
 let audioCtx = null;
@@ -163,6 +109,11 @@ function viewSize() {
   return { w: canvas.clientWidth, h: canvas.clientHeight };
 }
 
+function arenaZ(y) {
+  const n = match && match.grid ? match.grid.length : GRID;
+  return n - y;
+}
+
 function fillProjected(c, points, w, h, y = 0) {
   ctx.beginPath();
   let started = false;
@@ -176,19 +127,6 @@ function fillProjected(c, points, w, h, y = 0) {
   }
   if (started) ctx.closePath();
   return started;
-}
-
-function estimateHorizonY(c, w, h) {
-  let y = null;
-  for (const far of [50, 110, 200, 340, 520]) {
-    const p = project(c, c.tx - Math.sin(c.yaw) * far, 0, c.tz + Math.cos(c.yaw) * far, w, h);
-    if (p) y = p.y;
-  }
-  if (y == null) {
-    const look = project(c, c.tx, 0, c.tz, w, h);
-    y = look ? look.y - h * 0.24 : h * 0.36;
-  }
-  return clamp(y, h * 0.18, h * 0.58);
 }
 
 function drawSky(w, h) {
@@ -227,42 +165,81 @@ function drawSky(w, h) {
   }
 }
 
-function drawHorizonSea(c, w, h) {
-  const hy = estimateHorizonY(c, w, h);
-  const g = ctx.createLinearGradient(0, hy - 18, 0, h);
-  g.addColorStop(0, '#9fd0ef');
-  g.addColorStop(0.08, '#4aa3d6');
-  g.addColorStop(0.4, '#1b6fa8');
-  g.addColorStop(1, '#0c3a66');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, hy, w, h - hy + 2);
-  const haze = ctx.createLinearGradient(0, hy - 36, 0, hy + 22);
-  haze.addColorStop(0, 'rgba(180,220,255,0)');
-  haze.addColorStop(0.55, 'rgba(255,250,230,0.42)');
-  haze.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = haze;
-  ctx.fillRect(0, hy - 36, w, 58);
+/**
+ * The flat Earth is a slab floating under the open sky: a sea-blue top face
+ * plus a visible front edge so it reads as a flat world, not an endless sea.
+ */
+function drawSlab(c, b, w, h, { top = '#1f78b4', edge = '#0f3f66', depth = 4, rim = 'rgba(255,255,255,0.55)' } = {}) {
+  const ring = [[b.minX, b.minZ], [b.maxX, b.minZ], [b.maxX, b.maxZ], [b.minX, b.maxZ]];
+  // front (south) edge face
+  const a0 = project(c, b.minX, 0, b.minZ, w, h);
+  const a1 = project(c, b.maxX, 0, b.minZ, w, h);
+  const d0 = project(c, b.minX, -depth, b.minZ, w, h);
+  const d1 = project(c, b.maxX, -depth, b.minZ, w, h);
+  if (a0 && a1 && d0 && d1) {
+    ctx.beginPath();
+    ctx.moveTo(a0.x, a0.y);
+    ctx.lineTo(a1.x, a1.y);
+    ctx.lineTo(d1.x, d1.y);
+    ctx.lineTo(d0.x, d0.y);
+    ctx.closePath();
+    ctx.fillStyle = edge;
+    ctx.fill();
+  }
+  if (fillProjected(c, ring, w, h, 0)) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, mixHex(top, '#9fd6ff', 0.25));
+    g.addColorStop(1, top);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 }
 
-function drawWorldRim(c, w, h) {
-  ctx.beginPath();
-  let started = false;
-  for (let i = 0; i <= 72; i++) {
-    const a = (i / 72) * Math.PI * 2;
-    const p = project(c, Math.cos(a) * 186, 0, Math.sin(a) * 94, w, h);
-    if (!p) {
-      started = false;
-      continue;
+function computeWorldBounds(countries) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const country of countries) {
+    for (const ring of country.overview || []) {
+      for (const [x, z] of ring) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
     }
-    if (!started) {
-      ctx.moveTo(p.x, p.y);
-      started = true;
-    } else ctx.lineTo(p.x, p.y);
   }
-  ctx.strokeStyle = 'rgba(255,255,255,0.38)';
-  ctx.lineWidth = 2.4;
-  ctx.stroke();
+  if (!Number.isFinite(minX)) return worldBounds;
+  return { minX: minX - 5, maxX: maxX + 5, minZ: minZ - 4, maxZ: maxZ + 4 };
 }
+
+function worldSafeRect(w, h) {
+  if (w <= 760) {
+    const top = 124;
+    const bottom = h - 430;
+    return bottom - top >= 150 ? { left: 10, right: w - 10, top, bottom } : { left: 10, right: w - 10, top: 64, bottom: h - 40 };
+  }
+  const podiumW = Math.min(280, w * 0.34) + 32;
+  return { left: 16, right: w - podiumW, top: 70, bottom: h - 34 };
+}
+
+function fitWorldCamera() {
+  const { w, h } = viewSize();
+  if (!w || !h) return;
+  cam = fitGround({ tx: 0, tz: 0, dist: 340, pitch: 0.98, yaw: 0, fov: 0.95 }, worldBounds, w, h, worldSafeRect(w, h));
+  // Tall phone screens need the target pulled further south / the camera
+  // further back than desktop, so the pan/zoom limits follow the fitted view.
+  worldLimits = {
+    minTz: Math.min(-110, cam.tz - 20),
+    maxDist: Math.max(900, cam.dist * 1.25),
+  };
+}
+
+let worldLimits = { minTz: -110, maxDist: 900 };
 
 function drawCountryPoly(c, rings, w, h, fill, stroke, width = 1.2) {
   for (const ring of rings) {
@@ -283,8 +260,7 @@ function drawCountryPoly(c, rings, w, h, fill, stroke, width = 1.2) {
 function renderWorld(dt) {
   const { w, h } = viewSize();
   drawSky(w, h);
-  drawHorizonSea(cam, w, h);
-  drawWorldRim(cam, w, h);
+  drawSlab(cam, worldBounds, w, h, { depth: 6 });
   const hoverId = hover && hover.id;
   const selId = selected && selected.id;
   for (const country of mapData.countries) {
@@ -404,20 +380,26 @@ function startArena(country, tokenInfo) {
     heartbeats: [{ t: 0, x: player.x, y: player.y }],
     captures: [],
     lastHb: 0,
+    lastHbDir: null,
+    forceHb: false,
     capturePulse: 0,
+    lastGain: 0,
   };
+  match.guideLoop = findGuideLoop(grid, playerSpawn.x, playerSpawn.y, START_RADIUS);
+  tutorial = { step: match.guideLoop ? 'guide' : 'free', waypoint: 0, gainText: '', doneAt: 0 };
   cam.tx = player.x;
-  cam.tz = player.y;
-  cam.dist = 22;
-  cam.pitch = 0.7;
-  cam.yaw = 0.2;
-  cam.fov = 0.86;
+  cam.tz = arenaZ(player.y);
+  cam.dist = 26;
+  cam.pitch = 0.62;
+  cam.yaw = 0;
+  cam.fov = 0.9;
   mode = 'arena';
-  hintT = 7;
   ui.arenaHud.hidden = false;
   ui.selectCard.hidden = true;
-  ui.joystick.hidden = !(('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+  ui.joystick.hidden = !IS_TOUCH;
   updateArenaHud(0);
+  renderControls();
+  renderTutorial();
 }
 
 function pctOf(actor) {
@@ -437,6 +419,7 @@ function kill(actor) {
     }
   }
   sfx('die');
+  if (!actor.isBot) showNotice('Knocked out! Your trail was crossed. You respawn with fresh starter land.');
 }
 
 function respawn(actor) {
@@ -449,6 +432,12 @@ function respawn(actor) {
   actor.dead = false;
   actor.mode = 'expand';
   actor.goal = null;
+  if (!actor.isBot && match) {
+    match.heartbeats.push({ t: now - match.startedAt, x: +actor.x.toFixed(3), y: +actor.y.toFixed(3), respawn: true });
+    match.lastHb = now;
+    if (tutorial.step === 'guide') tutorial.step = 'free';
+    renderTutorial();
+  }
 }
 
 function cellOwner(x, y) {
@@ -470,19 +459,38 @@ function trailHas(actor, x, y, ignoreTail = TAIL_SAFE) {
 function closeCapture(actor) {
   if (!actor.trail.length) return;
   const trailCopy = actor.trail.map((cell) => [cell[0], cell[1]]);
+  const before = actor.isBot ? 0 : pctOf(actor);
   const result = attemptCapture(match.grid, actor.id, actor.trail);
   actor.trail = [];
-  if (result.ok) {
-    match.grid = result.grid;
-    if (result.captured > 0) {
-      flash = actor.isBot ? 0.18 : 0.5;
-      if (!actor.isBot) {
-        sfx('capture');
-        match.capturePulse = 1;
-        match.captures.push({ t: now - match.startedAt, trail: trailCopy });
-      }
-    }
+  if (!result.ok || result.captured <= 0) return;
+  match.grid = result.grid;
+  if (actor.isBot) {
+    flash = Math.max(flash, 0.12);
+    return;
   }
+  flash = 0.5;
+  sfx('capture');
+  match.capturePulse = 1;
+  match.forceHb = true;
+  match.captures.push({ t: now - match.startedAt, trail: trailCopy });
+  const after = pctOf(actor);
+  match.lastGain = after - before;
+  const standings = standingsNow();
+  const rank = standings.findIndex((s) => s.actor === actor) + 1;
+  const leader = standings[0];
+  const lead = rank === 1
+    ? 'You lead this practice match.'
+    : `${leader.actor.name} (practice bot) leads with ${leader.pct.toFixed(1)}%.`;
+  tutorial.gainText = `Loop closed! +${match.lastGain.toFixed(1)}% land. You now hold ${after.toFixed(1)}% — #${rank} of ${standings.length}. ${lead}`;
+  tutorial.doneAt = now;
+  if (tutorial.step === 'guide' || tutorial.step === 'free') tutorial.step = 'captured';
+  renderTutorial();
+}
+
+function standingsNow() {
+  return match.actors
+    .map((a) => ({ actor: a, pct: pctOf(a) }))
+    .sort((a, b) => b.pct - a.pct || (a.actor.isBot ? 1 : 0) - (b.actor.isBot ? 1 : 0));
 }
 
 function processCell(actor, cx, cy) {
@@ -491,6 +499,12 @@ function processCell(actor, cx, cy) {
   for (const other of match.actors) {
     if (other.dead) continue;
     if (trailHas(other, cx, cy, other === actor ? TAIL_SAFE : 1)) {
+      if (actor.isBot && other === match.player && tutorial.step === 'guide') {
+        // First-capture tutorial: practice bots step around a new explorer's
+        // trail instead of cutting it.
+        actor.goal = pickExpandGoal(actor);
+        return false;
+      }
       kill(other);
       if (other === actor) return false;
     }
@@ -510,21 +524,16 @@ function tryMove(actor, nx, ny) {
   const cols = match.grid[0].length;
   if (nx < 0.6 || ny < 0.6 || nx > cols - 0.6 || ny > rows - 0.6) return;
   if (cellOwner(nx, ny) === OOB) {
-    if (cellOwner(nx, actor.y) !== OOB) actor.x = nx;
-    else if (cellOwner(actor.x, ny) !== OOB) actor.y = ny;
+    // Slide along the border, still recording every cell entered.
+    if (nx !== actor.x && cellOwner(nx, actor.y) !== OOB) tryMove(actor, nx, actor.y);
+    else if (ny !== actor.y && cellOwner(actor.x, ny) !== OOB) tryMove(actor, actor.x, ny);
     return;
   }
-  const x0 = actor.x;
-  const y0 = actor.y;
-  const steps = Math.max(Math.abs(Math.floor(nx) - Math.floor(x0)), Math.abs(Math.floor(ny) - Math.floor(y0)), 1);
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const x = x0 + (nx - x0) * t;
-    const y = y0 + (ny - y0) * t;
-    if (!processCell(actor, Math.floor(x), Math.floor(y))) {
-      return;
-    }
-    if (actor.dead) return;
+  const cells = cellsAlong(actor.x, actor.y, nx, ny, (x, y) => cellOwner(x + 0.5, y + 0.5) !== OOB);
+  for (const [gx, gy] of cells) {
+    // Trails stay 4-connected so a loop is a closed wall for the flood fill
+    // (and the server accepts it).
+    if (!processCell(actor, gx, gy) || actor.dead) return;
   }
   actor.x = nx;
   actor.y = ny;
@@ -570,7 +579,8 @@ function updateBot(bot, dt) {
     if (!onHome && (bot.trail.length >= bot.maxTrail || Math.random() < 0.2)) {
       bot.mode = 'return';
       bot.goal = nearestOwned(bot);
-    } else if (nearPlayerTrail && player.trail.length > 4) {
+    } else if (nearPlayerTrail && player.trail.length > 4 && tutorial.step !== 'guide') {
+      // practice bots leave a new explorer alone until the first loop is closed
       bot.mode = 'hunt';
       const mid = player.trail[(player.trail.length / 2) | 0];
       bot.goal = { x: mid[0] + 0.5, y: mid[1] + 0.5 };
@@ -617,6 +627,7 @@ function collideHeads() {
       const a = list[i];
       const b = list[j];
       if (Math.hypot(a.x - b.x, a.y - b.y) > 0.7) continue;
+      if (tutorial.step === 'guide' && (a === match.player || b === match.player)) continue;
       const aOut = a.trail.length > 0;
       const bOut = b.trail.length > 0;
       if (aOut) kill(a);
@@ -628,12 +639,9 @@ function collideHeads() {
 function maybeEndMatch() {
   if (!match || match.ending) return;
   const elapsed = now - match.startedAt;
-  const scores = match.actors.map((a) => ({ actor: a, pct: pctOf(a) }));
-  for (const s of scores) s.actor.peakPct = Math.max(s.actor.peakPct, s.pct);
-  const leader = scores.reduce((a, b) => (b.pct > a.pct ? b : a));
+  for (const s of standingsNow()) s.actor.peakPct = Math.max(s.actor.peakPct, s.pct);
   let outcome = null;
   if (pctOf(match.player) >= match.winPct) outcome = 'win';
-  else if (leader.actor !== match.player && leader.pct >= match.winPct) outcome = 'lose';
   else if (elapsed >= match.durationMs) {
     outcome = 'timeout';
   }
@@ -644,6 +652,8 @@ async function finishArena(outcome) {
   if (!match || match.ending) return;
   match.ending = true;
   mode = 'ending';
+  tutorial.step = 'off';
+  renderTutorial();
   let playerPct = pctOf(match.player);
   if (outcome === 'win') sfx('win');
   let saved = null;
@@ -659,6 +669,7 @@ async function finishArena(outcome) {
     saved = await api.finishMatch({
       token: match.token,
       intent: outcome === 'quit' ? 'quit' : 'finish',
+      claimedPct: +pctOf(match.player).toFixed(4),
       heartbeats: match.heartbeats || [],
       captures: match.captures || [],
     });
@@ -675,24 +686,22 @@ async function finishArena(outcome) {
     ? `You dominate ${match.country.name}!`
     : outcome === 'timeout'
       ? `Time! You held ${playerPct.toFixed(1)}% of ${match.country.name}`
-      : `${leaderName()} claimed ${match.country.name}`;
+      : outcome === 'quit'
+        ? `You left ${match.country.name} with ${playerPct.toFixed(1)}%`
+        : `You held ${playerPct.toFixed(1)}% of ${match.country.name}`;
   showModal(`
     <div class="card end-card">
       <h2>${escapeHtml(title)}</h2>
-      <p class="lead">Your territory: <strong>${playerPct.toFixed(1)}%</strong></p>
-      <ul class="end-bots">${match.actors.map((a) => `<li><span class="swatch" style="background:${a.color}"></span>${escapeHtml(a.name)}${a.isBot ? ' <em>bot</em>' : ''} — ${pctOf(a).toFixed(1)}%</li>`).join('')}</ul>
-      ${saveError ? `<p class="err">${escapeHtml(saveError)}</p>` : '<p class="ok">Result saved to the world podium.</p>'}
+      <p class="lead">Official score (server-checked): <strong>${playerPct.toFixed(1)}%</strong></p>
+      <ul class="end-bots">${standingsNow().map(({ actor: a, pct }) => `<li><span class="swatch" style="background:${a.color}"></span>${escapeHtml(a === match.player ? `${a.name} (you)` : a.name)}${a.isBot ? ' <em>practice bot</em>' : ''} — ${pct.toFixed(1)}%</li>`).join('')}</ul>
+      <p class="muted">Bots are practice opponents. They cannot take the podium or be named champion.</p>
+      ${saveError ? `<p class="err">${escapeHtml(saveError)}</p>` : '<p class="ok">Result saved. Only real explorer accounts can reach the podium.</p>'}
       <button class="btn primary" data-close-world>Back to the world</button>
     </div>`);
   ui.modal.querySelector('[data-close-world]').addEventListener('click', () => {
     hideModal();
     leaveArena(false);
   });
-}
-
-function leaderName() {
-  if (!match) return 'Someone';
-  return match.actors.reduce((a, b) => (pctOf(b) > pctOf(a) ? b : a)).name;
 }
 
 function leaveArena(submitQuit) {
@@ -702,9 +711,16 @@ function leaveArena(submitQuit) {
   }
   match = null;
   mode = 'world';
-  cam = { tx: selected ? countryCentroid(selected).lng : 18, tz: selected ? countryCentroid(selected).lat : 32, dist: 118, pitch: 0.8, yaw: 0.08, fov: 0.9 };
+  fitWorldCamera();
+  if (selected) {
+    const c0 = countryCentroid(selected);
+    cam = { ...cam, tx: c0.lng, tz: c0.lat, dist: cam.dist * 0.6 };
+  }
   ui.arenaHud.hidden = true;
   ui.joystick.hidden = true;
+  tutorial.step = 'off';
+  renderTutorial();
+  renderControls();
   if (selected) {
     ui.selectCard.hidden = false;
     fillSelectCard();
@@ -716,10 +732,9 @@ function updateArenaHud(elapsed) {
   const s = Math.ceil(remain / 1000);
   const mm = String((s / 60) | 0);
   const ss = String(s % 60).padStart(2, '0');
-  const rows = match.actors.map((a) => {
-    const pct = pctOf(a);
+  const rows = standingsNow().map(({ actor: a, pct }, i) => {
     return `<div class="bar-row ${a === match.player ? 'you' : ''}">
-      <span class="who"><i style="background:${a.color}"></i>${escapeHtml(a.name)}${a.isBot ? '<em>bot</em>' : ''}</span>
+      <span class="who"><b class="rank">#${i + 1}</b><i style="background:${a.color}"></i>${escapeHtml(a === match.player ? `${a.name} (you)` : a.name)}${a.isBot ? '<em>practice bot</em>' : ''}</span>
       <span class="pct">${pct.toFixed(1)}%</span>
       <span class="track"><span style="width:${Math.min(100, pct)}%;background:${a.color}"></span></span>
     </div>`;
@@ -733,14 +748,18 @@ function renderArena(dt) {
   const follow = 1 - Math.exp(-dt * 7.5);
   const ahead = p.moving ? 3.2 : 0.6;
   cam.tx += ((p.x + p.dir.x * ahead) - cam.tx) * follow;
-  cam.tz += ((p.y + p.dir.y * ahead) - cam.tz) * follow;
+  cam.tz += ((arenaZ(p.y + p.dir.y * ahead)) - cam.tz) * follow;
   if (match.capturePulse > 0) match.capturePulse = Math.max(0, match.capturePulse - dt * 1.35);
   drawSky(w, h);
-  drawHorizonSea(cam, w, h);
+  const n = match.grid.length;
+  const cols = match.grid[0].length;
+  drawSlab(cam, { minX: -12, maxX: cols + 12, minZ: -12, maxZ: n + 12 }, w, h, { depth: 3 });
   drawArenaGround(w, h);
   drawTerritories(w, h);
+  drawGuide(w, h);
   for (const actor of match.actors) drawTrail(actor, w, h);
-  const sorted = match.actors.slice().sort((a, b) => b.y - a.y);
+  // far (north, small y) first so nearer explorers overlap them
+  const sorted = match.actors.slice().sort((a, b) => a.y - b.y);
   for (const actor of sorted) {
     if (actor.dead) continue;
     drawGuy(actor, w, h);
@@ -750,18 +769,6 @@ function renderArena(dt) {
     ctx.fillRect(0, 0, w, h);
     flash = Math.max(0, flash - dt);
   }
-  if (hintT > 0) {
-    hintT -= dt;
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, hintT);
-    ctx.fillStyle = 'rgba(8,24,40,0.55)';
-    ctx.fillRect(w / 2 - 240, 86, 480, 40);
-    ctx.fillStyle = '#fff8dc';
-    ctx.font = '600 15px Nunito, Trebuchet MS, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Walk out, loop back to your land, and everything inside becomes yours.', w / 2, 112);
-    ctx.restore();
-  }
 }
 
 function drawArenaGround(w, h) {
@@ -770,9 +777,11 @@ function drawArenaGround(w, h) {
   let started = false;
   // Approximate by drawing all land as merged scan spans on a low mesh: project country arena ring in grid space
   const ring = match.country.arena.outer;
-  const pts = ringToGrid(ring, match.country.arena);
+  const pts = ringToGrid(ring, match.country.arena).map(([x, y]) => [x, arenaZ(y)]);
   if (fillProjected(cam, pts, w, h, 0)) {
-    ctx.fillStyle = match.country.color;
+    // neutral green land so every explorer colour (yellow you, red/purple/teal
+    // bots) stands out clearly
+    ctx.fillStyle = mixHex(match.country.color, '#3f7a45', 0.7);
     ctx.fill();
     ctx.strokeStyle = 'rgba(40,28,8,0.75)';
     ctx.lineWidth = 2.4;
@@ -827,10 +836,10 @@ function drawTerritories(w, h) {
       while (x2 < cols && grid[y][x2] === id) x2++;
       const actor = byId.get(id);
       const quad = [
-        [x, y],
-        [x2, y],
-        [x2, y + 1],
-        [x, y + 1],
+        [x, arenaZ(y)],
+        [x2, arenaZ(y)],
+        [x2, arenaZ(y + 1)],
+        [x, arenaZ(y + 1)],
       ];
       if (fillProjected(cam, quad, w, h, 0.04)) {
         let fill = actor ? actor.color + 'cc' : 'rgba(255,255,255,0.35)';
@@ -849,10 +858,10 @@ function drawTrail(actor, w, h) {
   if (!actor.trail.length) return;
   const pts = [];
   for (const [x, y] of actor.trail) {
-    const p = project(cam, x + 0.5, 0.16, y + 0.5, w, h);
+    const p = project(cam, x + 0.5, 0.16, arenaZ(y + 0.5), w, h);
     if (p) pts.push(p);
   }
-  const head = project(cam, actor.x, 0.18, actor.y, w, h);
+  const head = project(cam, actor.x, 0.18, arenaZ(actor.y), w, h);
   if (head) pts.push(head);
   if (pts.length < 2) return;
   const tipZ = head ? head.z : pts[pts.length - 1].z;
@@ -883,13 +892,13 @@ function drawTrail(actor, w, h) {
 }
 
 function drawGuy(actor, w, h) {
-  const feet = project(cam, actor.x, 0, actor.y, w, h);
-  const crown = project(cam, actor.x, 2.35, actor.y, w, h);
+  const feet = project(cam, actor.x, 0, arenaZ(actor.y), w, h);
+  const crown = project(cam, actor.x, 2.35, arenaZ(actor.y), w, h);
   if (!feet) return;
   let s = crown ? (feet.y - crown.y) : (320 / (feet.z + 5));
   s = clamp(s, 34, 120);
   const yaw = cam.yaw;
-  const side = Math.cos(yaw) * actor.dir.x + Math.sin(yaw) * actor.dir.y;
+  const side = Math.cos(yaw) * actor.dir.x - Math.sin(yaw) * actor.dir.y;
   const flip = side < 0 ? -1 : 1;
   const moving = !!actor.moving;
   const walk = moving ? Math.sin(now * 0.016 + actor.id * 2) : 0;
@@ -998,17 +1007,14 @@ function updateWorldCamera(dt) {
   if (ix || iz) {
     const m = Math.hypot(ix, iz) || 1;
     const speed = cam.dist * 0.55;
-    const yaw = cam.yaw;
-    const fx = Math.sin(yaw);
-    const fz = Math.cos(yaw);
-    const rx = Math.cos(yaw);
-    const rz = -Math.sin(yaw);
+    const { fx, fz, rx, rz } = groundAxes(cam);
+    worldCamTouched = true;
     cam.tx += ((rx * ix + fx * iz) / m) * speed * dt;
     cam.tz += ((rz * ix + fz * iz) / m) * speed * dt;
   }
-  cam.tx = clamp(cam.tx, -170, 170);
-  cam.tz = clamp(cam.tz, -80, 85);
-  cam.dist = clamp(cam.dist, 28, 230);
+  cam.tx = clamp(cam.tx, -180, 180);
+  cam.tz = clamp(cam.tz, worldLimits.minTz, 90);
+  cam.dist = clamp(cam.dist, 40, worldLimits.maxDist);
 }
 
 function updateArena(dt) {
@@ -1023,10 +1029,17 @@ function updateArena(dt) {
       player.dir = mv;
       tryMove(player, player.x + mv.x * SPEED * dt, player.y + mv.y * SPEED * dt);
     }
-    if (now - match.lastHb > 280) {
-      match.heartbeats.push({ t: now - match.startedAt, x: +player.x.toFixed(3), y: +player.y.toFixed(3) });
+    const dirKey = mv ? `${mv.x.toFixed(2)},${mv.y.toFixed(2)}` : 'stop';
+    const turned = dirKey !== match.lastHbDir;
+    if (match.forceHb || now - match.lastHb > 250 || (turned && now - match.lastHb > 30)) {
+      if (match.heartbeats.length < 3900) {
+        match.heartbeats.push({ t: now - match.startedAt, x: +player.x.toFixed(3), y: +player.y.toFixed(3) });
+      }
       match.lastHb = now;
+      match.lastHbDir = dirKey;
+      match.forceHb = false;
     }
+    updateTutorialProgress();
   }
   for (const actor of match.actors) {
     if (actor.isBot) updateBot(actor, dt);
@@ -1086,6 +1099,7 @@ function onPointerMove(e) {
   pointer.ly = e.clientY;
   if (Math.hypot(e.clientX - pointer.x, e.clientY - pointer.y) > 6) pointer.dragging = true;
   if (mode === 'world') {
+    if (pointer.dragging) worldCamTouched = true;
     const k = cam.dist * 0.0032;
     cam.tx -= dx * k;
     cam.tz += dy * k;
@@ -1110,7 +1124,8 @@ function onPointerUp(e) {
 function onWheel(e) {
   e.preventDefault();
   if (mode === 'world') {
-    cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.08 : 0.92), 28, 230);
+    worldCamTouched = true;
+    cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.08 : 0.92), 40, worldLimits.maxDist);
   } else if (mode === 'arena') {
     cam.dist = clamp(cam.dist * (e.deltaY > 0 ? 1.06 : 0.94), 14, 52);
   }
@@ -1180,6 +1195,7 @@ async function beginPlay() {
 }
 
 function renderPodium() {
+  podium = (podium || []).filter((entry) => entry && !entry.isBot);
   const slots = [podium[1], podium[0], podium[2]];
   const labels = ['2nd', 'Champion', '3rd'];
   const html = slots.map((entry, i) => {
@@ -1187,10 +1203,10 @@ function renderPodium() {
       return `<div class="stand s${i}"><div class="plinth"></div><p class="place">${labels[i]}</p><p class="empty-slot">Open</p></div>`;
     }
     return `<div class="stand s${i} filled">
-      <div class="figure ${entry.isBot ? 'bot' : 'human'}"></div>
+      <div class="figure human"></div>
       <div class="plinth"></div>
       <p class="place">${labels[i]}</p>
-      <p class="who">${escapeHtml(entry.displayName)}${entry.isBot ? '<em>bot</em>' : ''}</p>
+      <p class="who">${escapeHtml(entry.displayName)}</p>
       <p class="pts">${entry.points} pts</p>
     </div>`;
   }).join('');
@@ -1280,6 +1296,8 @@ function bindUi() {
     matchInfo: $('match-info'),
     joystick: $('joystick'),
     modal: $('modal'),
+    controls: $('controls-guide'),
+    tutorial: $('tutorial-banner'),
   };
   $('leave-btn').addEventListener('click', () => {
     if (mode !== 'arena') return;
@@ -1301,7 +1319,10 @@ function bindInput() {
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => {
+    resize();
+    if (mode === 'world' && !worldCamTouched && !selected) fitWorldCamera();
+  });
   const startAudio = () => { try { audioCtx = audioCtx || new AudioContext(); audioCtx.resume(); } catch { /* ignore */ } };
   window.addEventListener('pointerdown', startAudio, { once: true });
 }
@@ -1320,7 +1341,10 @@ export async function boot() {
       api.loadPodium().catch(() => ({ podium: [] })),
     ]);
     mapData = world;
+    worldBounds = computeWorldBounds(world.countries || []);
+    fitWorldCamera();
     mode = 'world';
+    renderControls();
     $('attr-line').textContent = world.attribution || '';
     podium = board.podium || [];
     renderPodium();
@@ -1335,4 +1359,143 @@ export async function boot() {
     const dbDown = err && err.status === 503;
     showModal(`<div class="card"><h2>${dbDown ? 'Database not ready' : 'Could not load World Domination'}</h2><p>${escapeHtml(err.message || 'Network error')}</p>${dbDown ? '<p>There is no public installer. The host needs the existing Morse Chess <code>DB_*</code> contract, <code>WD_DB_*</code> environment variables, or a private guarded <code>app/.env</code>.</p>' : ''}</div>`);
   }
+}
+
+function renderControls() {
+  const el = ui.controls;
+  if (!el) return;
+  const inArena = mode === 'arena' || mode === 'ending';
+  document.body.classList.toggle('in-arena', inArena);
+  if (window.innerWidth <= 760) {
+    el.innerHTML = inArena
+      ? `<h3>Controls</h3><p>${IS_TOUCH ? 'Drag the joystick (bottom left)' : '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows'} to walk. Leave your land and loop back to claim the inside.</p>`
+      : `<h3>Controls</h3><p>${IS_TOUCH ? 'Drag to look around, tap a country, then <b>Play</b>.' : 'Drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to look, click a country, then <b>Play</b>.'}</p>`;
+    el.hidden = false;
+    return;
+  }
+  const touch = IS_TOUCH
+    ? '<li><kbd>Touch</kbd> drag the round joystick (bottom left)</li>'
+    : '';
+  if (mode === 'arena' || mode === 'ending') {
+    el.innerHTML = `<h3>Controls</h3><ul>
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>\u2191</kbd><kbd>\u2190</kbd><kbd>\u2193</kbd><kbd>\u2192</kbd> walk</li>
+      ${touch}
+      <li>Leave your land to draw a trail, come back to claim the inside</li>
+      <li>Don't cross your own trail \u2014 bots can cut it too</li>
+      <li><kbd>Scroll</kbd> zoom \u00b7 <kbd>Esc</kbd> leave country</li>
+    </ul>`;
+  } else {
+    el.innerHTML = `<h3>Controls</h3><ul>
+      <li><kbd>Drag</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to look around</li>
+      <li>${IS_TOUCH ? '<kbd>Drag</kbd> with one finger to look around, <kbd>Tap</kbd> a country' : '<kbd>Scroll</kbd> to zoom'}</li>
+      <li><kbd>Click</kbd> a country, then press <b>Play</b></li>
+    </ul>`;
+  }
+  el.hidden = false;
+}
+
+function renderTutorial() {
+  const el = ui.tutorial;
+  if (!el) return;
+  if (!match || mode === 'world' || tutorial.step === 'off') {
+    el.hidden = true;
+    return;
+  }
+  let html = '';
+  if (tutorial.step === 'guide' && match.guideLoop) {
+    const wp = match.guideLoop.waypoints[tutorial.waypoint];
+    const touchHint = IS_TOUCH ? ` (or push the joystick ${wp.screen})` : '';
+    html = `<span class="step">Step ${tutorial.waypoint + 1} of 4</span> ${escapeHtml(wp.label + touchHint)} <span class="flagnote">\u2014 follow the dotted path to the red flag</span>`;
+  } else if (tutorial.step === 'captured') {
+    html = `<strong>${escapeHtml(tutorial.gainText)}</strong>`;
+  } else {
+    html = 'Walk off your yellow land, then come back to it. Everything inside your loop becomes yours.';
+  }
+  el.innerHTML = html;
+  el.hidden = false;
+}
+
+function updateTutorialProgress() {
+  if (!match) return;
+  if (tutorial.step === 'guide' && match.guideLoop) {
+    const wp = match.guideLoop.waypoints[tutorial.waypoint];
+    const p = match.player;
+    if (wp && Math.hypot(p.x - wp.x, p.y - wp.y) < 1.4 && tutorial.waypoint < 3) {
+      tutorial.waypoint++;
+      renderTutorial();
+    }
+  } else if (tutorial.step === 'captured' && now - tutorial.doneAt > 6000) {
+    tutorial.step = 'free';
+    renderTutorial();
+  }
+}
+
+function drawGuide(w, h) {
+  if (!match || tutorial.step !== 'guide' || !match.guideLoop) return;
+  const p0 = match.player;
+  const pts = [{ x: match.guideLoop.waypoints[3].x, y: match.guideLoop.waypoints[3].y }, ...match.guideLoop.waypoints];
+  ctx.save();
+  ctx.setLineDash([10, 8]);
+  ctx.lineDashOffset = -now * 0.03;
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+  ctx.beginPath();
+  let started = false;
+  for (const q of pts) {
+    const s = project(cam, q.x, 0.2, arenaZ(q.y), w, h);
+    if (!s) continue;
+    if (!started) {
+      ctx.moveTo(s.x, s.y);
+      started = true;
+    } else ctx.lineTo(s.x, s.y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  match.guideLoop.waypoints.forEach((wp, i) => {
+    const base = project(cam, wp.x, 0, arenaZ(wp.y), w, h);
+    const tip = project(cam, wp.x, 2.2, arenaZ(wp.y), w, h);
+    if (!base || !tip) return;
+    const active = i === tutorial.waypoint;
+    ctx.strokeStyle = '#3b2818';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y);
+    ctx.lineTo(tip.x, tip.y);
+    ctx.stroke();
+    ctx.fillStyle = active ? '#ff4d6d' : 'rgba(255,255,255,0.75)';
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(tip.x + 22, tip.y + 7);
+    ctx.lineTo(tip.x, tip.y + 14);
+    ctx.closePath();
+    ctx.fill();
+    if (active) {
+      ctx.font = '800 15px Nunito, Trebuchet MS, sans-serif';
+      ctx.textAlign = 'center';
+      const label = wp.key;
+      const tw = ctx.measureText(label).width;
+      ctx.fillStyle = 'rgba(10,18,30,0.82)';
+      roundRect(tip.x - tw / 2 - 8, tip.y - 30, tw + 16, 22, 8);
+      ctx.fill();
+      ctx.fillStyle = '#ffe27a';
+      ctx.fillText(label, tip.x, tip.y - 14);
+    }
+  });
+  void p0;
+  ctx.restore();
+}
+
+if (typeof window !== 'undefined') {
+  // Read-only snapshot for local QA scripts. Scores are still checked by the server.
+  window.__wdDebug = () => ({
+    mode,
+    tutorial: { ...tutorial },
+    guide: match && match.guideLoop ? match.guideLoop : null,
+    player: match ? { x: match.player.x, y: match.player.y, dead: match.player.dead, trail: match.player.trail.length, pct: pctOf(match.player) } : null,
+    standings: match ? standingsNow().map((s) => ({ name: s.actor.name, isBot: s.actor.isBot, pct: s.pct })) : [],
+    captures: match ? match.captures.length : 0,
+    heartbeats: match ? match.heartbeats.length : 0,
+    cam: { ...cam },
+    country: match ? match.country.id : (selected ? selected.id : null),
+  });
 }

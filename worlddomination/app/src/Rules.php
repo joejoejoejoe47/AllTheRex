@@ -14,7 +14,7 @@ final class Rules
     public const SPEED_SLACK = 1.35;
     public const WIN_PCT = 50.0;
     public const MATCH_MS = 180000;
-    public const MAX_HEARTBEATS = 2400;
+    public const MAX_HEARTBEATS = 4000;
     public const MAX_CAPTURES = 80;
     public const MAX_DEATHS = 8;
 }

@@ -60,4 +60,56 @@ $empty = MatchEngine::evaluate(emptyGrid(24, 20), $spawn, [], [], 1000);
 check($empty['ok'] === true, 'a retreat with no log still evaluates the starter land');
 check($empty['pct'] > 0 && $empty['pct'] < 10, 'starter land alone is a small percent, not a fake win');
 
+// A flagged respawn costs all land; it can never add territory.
+$afterCapture = MatchEngine::evaluate($base, $spawn, $heartbeats, [['t' => 2000, 'trail' => $trail]], 4000);
+$withRespawn = MatchEngine::evaluate($base, $spawn, array_merge($heartbeats, [
+    ['t' => 3000, 'x' => 18.5, 'y' => 14.5, 'respawn' => true],
+]), [['t' => 2000, 'trail' => $trail]], 4000);
+check($withRespawn['ok'] === true, 'respawn heartbeat is accepted');
+check($withRespawn['owned'] < $afterCapture['owned'], 'respawn clears captured land back to a starter disk');
+check($withRespawn['grid'][5][6] !== Rules::PLAYER_ID, 'old enclosure is no longer owned after a knock-out');
+
+// Large enclosure on a real country: land jumps and every inside cell is owned.
+$us = Geo::countryById('US');
+$usGrid = Geo::rasterizeArena($us['arena'], Rules::GRID);
+$usSpawn = Geo::pickSpawn($usGrid, 'big-loop');
+$sx = $usSpawn['x'];
+$sy = $usSpawn['y'];
+$top = $sy - 8;
+$right = $sx + 8;
+$path = [[$sx, $sy], [$sx, $top], [$right, $top], [$right, $sy], [$sx, $sy]];
+$hb = [];
+$bigTrail = [];
+$tms = 0.0;
+$prev = null;
+foreach ($path as [$px, $py]) {
+    if ($prev !== null) {
+        [$qx, $qy] = $prev;
+        $steps = max(abs($px - $qx), abs($py - $qy));
+        for ($i = 1; $i <= $steps; $i++) {
+            $cx = $qx + (int) round(($px - $qx) * $i / $steps);
+            $cy = $qy + (int) round(($py - $qy) * $i / $steps);
+            $tms += 1000 / Rules::SPEED;
+            $hb[] = ['t' => $tms, 'x' => $cx + 0.5, 'y' => $cy + 0.5];
+            if (($cx - $sx) ** 2 + ($cy - $sy) ** 2 > Rules::START_RADIUS ** 2) {
+                $bigTrail[] = [$cx, $cy];
+            }
+        }
+    }
+    $prev = [$px, $py];
+}
+$start = MatchEngine::evaluate($usGrid, $usSpawn, [], [], 1000);
+$big = MatchEngine::evaluate($usGrid, $usSpawn, $hb, [['t' => $tms, 'trail' => $bigTrail]], (int) $tms + 1000);
+check($big['ok'] === true, 'server accepts a walked loop on the US map' . (isset($big['reason']) ? ' (' . $big['reason'] . ')' : ''));
+check($big['pct'] > $start['pct'] * 2.5, sprintf('US land jumps %.2f%% -> %.2f%% after closing the loop', $start['pct'], $big['pct']));
+$allInside = true;
+for ($y = $top; $y <= $sy; $y++) {
+    for ($x = $sx; $x <= $right; $x++) {
+        if ($big['grid'][$y][$x] !== Rules::PLAYER_ID) {
+            $allInside = false;
+        }
+    }
+}
+check($allInside, 'every cell enclosed by the loop is owned on the server');
+
 finish();

@@ -118,3 +118,31 @@ export function ownedCount(grid, ownerId) {
   }
   return n;
 }
+
+/**
+ * Grid cells entered when moving from (x0, y0) to (x1, y1), in order and
+ * always 4-connected: a diagonal step is split through a side cell (the one
+ * that is inside the country when possible). Never includes the start cell.
+ * @param {(x:number, y:number) => boolean} [isPlayable]
+ * @returns {Array<[number, number]>}
+ */
+export function cellsAlong(x0, y0, x1, y1, isPlayable = () => true) {
+  const out = [];
+  const steps = Math.max(Math.abs(Math.floor(x1) - Math.floor(x0)), Math.abs(Math.floor(y1) - Math.floor(y0)), 1) * 2;
+  let cx = Math.floor(x0);
+  let cy = Math.floor(y0);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const gx = Math.floor(x0 + (x1 - x0) * t);
+    const gy = Math.floor(y0 + (y1 - y0) * t);
+    if (gx === cx && gy === cy) continue;
+    if (gx !== cx && gy !== cy) {
+      if (isPlayable(gx, cy)) out.push([gx, cy]);
+      else out.push([cx, gy]);
+    }
+    out.push([gx, gy]);
+    cx = gx;
+    cy = gy;
+  }
+  return out;
+}

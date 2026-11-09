@@ -82,7 +82,10 @@ final class MatchEngine
             $dt = max(0.001, ($t - $prevT) / 1000.0);
             $dist = hypot($x - $prevX, $y - $prevY);
             $maxDist = Rules::SPEED * Rules::SPEED_SLACK * $dt + 1.25;
-            if ($dist > $maxDist) {
+            // A respawn (client-flagged) or an impossible jump both count as a
+            // knock-out: all owned land is lost and only a fresh starter disk
+            // is granted, so neither can be used to gain territory.
+            if (!empty($hb['respawn']) || $dist > $maxDist) {
                 $deaths++;
                 if ($deaths > Rules::MAX_DEATHS) {
                     return self::fail($grid, 'too many discontinuous jumps');
@@ -147,7 +150,7 @@ final class MatchEngine
     private static function applyCapture(array &$grid, int $owner, array $trail, array $visited): array
     {
         foreach ($trail as [$x, $y]) {
-            if (!isset($visited[$y . ',' . $x])) {
+            if (!self::walkedNear($visited, $x, $y)) {
                 return ['ok' => false, 'reason' => 'capture trail was not walked', 'captured' => 0];
             }
         }
@@ -186,6 +189,25 @@ final class MatchEngine
             $out[] = [(int) floor($x0 + ($x1 - $x0) * $t), (int) floor($y0 + ($y1 - $y0) * $t)];
         }
         return $out;
+    }
+
+    /**
+     * A trail cell counts as walked if the reconstructed path passed through
+     * it or a touching cell. Heartbeats are sampled, so the straight line
+     * between samples can clip a corner by one cell.
+     *
+     * @param array<string,true> $visited
+     */
+    private static function walkedNear(array $visited, int $x, int $y): bool
+    {
+        for ($dy = -1; $dy <= 1; $dy++) {
+            for ($dx = -1; $dx <= 1; $dx++) {
+                if (isset($visited[($y + $dy) . ',' . ($x + $dx)])) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** @param array<string,true> $visited */

@@ -193,7 +193,7 @@ body { overflow: hidden; }
   background: rgba(8, 24, 48, 0.45);
   padding: 20px;
 }
-#modal[hidden], #select-card[hidden], #arena-hud[hidden], #joystick[hidden], #notice[hidden], #fatal[hidden], #podium-empty[hidden] { display: none !important; }
+#modal[hidden], #select-card[hidden], #arena-hud[hidden], #joystick[hidden], #notice[hidden], #fatal[hidden], #podium-empty[hidden], #tutorial-banner[hidden], #controls-guide[hidden] { display: none !important; }
 .card {
   width: min(420px, 100%);
   background: #14324f;
@@ -248,7 +248,71 @@ body { overflow: hidden; }
   text-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
 
+#tutorial-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 640px));
+  min-width: min(320px, calc(100vw - 32px));
+  background: rgba(10, 24, 42, 0.86);
+  border: 2px solid #ffd24a;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(8, 20, 40, 0.35);
+  pointer-events: none;
+}
+#tutorial-banner .step { display: inline-block; background: #ffd24a; color: #2a1a04; font-weight: 800; border-radius: 999px; padding: 1px 9px; margin-right: 6px; }
+#tutorial-banner .flagnote { color: #cfe3f5; font-size: 0.88em; }
+#tutorial-banner strong { color: #ffe27a; }
+#controls-guide {
+  position: fixed;
+  right: 16px;
+  bottom: 30px;
+  z-index: 5;
+  width: min(280px, 34vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  backdrop-filter: blur(8px);
+}
+#controls-guide h3 { margin: 0 0 6px; font-family: "Fredoka", "Trebuchet MS", sans-serif; font-size: 1rem; color: #ffe27a; }
+#controls-guide ul { margin: 0; padding-left: 16px; }
+#controls-guide li { margin: 3px 0; }
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 1px 5px;
+  margin: 0 1px;
+  border-radius: 5px;
+  background: #f4f0e4;
+  color: #122033;
+  font: 800 0.8rem "Nunito", sans-serif;
+  text-align: center;
+  box-shadow: 0 2px 0 #9aa7b5;
+}
+.bar-row .rank { color: #ffe27a; margin-right: 2px; }
+.muted { color: #b8cadb; font-size: 0.86rem; }
+
 @media (max-width: 760px) {
+  #controls-guide { left: 10px; right: 10px; bottom: auto; top: 64px; width: auto; font-size: 0.8rem; padding: 6px 10px; }
+  #controls-guide h3 { display: inline; font-size: 0.85rem; margin-right: 6px; }
+  #controls-guide p { display: inline; margin: 0; }
+  body.in-arena #podium { display: none; }
+  body.in-arena #controls-guide { top: auto; bottom: 22px; left: auto; right: 10px; width: calc(100vw - 170px); }
+  body.in-arena #arena-hud { top: 64px; }
+  body.in-arena #arena-hud { font-size: 0.78rem; padding: 8px 10px; width: min(230px, calc(100vw - 20px)); }
+  body.in-arena #arena-hud .bar-row { margin: 3px 0; }
+  body.in-arena #arena-hud .bar-row em { font-size: 0.6rem; padding: 0 4px; }
+  body.in-arena #leave-btn { padding: 6px 10px; font-size: 0.85rem; margin-top: 6px; }
+  #tutorial-banner { bottom: 160px; max-width: calc(100vw - 24px); font-size: 0.9rem; }
   #podium { width: min(250px, 46vw); top: auto; bottom: 170px; right: 10px; padding: 10px; }
   #podium-list { min-height: 120px; }
   #select-card { bottom: 18px; }

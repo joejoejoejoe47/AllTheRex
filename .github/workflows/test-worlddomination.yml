@@ -29,6 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: PHP extensions for isolated tests
         run: |
           sudo apt-get update -qq
@@ -39,3 +43,8 @@ jobs:
 
       - name: Capture parity tests
         run: node worlddomination/tests/capture.test.mjs
+
+      - name: View, tutorial loop, and browser/server score parity
+        env:
+          PHP_BIN: php
+        run: node worlddomination/tests/view.test.mjs

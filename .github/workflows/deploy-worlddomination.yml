@@ -86,7 +86,7 @@ jobs:
           page=$(curl -fsS -m 30 "$SITE/?smoke=$GITHUB_RUN_ID") || { echo "::error::/worlddomination/ did not load"; bad=1; page=""; }
           echo "$page" | grep -q "World Domination" || { echo "::error::live page is missing the World Domination title"; bad=1; }
           echo "$page" | grep -q "assets/js/main.js" || { echo "::error::live page does not point at the game script"; bad=1; }
-          for a in assets/js/main.js assets/js/game.js assets/js/capture.js assets/css/game.css assets/data/countries.json; do
+          for a in assets/js/main.js assets/js/game.js assets/js/capture.js assets/js/camera.js assets/js/guide.js assets/css/game.css assets/data/countries.json; do
             code=$(curl -s -o /tmp/wd-asset -w '%{http_code}' -m 60 "$SITE/$a")
             [ "$code" = 200 ] || { echo "::error::$a -> $code"; bad=1; }
           done

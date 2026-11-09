@@ -89,4 +89,21 @@ $podium = Leaderboard::podium();
 check(count($podium) === 1, 'podium contains only the real player after a verified match');
 check($podium[0]['displayName'] === 'QA Explorer' && $podium[0]['isBot'] === false, 'leaderboard name is the authenticated player');
 
+// Practice bots can never reach the podium, even if a bot row exists.
+Db::run(
+    'INSERT INTO wd_scores (id, subject_key, display_name, is_bot, points, wins, matches, best_pct, updated_at) VALUES (?, ?, ?, 1, 99999, 50, 50, 99, ?)',
+    [Auth::randomId(), 'bot:quarry', 'Bot Quarry', Db::now()]
+);
+$podium2 = Leaderboard::podium();
+check(count(array_filter($podium2, fn ($p) => $p['isBot'])) === 0, 'podium never lists practice bots');
+check($podium2[0]['displayName'] === 'QA Explorer', 'champion is the real top explorer, not a bot');
+
+// claimedPct can only lower the server score (bots took land back), never raise it.
+$m3 = Leaderboard::startMatch($user['id'], 'US');
+$up = Leaderboard::finishMatch($user['id'], ['token' => $m3['token'], 'heartbeats' => [], 'captures' => [], 'intent' => 'quit', 'claimedPct' => 80.0]);
+check($up['player']['pct'] < 5, 'a higher claimed percent is ignored');
+$m4 = Leaderboard::startMatch($user['id'], 'US');
+$down = Leaderboard::finishMatch($user['id'], ['token' => $m4['token'], 'heartbeats' => [], 'captures' => [], 'intent' => 'quit', 'claimedPct' => 0.1]);
+check(abs($down['player']['pct'] - 0.1) < 1e-9, 'a lower claimed percent (land lost to bots) is honoured');
+
 finish();

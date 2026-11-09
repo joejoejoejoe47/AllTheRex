@@ -17,6 +17,7 @@ final class Leaderboard
         $rows = Db::all(
             'SELECT subject_key, display_name, is_bot, points, wins, matches, best_pct
              FROM wd_scores
+             WHERE is_bot = 0
              ORDER BY points DESC, best_pct DESC, wins DESC, display_name ASC
              LIMIT ' . $limit
         );
@@ -118,7 +119,17 @@ final class Leaderboard
             throw new HttpError($evaluated['reason'] ?? 'That match log could not be verified.', 422);
         }
 
+        // The server replay is the ceiling. The browser also simulates practice
+        // bots, which can take land back; a lower client figure is accepted
+        // because it can only reduce the score, never raise it.
         $playerPct = (float) $evaluated['pct'];
+        $claimed = $payload['claimedPct'] ?? null;
+        if (is_int($claimed) || is_float($claimed)) {
+            $claimed = (float) $claimed;
+            if (is_finite($claimed) && $claimed >= 0.0 && $claimed < $playerPct) {
+                $playerPct = $claimed;
+            }
+        }
         if ($intent === 'quit') {
             $outcome = 'quit';
         } elseif ($playerPct + 0.05 >= self::WIN_PCT) {
