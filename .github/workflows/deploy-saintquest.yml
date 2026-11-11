@@ -30,24 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tools
-        run: |
-          # The runner's DNS for security.ubuntu.com sometimes fails; retry, then
-          # fall back to the main archive mirror only.
-          if command -v lftp >/dev/null; then exit 0; fi
-          for i in 1 2 3; do
-            sudo apt-get update -qq || true
-            if sudo apt-get install -y -qq --fix-missing lftp; then exit 0; fi
-            sleep 10
-          done
-          echo "falling back to archive mirror without the security pocket"
-          for f in /etc/apt/sources.list.d/*.sources /etc/apt/sources.list; do
-            [ -f "$f" ] && sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors.txt#http://azure.archive.ubuntu.com/ubuntu/#g; s#https?://security\.ubuntu\.com/ubuntu/?#http://azure.archive.ubuntu.com/ubuntu/#g' "$f"
-          done
-          sudo apt-get update -qq || true
-          sudo apt-get install -y -qq --fix-missing lftp
-          command -v lftp
-
       - name: Build an upload list of Saint Quest files only
         run: |
           set -euo pipefail
@@ -87,6 +69,45 @@ jobs:
 
       - name: Upload (Saint Quest only, page last)
         run: |
+          # No apt: use lftp only if the runner already has it, else
+          # replay the same plan with Python's standard ftplib.
+          if ! command -v lftp >/dev/null; then
+            python3 - <<'PY'
+          import ftplib, os, shlex, sys, time
+          def connect():
+              f = ftplib.FTP(os.environ["FTP_HOST"], timeout=60)
+              f.login(os.environ["FTP_USER"], os.environ["FTP_PASS"])
+              return f
+          def mkdirs(f, path):
+              cur = ""
+              for part in path.split("/"):
+                  cur = cur + "/" + part if cur else part
+                  try: f.mkd(cur)
+                  except ftplib.error_perm: pass
+          for dest in ("saintquest", "alltherex_saintquest"):
+              print("==", dest, flush=True)
+              f = connect(); sent = 0
+              for line in open("/tmp/lftp-" + dest + ".txt"):
+                  a = shlex.split(line)
+                  if not a: continue
+                  if a[0] == "mkdir": mkdirs(f, a[-1]); continue
+                  if a[0] != "put": continue
+                  src, remote = a[1], a[3]
+                  for attempt in range(5):
+                      try:
+                          with open(src, "rb") as fh: f.storbinary("STOR " + remote, fh)
+                          sent += 1; break
+                      except (ftplib.all_errors) as e:
+                          print("retry", remote, e, flush=True); time.sleep(5 * (attempt + 1))
+                          try: f.close()
+                          except Exception: pass
+                          f = connect()
+                  else:
+                      sys.exit("upload failed: " + remote)
+              f.quit(); print(dest, sent, "files sent", flush=True)
+          PY
+            exit 0
+          fi
           for dest in saintquest alltherex_saintquest; do
             echo "== $dest"
             lftp -u "$FTP_USER","$FTP_PASS" -e "source /tmp/lftp-$dest.txt" "$FTP_HOST" || \
@@ -101,53 +122,55 @@ jobs:
         # committed; temp files are shredded; an existing
         # saintquest/app/.env is never overwritten; chess/app/.env is
         # only read.
+        # Python ftplib only (no apt/lftp needed). The file is held in
+        # memory, never written to the runner's disk.
         run: |
-          set -euo pipefail
-          umask 077
-          work=$(mktemp -d)
-          cleanup() { find "$work" -type f -exec shred -u {} + 2>/dev/null || true; rm -rf "$work"; }
-          trap cleanup EXIT
-          ftp() { lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 3; set cmd:fail-exit yes; $1; bye" "$FTP_HOST"; }
-          echo "FTP root folders: $(ftp 'cls -1' 2>/dev/null | tr -d '\r' | grep '/$' | tr '\n' ' ' || true)"
-          found=""
-          for src in chess/app/.env alltherex/chess/app/.env; do
-            if ftp "get $src -o $work/chess.env" >/dev/null 2>&1 && [ -s "$work/chess.env" ]; then
-              found="$src"; break
-            fi
-          done
-          if [ -z "$found" ]; then
-            echo "::warning::no readable chess/app/.env over FTP; database settings must be set in Plesk"
-            exit 0
-          fi
-          echo "Morse Chess settings file found at $found (DB_* keys will be copied)"
-          tr -d '\r' < "$work/chess.env" \
-            | grep -E '^[[:space:]]*(DB_DRIVER|DB_HOST|DB_PORT|DB_NAME|DB_USER|DB_PASS|DB_SOCKET)[[:space:]]*=' > "$work/db.env" || true
-          shred -u "$work/chess.env"
-          while IFS= read -r line; do
-            v="${line#*=}"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"
-            v="${v#\"}"; v="${v%\"}"; v="${v#\'}"; v="${v%\'}"
-            k="${line%%=*}"; k="${k//[[:space:]]/}"
-            case "$k" in DB_DRIVER|DB_PORT) ;; *) if [ -n "$v" ]; then echo "::add-mask::$v"; fi;; esac
-          done < "$work/db.env"
-          keys=$(cut -d= -f1 "$work/db.env" | tr -d ' ' | sort -u | tr '\n' ' ')
-          echo "DB keys present (names only): $keys"
-          if ! grep -qE '^[[:space:]]*DB_NAME[[:space:]]*=' "$work/db.env" || ! grep -qE '^[[:space:]]*DB_USER[[:space:]]*=' "$work/db.env"; then
-            echo "::warning::chess/app/.env has no DB_NAME/DB_USER (Morse may use Plesk environment variables); nothing copied"
-            exit 0
-          fi
-          { echo "# Copied by the deploy workflow: DB_* keys only from the Morse Chess settings."; cat "$work/db.env"; } > "$work/sq.env"
-          for dest in saintquest alltherex/saintquest; do
-            if ! ftp "cls -1 $dest/app/" >/dev/null 2>&1; then
-              echo "$dest/app: not on this server, skipped"; continue
-            fi
-            if ftp "get $dest/app/.env -o $work/existing.env" >/dev/null 2>&1; then
-              [ -f "$work/existing.env" ] && shred -u "$work/existing.env"
-              echo "$dest/app/.env already exists: left untouched"
-              continue
-            fi
-            ftp "put $work/sq.env -o $dest/app/.env" >/dev/null
-            echo "$dest/app/.env created (DB_* keys only)"
-          done
+          python3 - <<'PY'
+          import ftplib, io, os, re
+          f = ftplib.FTP(os.environ["FTP_HOST"], timeout=60)
+          f.login(os.environ["FTP_USER"], os.environ["FTP_PASS"])
+          def get(path):
+              buf = io.BytesIO()
+              try:
+                  f.retrbinary("RETR " + path, buf.write)
+              except ftplib.all_errors:
+                  return None
+              return buf.getvalue()
+          found = text = None
+          for src in ("chess/app/.env", "alltherex/chess/app/.env"):
+              data = get(src)
+              if data:
+                  found, text = src, data.decode("utf-8", "replace"); break
+          if not found:
+              print("::warning::no readable chess/app/.env over FTP; database settings must be set in Plesk")
+              raise SystemExit(0)
+          print("Morse Chess settings file found at", found, "(DB_* keys will be copied)")
+          pat = re.compile(r"^\s*(DB_DRIVER|DB_HOST|DB_PORT|DB_NAME|DB_USER|DB_PASS|DB_SOCKET)\s*=")
+          lines = [l for l in text.replace("\r", "").split("\n") if pat.match(l)]
+          del text
+          keys = set()
+          for l in lines:
+              k, v = l.split("=", 1)
+              k = k.strip(); v = v.strip().strip('"').strip("'")
+              keys.add(k)
+              if k not in ("DB_DRIVER", "DB_PORT") and v:
+                  print("::add-mask::" + v)
+          print("DB keys present (names only):", " ".join(sorted(keys)))
+          if not {"DB_NAME", "DB_USER"} <= keys:
+              print("::warning::chess/app/.env has no DB_NAME/DB_USER; nothing copied")
+              raise SystemExit(0)
+          body = ("# Copied by the deploy workflow: DB_* keys only from the Morse Chess settings.\n" + "\n".join(lines) + "\n").encode()
+          for dest in ("saintquest", "alltherex/saintquest"):
+              try:
+                  f.nlst(dest + "/app")
+              except ftplib.all_errors:
+                  print(dest + "/app: not on this server, skipped"); continue
+              if get(dest + "/app/.env") is not None:
+                  print(dest + "/app/.env already exists: left untouched"); continue
+              f.storbinary("STOR " + dest + "/app/.env", io.BytesIO(body))
+              print(dest + "/app/.env created (DB_* keys only)")
+          f.quit()
+          PY
 
       - name: Smoke test
         run: |
