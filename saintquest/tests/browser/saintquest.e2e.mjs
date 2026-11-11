@@ -294,7 +294,9 @@ try {
   const shield = A.page.locator('#battle-root .round-btn', { hasText: 'Shield' });
   let shotTaken = false;
   const t0 = Date.now();
-  while (Date.now() - t0 < 90000) {
+  // Play for real; on a very slow software-GL runner, leave after 45 s
+  // (with the Leave button), which still records a paid (loss) battle.
+  while (Date.now() - t0 < 45000) {
     if (await A.page.locator('#battle-result').count()) break;
     const d = await A.page.evaluate(() => window.__sqBattle.debug());
     if (d.over) { await sleep(300); continue; }
@@ -302,6 +304,14 @@ try {
     if (d.myHp < 60 && await shield.isEnabled().catch(() => false)) await shield.click({ timeout: 1000 }).catch(() => {});
     if (!shotTaken && Date.now() - t0 > 3000) { await shot(A.page, 'battle'); shotTaken = true; }
     await sleep(250);
+  }
+  if (!(await A.page.locator('#battle-result').count())) {
+    const d = await A.page.evaluate(() => window.__sqBattle.debug());
+    if (!d.over) {
+      console.log('  (duel still running after 45 s: ' + JSON.stringify({ myHp: d.myHp, oppHp: d.oppHp }) + '; leaving)');
+      await A.page.locator('.battle-quit').click();
+      await A.page.locator('.leave-ask .btn.red').click();
+    }
   }
   await A.page.waitForSelector('#battle-result', { timeout: 15000 });
   const resultText = await A.page.textContent('#battle-result');
