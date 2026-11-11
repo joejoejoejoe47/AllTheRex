@@ -1,0 +1,346 @@
+[
+ {
+  "key": "francis",
+  "name": "St. Francis of Assisi",
+  "patron": "animals and nature",
+  "model": "rogue-hooded",
+  "hide": [
+   "RogueHooded_Mask"
+  ],
+  "rules": [
+   {
+    "from": [
+     70,
+     180
+    ],
+    "to": 28,
+    "sat": 0.55,
+    "val": 0.78
+   }
+  ],
+  "price": 150,
+  "rarity": "common",
+  "stats": {
+   "faith": 6,
+   "hope": 7,
+   "charity": 9
+  },
+  "feast": "Oct 4",
+  "bio": "Gave away his riches, preached to the birds and made peace with a wolf."
+ },
+ {
+  "key": "benedict",
+  "name": "St. Benedict",
+  "patron": "students and Europe",
+  "model": "rogue-hooded",
+  "hide": [
+   "RogueHooded_Mask"
+  ],
+  "rules": [
+   {
+    "from": [
+     70,
+     180
+    ],
+    "to": 230,
+    "sat": 0.25,
+    "val": 0.42
+   }
+  ],
+  "price": 300,
+  "rarity": "common",
+  "stats": {
+   "faith": 8,
+   "hope": 6,
+   "charity": 6
+  },
+  "feast": "Jul 11",
+  "bio": "Wrote a gentle rule for monks: pray, work and welcome every guest."
+ },
+ {
+  "key": "martin",
+  "name": "St. Martin of Tours",
+  "patron": "soldiers and the poor",
+  "model": "ranger",
+  "rules": [
+   {
+    "from": [
+     180,
+     250
+    ],
+    "to": 355,
+    "sat": 1.0,
+    "val": 0.95
+   }
+  ],
+  "price": 300,
+  "rarity": "common",
+  "stats": {
+   "faith": 6,
+   "hope": 7,
+   "charity": 8
+  },
+  "feast": "Nov 11",
+  "bio": "Cut his warm cloak in half to share it with a freezing beggar."
+ },
+ {
+  "key": "isidore",
+  "name": "St. Isidore the Farmer",
+  "patron": "farmers",
+  "model": "ranger",
+  "rules": [
+   {
+    "from": [
+     180,
+     250
+    ],
+    "to": 48,
+    "sat": 0.85,
+    "val": 1.05
+   }
+  ],
+  "price": 250,
+  "rarity": "common",
+  "stats": {
+   "faith": 7,
+   "hope": 8,
+   "charity": 6
+  },
+  "feast": "May 15",
+  "bio": "Prayed while he ploughed, and shared his food with hungry birds."
+ },
+ {
+  "key": "christopher",
+  "name": "St. Christopher",
+  "patron": "travellers",
+  "model": "barbarian",
+  "hide": [
+   "Barbarian_BearHat"
+  ],
+  "rules": [],
+  "price": 350,
+  "rarity": "uncommon",
+  "stats": {
+   "faith": 6,
+   "hope": 6,
+   "charity": 9
+  },
+  "feast": "Jul 25",
+  "bio": "A gentle giant who carried travellers safely across a wild river."
+ },
+ {
+  "key": "kateri",
+  "name": "St. Kateri Tekakwitha",
+  "patron": "ecology and Native peoples",
+  "model": "rogue",
+  "rules": [
+   {
+    "from": [
+     70,
+     180
+    ],
+    "to": 160,
+    "sat": 0.9,
+    "val": 0.95
+   }
+  ],
+  "price": 400,
+  "rarity": "uncommon",
+  "stats": {
+   "faith": 8,
+   "hope": 8,
+   "charity": 7
+  },
+  "feast": "Jul 14",
+  "bio": "The Lily of the Mohawks, who loved God in the forests and rivers."
+ },
+ {
+  "key": "rita",
+  "name": "St. Rita of Cascia",
+  "patron": "impossible causes",
+  "model": "rogue",
+  "rules": [
+   {
+    "from": [
+     70,
+     180
+    ],
+    "to": 330,
+    "sat": 0.7,
+    "val": 1.0
+   }
+  ],
+  "price": 400,
+  "rarity": "uncommon",
+  "stats": {
+   "faith": 9,
+   "hope": 9,
+   "charity": 6
+  },
+  "feast": "May 22",
+  "bio": "Peacemaker of her town. A rose bloomed for her in the middle of winter."
+ },
+ {
+  "key": "patrick",
+  "name": "St. Patrick",
+  "patron": "Ireland",
+  "model": "mage",
+  "hide": [
+   "Mage_Hat"
+  ],
+  "rules": [
+   {
+    "from": [
+     220,
+     320
+    ],
+    "to": 125,
+    "sat": 0.85,
+    "val": 1.0
+   }
+  ],
+  "price": 450,
+  "rarity": "uncommon",
+  "stats": {
+   "faith": 9,
+   "hope": 7,
+   "charity": 7
+  },
+  "feast": "Mar 17",
+  "bio": "Explained the Trinity with a little three-leaf shamrock."
+ },
+ {
+  "key": "nicholas",
+  "name": "St. Nicholas",
+  "patron": "children and gift-givers",
+  "model": "mage",
+  "rules": [
+   {
+    "from": [
+     220,
+     320
+    ],
+    "to": 0,
+    "sat": 1.0,
+    "val": 1.0
+   }
+  ],
+  "price": 500,
+  "rarity": "rare",
+  "stats": {
+   "faith": 7,
+   "hope": 8,
+   "charity": 10
+  },
+  "feast": "Dec 6",
+  "bio": "Secretly left gold for families in need, the real story behind Santa.",
+  "hide": [
+   "Mage_Hat"
+  ]
+ },
+ {
+  "key": "clare",
+  "name": "St. Clare of Assisi",
+  "patron": "television and eyes",
+  "model": "mage",
+  "hide": [
+   "Mage_Hat"
+  ],
+  "rules": [
+   {
+    "from": [
+     220,
+     320
+    ],
+    "to": 35,
+    "sat": 0.35,
+    "val": 1.35
+   }
+  ],
+  "price": 550,
+  "rarity": "rare",
+  "stats": {
+   "faith": 10,
+   "hope": 8,
+   "charity": 7
+  },
+  "feast": "Aug 11",
+  "bio": "Friend of St. Francis. Held up a monstrance and an army turned back."
+ },
+ {
+  "key": "george",
+  "name": "St. George",
+  "patron": "knights and scouts",
+  "model": "knight",
+  "rules": [],
+  "price": 650,
+  "rarity": "rare",
+  "stats": {
+   "faith": 8,
+   "hope": 9,
+   "charity": 8
+  },
+  "feast": "Apr 23",
+  "bio": "The brave knight of the legend who stood up to the dragon."
+ },
+ {
+  "key": "joan",
+  "name": "St. Joan of Arc",
+  "patron": "France and soldiers",
+  "model": "knight",
+  "rules": [
+   {
+    "from": [
+     330,
+     30
+    ],
+    "minSat": 0.45,
+    "to": 222,
+    "sat": 0.9,
+    "val": 1.0
+   }
+  ],
+  "price": 700,
+  "rarity": "epic",
+  "stats": {
+   "faith": 10,
+   "hope": 10,
+   "charity": 7
+  },
+  "feast": "May 30",
+  "bio": "A farm girl who followed heavenly voices and led an army at 17."
+ },
+ {
+  "key": "michael",
+  "name": "St. Michael the Archangel",
+  "patron": "protectors",
+  "model": "knight",
+  "rules": [
+   {
+    "from": [
+     330,
+     30
+    ],
+    "minSat": 0.45,
+    "to": 210,
+    "sat": 0.15,
+    "val": 1.5
+   },
+   {
+    "gray": true,
+    "to": 44,
+    "sat": 0.75,
+    "val": 1.25
+   }
+  ],
+  "price": 1200,
+  "rarity": "legendary",
+  "stats": {
+   "faith": 10,
+   "hope": 10,
+   "charity": 10
+  },
+  "feast": "Sep 29",
+  "bio": "Leader of heaven's armies, who casts the darkness out."
+ }
+]
