@@ -215,7 +215,7 @@ function step(dt) {
   // Who is close enough to help?
   let near = null;
   for (const v of VILLAGERS) {
-    if (Math.hypot((v.x - pos.x) * (W / H), v.y - pos.y) < 0.1) { near = v; break; }
+    if (Math.hypot((v.x - pos.x) * (W / H), v.y - pos.y) < 0.11) { near = v; break; }
   }
   if (near !== nearVillager) { nearVillager = near; for (const fn of listeners.near) fn(near); }
 }
