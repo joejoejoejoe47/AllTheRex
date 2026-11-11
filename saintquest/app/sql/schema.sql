@@ -174,3 +174,25 @@ CREATE TABLE IF NOT EXISTS sq_deeds (
   PRIMARY KEY (id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS sq_deeds_once ON sq_deeds (user_id, day, deed_key);
+
+CREATE TABLE IF NOT EXISTS sq_cases (
+  id VARCHAR(32) NOT NULL,
+  user_id VARCHAR(32) NOT NULL,
+  day VARCHAR(10) NOT NULL,
+  case_key VARCHAR(24) NOT NULL,
+  reward INT NOT NULL DEFAULT 0,
+  created_at VARCHAR(32) NOT NULL,
+  PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS sq_cases_once ON sq_cases (user_id, day, case_key);
+
+CREATE TABLE IF NOT EXISTS sq_blessings (
+  id VARCHAR(32) NOT NULL,
+  user_id VARCHAR(32) NOT NULL,
+  day VARCHAR(10) NOT NULL,
+  amount INT NOT NULL,
+  created_at VARCHAR(32) NOT NULL,
+  paid_at VARCHAR(32) NULL,
+  PRIMARY KEY (id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS sq_blessings_once ON sq_blessings (user_id, day);
