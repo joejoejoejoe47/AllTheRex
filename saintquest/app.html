@@ -20,6 +20,7 @@
     <div id="stage">
       <picture><source srcset="assets/img/home-bg.webp" type="image/webp"><img id="bg" src="assets/img/home-bg.jpg" alt="A sunny village path leading to a golden cathedral among floating islands" draggable="false"></picture>
       <canvas id="saint-canvas" aria-label="Your saint" role="button" tabindex="0"></canvas>
+      <button class="hotspot" id="saint-hit" type="button" aria-label="Open your saint" tabindex="-1"></button>
       <button class="hotspot villager" data-deed="apples" id="villager-apples" type="button" aria-label="Help Grandma Agnes"><span class="bubble">!</span></button>
       <button class="hotspot villager" data-deed="lamb" id="villager-lamb" type="button" aria-label="Help Little Tobias"><span class="bubble">!</span></button>
       <button class="hotspot villager" data-deed="chapel" id="villager-chapel" type="button" aria-label="Help Brother Peter"><span class="bubble">!</span></button>
@@ -31,6 +32,8 @@
       <button class="plate-arrow" id="next-saint" type="button" aria-label="Next saint">›</button>
     </div>
     <button id="edge-next" type="button" aria-label="Next saint" hidden>➜</button>
+    <div id="walk-hint" hidden></div>
+    <div id="walk-help" class="panel cream" hidden>Walk with <b>W A S D</b> or arrow keys · walk up the path to enter the church</div>
   </main>
 
   <header id="topbar">
