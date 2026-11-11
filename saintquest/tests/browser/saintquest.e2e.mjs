@@ -126,12 +126,11 @@ try {
   for (const deed of ['apples', 'lamb', 'chapel']) {
     await A.page.locator(`#villager-${deed}`).click();
     await A.page.waitForSelector('#deed-play .target');
-    for (let i = 0; i < 12; i++) {
-      const t = A.page.locator('#deed-play .target').first();
-      if (!(await t.count())) break;
-      await t.click({ force: true });
-      await sleep(120);
+    for (let i = 0; i < 20; i++) {
       if (await A.page.locator('.modal h2:has-text("Good deed done")').count()) break;
+      const t = A.page.locator('#deed-play .target').first();
+      if (await t.count()) await t.click({ force: true, timeout: 2000 }).catch(() => {});
+      await sleep(150);
     }
     await A.page.waitForSelector('.modal h2:has-text("Good deed done")', { timeout: 8000 });
     await closeModal(A.page);
