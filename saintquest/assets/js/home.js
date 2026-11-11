@@ -119,6 +119,7 @@ export function initHome() {
     scene.add(pivot);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(tick);
+    addVillagers().catch((e) => console.warn('villagers', e));
   } else {
     clock = { getDelta: (() => { let l = performance.now(); return () => { const n = performance.now(); const d = (n - l) / 1000; l = n; return d; }; })() };
     const loop = () => { tick(); requestAnimationFrame(loop); };
@@ -129,6 +130,50 @@ export function initHome() {
   window.addEventListener('resize', layout);
   document.addEventListener('visibilitychange', () => { running = !document.hidden; });
   layout();
+}
+
+// The villagers in the picture are real 3D people (KayKit, CC0) standing on the
+// painted ground; the walk videos themselves have nobody in them. When the walk
+// starts they slide out past the edges of the view as the camera moves forward.
+const VILLAGER_LOOKS = {
+  apples: { model: 'mage', tex: 'clare.png', hide: ['Mage_Hat'], size: 0.7, face: 0.6, idle: 'Idle_B' },
+  lamb: { model: 'ranger', tex: 'isidore.png', size: 0.5, face: -0.7, idle: 'Idle_A' },
+  chapel: { model: 'rogue-hooded', tex: 'benedict.png', hide: ['RogueHooded_Mask'], size: 0.74, face: -0.5, idle: 'Idle_A' },
+};
+const people = [];
+async function addVillagers() {
+  for (const v of VILLAGERS) {
+    const look = VILLAGER_LOOKS[v.deed];
+    if (!look) continue;
+    const s = await createSaint(look, { halo: false });
+    const p = new THREE.Group();
+    p.rotation.x = 0.07;
+    p.add(s.object);
+    s.object.rotation.y = look.face;
+    s.play(look.idle);
+    const sh = shadow.clone();
+    sh.material = shadow.material;
+    scene.add(sh);
+    scene.add(p);
+    people.push({ v, look, s, p, sh });
+  }
+}
+function placeVillagers(dt) {
+  // k = how far the camera has moved past them (0 at the painted picture).
+  const k = seg === 'main' ? Math.min(1, t / 0.9) : 1;
+  for (const o of people) {
+    const show = k < 1;
+    o.p.visible = o.sh.visible = show;
+    if (!show) continue;
+    o.s.update(dt);
+    const grow = 1 + k * 1.6;
+    const x = 0.5 + (o.v.x - 0.5) * (1 + k * 2.4);
+    const y = o.v.y + k * 0.32;
+    o.p.position.set(x * W, -y * H, -10);
+    o.p.scale.setScalar(PPU * o.look.size * grow);
+    o.sh.position.set(x * W, -y * H + 2, -500);
+    o.sh.scale.set(110 * o.look.size * grow, 30 * o.look.size * grow, 1);
+  }
 }
 
 /** Start downloading the walk frames (after login). */
@@ -229,8 +274,7 @@ function drawScene() {
   const away = seg !== 'main' || t > 0.02;
   if (!away) { vc.style.opacity = '0'; }
   else if (walk.draw(walkCtx, seg, t)) {
-    const fade = seg === 'main' ? Math.min(1, (t * 60) / 24) : 1; // cross-fade from the painted picture
-    vc.style.opacity = String(fade);
+    vc.style.opacity = '1'; // a clean cut from the painted picture (its first frame is the same picture), never a blend
   }
   document.body.classList.toggle('walked', away);
   if (away !== (drawnT > 0.02 || drawnSeg !== 'main')) layout();
@@ -244,6 +288,7 @@ function tick() {
   step(dt);
   drawScene();
   if (!renderer) return;
+  placeVillagers(dt);
   if (current) {
     current.update(dt);
     let pop = 1;

@@ -1,16 +1,16 @@
 {
  "version": 2,
- "junction": 4.0,
+ "junction": 5.0,
  "segments": {
   "main": {
-   "duration": 11.95,
+   "duration": 12.95,
    "fps": 60,
    "w": 960,
    "h": 540,
-   "fwd": "walk/v2/main.mp4?v=53a7225d6f",
-   "rev": "walk/v2/main-rev.mp4?v=bd8d770f35",
-   "end": "walk/v2/main-end.webp",
-   "start": "walk/v2/main-start.webp"
+   "fwd": "walk/v2/main.mp4?v=c118300c55",
+   "rev": "walk/v2/main-rev.mp4?v=27cc3e011b",
+   "end": "walk/v2/main-end.webp?v=36b4462903",
+   "start": "walk/v2/main-start.webp?v=9015f70bfd"
   },
   "market": {
    "duration": 9.95,
@@ -19,10 +19,10 @@
    "h": 540,
    "fwd": "walk/v2/market.mp4?v=fd96ce3804",
    "rev": "walk/v2/market-rev.mp4?v=f61601d44c",
-   "end": "walk/v2/market-end.webp",
-   "start": "walk/v2/market-start.webp",
+   "end": "walk/v2/market-end.webp?v=b42966fe59",
+   "start": "walk/v2/market-start.webp?v=d8398023e3",
    "from": "main",
-   "at": 4.0,
+   "at": 5.0,
    "turn": "left",
    "title": "Market Street"
   },
@@ -33,13 +33,13 @@
    "h": 540,
    "fwd": "walk/v2/park.mp4?v=6ca483c98a",
    "rev": "walk/v2/park-rev.mp4?v=11f1c25a42",
-   "end": "walk/v2/park-end.webp",
-   "start": "walk/v2/park-start.webp",
+   "end": "walk/v2/park-end.webp?v=efc77721d4",
+   "start": "walk/v2/park-start.webp?v=27888ad4d1",
    "from": "main",
-   "at": 4.0,
+   "at": 5.0,
    "turn": "right",
    "title": "Park Square"
   }
  },
- "source": "Generated walk videos (24 fps) motion-interpolated to 60 fps; a reversed copy plays when walking back."
+ "source": "Generated walk videos (24 fps, no people in them) motion-compensated to 60 fps (no blended frames); a reversed copy plays when walking back."
 }

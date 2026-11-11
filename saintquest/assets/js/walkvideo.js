@@ -8,10 +8,10 @@
 const base = () => (window.SQ_BASE || '') + '/assets/';
 let manifest = null, started = false, readyFns = [];
 const players = {}; // seg -> { fwd, rev, ready }
-let blendUntil = 0, host = null, lastDrawn = null, active = null, activeDir = 0, idleSince = 0;
+let host = null, lastDrawn = null, active = null, activeDir = 0, idleSince = 0;
 
 export const segments = () => (manifest ? manifest.segments : null);
-export const junction = () => (manifest ? manifest.junction : 4);
+export const junction = () => (manifest ? manifest.junction : 5);
 export const duration = (seg = 'main') => (manifest && manifest.segments[seg] ? manifest.segments[seg].duration : 12);
 export const loaded = () => !!manifest;
 export function onReady(fn) { readyFns.push(fn); }
@@ -77,7 +77,7 @@ export async function startLoading() {
   host.id = 'walk-videos';
   host.setAttribute('aria-hidden', 'true');
   document.body.append(host);
-  manifest = await fetch(base() + 'walk/walk.json?v=2.1').then((r) => r.json());
+  manifest = await fetch(base() + 'walk/walk.json?v=2.2').then((r) => r.json());
   prepare('main');
   for (const fn of readyFns) fn();
   // Side paths buffer a little later so the main path gets the bandwidth first.
@@ -131,6 +131,8 @@ export function advance(seg, t, vel) {
   }
   const rate = Math.max(0.1, Math.min(4, Math.abs(vel)));
   if (Math.abs(v.playbackRate - rate) > 0.01) v.playbackRate = rate;
+  // The clip played out in the walking direction: we are at that end.
+  if (v.ended && want >= D - 0.35) return dir === 1 ? D : 0;
   if (v.paused && ready(v)) {
     // Start exactly where we are (an ended clip would otherwise restart from 0).
     if (v.ended || Math.abs(v.currentTime - want) > 0.03) v.currentTime = Math.max(0, Math.min(D - 0.02, want));
@@ -156,9 +158,6 @@ export function draw(ctx, seg, t) {
   else if (ready(p.fwd) && !p.fwd.seeking && Math.abs(p.fwd.currentTime - t) < 0.06) v = p.fwd;
   else if (ready(p.rev) && !p.rev.seeking && Math.abs(p.rev.currentTime - (p.dur - t)) < 0.06) v = p.rev;
   if (!v) return lastDrawn !== null; // keep the last good frame
-  // Changing path (at the crossroads): blend over ~0.25 s instead of cutting.
-  if (lastDrawn && lastDrawn !== seg) blendUntil = performance.now() + 250;
-  ctx.globalAlpha = performance.now() < blendUntil ? 0.3 : 1;
   ctx.drawImage(v, 0, 0, s.w, s.h);
   ctx.globalAlpha = 1;
   lastDrawn = seg;
