@@ -18,7 +18,7 @@ DirectoryIndex index.php index.html
   <FilesMatch "\.(js|mjs|css|json)$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
-  <FilesMatch "\.(woff2?|png|jpe?g|webp|glb)$">
+  <FilesMatch "\.(woff2?|png|jpe?g|webp|glb|mp4|mp3)$">
     Header set Cache-Control "public, max-age=86400"
   </FilesMatch>
   <FilesMatch "^(index\.html|app\.html)$">
@@ -32,6 +32,8 @@ DirectoryIndex index.php index.html
   AddType application/json .json
   AddType model/gltf-binary .glb
   AddType image/webp .webp
+  AddType video/mp4 .mp4
+  AddType audio/mpeg .mp3
 </IfModule>
 
 <FilesMatch "\.(env|sqlite|sql)$">
