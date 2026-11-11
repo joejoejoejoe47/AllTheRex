@@ -31,22 +31,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Tools
+        # Best effort only: the runner's Ubuntu mirrors are sometimes
+        # unreachable. Without lftp the upload uses Python's ftplib.
         run: |
-          # The runner's DNS for security.ubuntu.com sometimes fails; retry, then
-          # fall back to the main archive mirror only.
           if command -v lftp >/dev/null; then exit 0; fi
-          for i in 1 2 3; do
-            sudo apt-get update -qq || true
-            if sudo apt-get install -y -qq --fix-missing lftp; then exit 0; fi
-            sleep 10
-          done
-          echo "falling back to archive mirror without the security pocket"
-          for f in /etc/apt/sources.list.d/*.sources /etc/apt/sources.list; do
-            [ -f "$f" ] && sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors.txt#http://azure.archive.ubuntu.com/ubuntu/#g; s#https?://security\.ubuntu\.com/ubuntu/?#http://azure.archive.ubuntu.com/ubuntu/#g' "$f"
-          done
-          sudo apt-get update -qq || true
-          sudo apt-get install -y -qq --fix-missing lftp
-          command -v lftp
+          timeout 240 sudo apt-get update -qq || true
+          timeout 240 sudo apt-get install -y -qq lftp || echo "lftp unavailable; using Python ftplib"
+          exit 0
 
       - name: Build an upload list of Saint Quest files only
         run: |
@@ -87,6 +78,44 @@ jobs:
 
       - name: Upload (Saint Quest only, page last)
         run: |
+          if ! command -v lftp >/dev/null; then
+            # Same plan files, replayed with Python's standard ftplib.
+            python3 - <<'PY'
+          import ftplib, os, shlex, sys, time
+          def connect():
+              f = ftplib.FTP(os.environ["FTP_HOST"], timeout=60)
+              f.login(os.environ["FTP_USER"], os.environ["FTP_PASS"])
+              return f
+          def mkdirs(f, path):
+              cur = ""
+              for part in path.split("/"):
+                  cur = cur + "/" + part if cur else part
+                  try: f.mkd(cur)
+                  except ftplib.error_perm: pass
+          for dest in ("saintquest", "alltherex_saintquest"):
+              print("==", dest, flush=True)
+              f = connect(); sent = 0
+              for line in open("/tmp/lftp-" + dest + ".txt"):
+                  a = shlex.split(line)
+                  if not a: continue
+                  if a[0] == "mkdir": mkdirs(f, a[-1]); continue
+                  if a[0] != "put": continue
+                  src, remote = a[1], a[3]
+                  for attempt in range(5):
+                      try:
+                          with open(src, "rb") as fh: f.storbinary("STOR " + remote, fh)
+                          sent += 1; break
+                      except (ftplib.all_errors) as e:
+                          print("retry", remote, e, flush=True); time.sleep(5 * (attempt + 1))
+                          try: f.close()
+                          except Exception: pass
+                          f = connect()
+                  else:
+                      sys.exit("upload failed: " + remote)
+              f.quit(); print(dest, sent, "files sent", flush=True)
+          PY
+            exit 0
+          fi
           for dest in saintquest alltherex_saintquest; do
             echo "== $dest"
             lftp -u "$FTP_USER","$FTP_PASS" -e "source /tmp/lftp-$dest.txt" "$FTP_HOST" || \
@@ -107,6 +136,10 @@ jobs:
           work=$(mktemp -d)
           cleanup() { find "$work" -type f -exec shred -u {} + 2>/dev/null || true; rm -rf "$work"; }
           trap cleanup EXIT
+          if ! command -v lftp >/dev/null; then
+            echo "::warning::lftp unavailable; database settings step skipped (an existing app/.env is never changed anyway)"
+            exit 0
+          fi
           ftp() { lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 3; set cmd:fail-exit yes; $1; bye" "$FTP_HOST"; }
           echo "FTP root folders: $(ftp 'cls -1' 2>/dev/null | tr -d '\r' | grep '/$' | tr '\n' ' ' || true)"
           found=""
