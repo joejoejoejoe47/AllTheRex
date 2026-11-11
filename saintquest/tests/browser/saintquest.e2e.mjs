@@ -320,50 +320,60 @@ try {
   mA = await me(A.page);
   ok(mA.lifetime > battlesBefore, 'battle reward is saved', `${battlesBefore} -> ${mA.lifetime}`);
 
-  // ---------- walking at home and the cathedral (real keyboard) ----------
+  // ---------- walking at home (the walk video) and the cathedral (real keyboard) ----------
   const C = await newPlayer('C');
   await signup(C.page, 'Cy' + stamp);
   const cp = C.page;
   await waitFor(() => cp.evaluate(() => window.__sqHome.loaded));
-  const hs = () => cp.evaluate(() => { const h = window.__sqHome; return { ...h.pos, walking: h.walking, anim: h.anim, heading: h.heading, zoom: h.zoom, near: h.near }; });
+  const hs = () => cp.evaluate(() => { const h = window.__sqHome; return { ...h.pos, t: h.t, frame: h.frame, walking: h.walking, anim: h.anim, heading: h.heading, scale: h.scale, near: h.near, walked: document.body.classList.contains('walked') }; });
+  await waitFor(() => cp.evaluate(() => window.__sqHome.framesLoaded >= 1), 90000, 300);
+  await waitFor(async () => (await hs()).scale === 1, 10000, 100); // after the pop-in
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
   let h0 = await hs();
-  ok(!h0.walking && h0.anim === 'Idle_A', 'home saint starts idle');
+  ok(!h0.walking && h0.anim === 'Idle_A' && h0.t === 0, 'home starts on frame 0 with the saint idle');
   await cp.keyboard.down('KeyW');
-  ok(await waitFor(async () => { const h = await hs(); return h.walking && h.anim === 'Walking_A' && h.y < h0.y - 0.03; }, 20000, 100), 'holding W walks the saint up the path with the walk animation');
+  ok(await waitFor(async () => { const h = await hs(); return h.walking && h.anim === 'Walking_A' && h.frame > 12; }, 20000, 100), 'holding W plays the walk forward with the walk animation');
+  await sleep(400);
   await shot(cp, 'home-midwalk');
   let h1 = await hs();
   ok(Math.abs(Math.abs(h1.heading) - Math.PI) < 0.35, 'walking forward shows the saint\'s back', String(h1.heading));
-  ok(h1.zoom > 1.0, 'the village zooms in gently while walking forward', String(h1.zoom));
+  ok(h1.scale === h0.scale && h0.scale === 1, 'the saint stays the same size while walking', `${h0.scale} -> ${h1.scale}`);
+  ok(h1.walked && await cp.locator('#villager-chapel').evaluate((e) => getComputedStyle(e).opacity) === '0' && await cp.locator('#signpost').evaluate((e) => getComputedStyle(e).pointerEvents) === 'none', 'villager markers and signpost fade away once you walk off the painted scene');
   await cp.keyboard.up('KeyW');
   ok(await waitFor(async () => { const h = await hs(); return !h.walking && h.anim === 'Idle_A'; }, 5000, 100), 'releasing W stops the walk (idle)');
   const hStop = await hs();
-  await sleep(600);
+  await sleep(700);
   const hStill = await hs();
-  ok(hStill.y === hStop.y && hStill.x === hStop.x && hStill.zoom === hStop.zoom, 'saint and background stay still with no key held');
+  ok(hStill.t === hStop.t && hStill.x === hStop.x, 'the scene freezes when no key is held', `${hStop.t} -> ${hStill.t}`);
   await cp.keyboard.down('KeyS');
-  ok(await waitFor(async () => { const h = await hs(); return h.walking && Math.abs(h.heading) < 0.35 && h.y > hStill.y + 0.005; }, 10000, 100), 'S walks back toward the viewer, facing the viewer');
+  ok(await waitFor(async () => { const h = await hs(); return h.walking && Math.abs(h.heading) < 0.35 && h.t < hStill.t - 0.2; }, 10000, 100), 'S plays the walk backward, saint facing the viewer');
+  ok((await hs()).scale === 1, 'saint size unchanged walking back');
   await cp.keyboard.up('KeyS');
   await cp.keyboard.down('KeyD');
-  ok(await waitFor(async () => { const h = await hs(); return Math.abs(h.heading - Math.PI / 2) < 0.35; }, 10000, 100), 'D turns the saint sideways');
+  ok(await waitFor(async () => { const h = await hs(); return Math.abs(h.heading - Math.PI / 2) < 0.35 && h.x > hStill.x + 0.01; }, 10000, 100), 'D steps the saint to the right, facing right');
   await cp.keyboard.up('KeyD');
   await cp.keyboard.down('ArrowLeft');
   ok(await waitFor(async () => { const h = await hs(); return Math.abs(h.heading + Math.PI / 2) < 0.35; }, 10000, 100), 'arrow keys work too (left)');
   await cp.keyboard.up('ArrowLeft');
   await waitFor(async () => !(await hs()).walking, 5000, 100);
-  // Typing in the search box never moves the saint.
+  // Typing in the search box never moves the saint or the scene.
   const hT = await hs();
   await cp.locator('#search').click();
   await cp.keyboard.type('wasd swiss');
   await cp.keyboard.down('KeyW'); await sleep(700); await cp.keyboard.up('KeyW');
   const hT2 = await hs();
-  ok(hT2.x === hT.x && hT2.y === hT.y && !hT2.walking, 'typing in the search box does not move the saint');
+  ok(hT2.x === hT.x && hT2.t === hT.t && !hT2.walking, 'typing in the search box does not move the saint');
   await cp.locator('#search').fill('');
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
-  // Tap the ground next to Brother Peter, walk there, press E to help.
-  const vb = await cp.locator('#villager-chapel').boundingBox();
-  await cp.mouse.click(vb.x + vb.width / 2, vb.y + ((0.66 - 0.40) / 0.18) * vb.height);
-  ok(await waitFor(async () => (await hs()).near === 'chapel', 30000, 150), 'tapping the ground walks the saint to a villager');
+  // Walk back to frame 0: the painted scene and its villagers return.
+  await cp.keyboard.down('KeyS');
+  ok(await waitFor(async () => (await hs()).t === 0, 30000, 100), 'holding S rewinds all the way to the home picture');
+  await cp.keyboard.up('KeyS');
+  ok(await waitFor(async () => !(await hs()).walked, 3000, 100), 'villager markers come back at frame 0');
+  // Step over to Brother Peter with D and press E.
+  await cp.keyboard.down('KeyD');
+  ok(await waitFor(async () => (await hs()).near === 'chapel', 30000, 100), 'walking sideways reaches a villager');
+  await cp.keyboard.up('KeyD');
   ok(await cp.locator('#walk-hint').isVisible(), 'a "press E" hint appears next to the villager');
   await cp.keyboard.press('KeyE');
   ok(await waitFor(() => cp.locator('#deed-play').count().then((n) => n > 0), 5000), 'pressing E starts the villager\'s good deed');
@@ -371,7 +381,9 @@ try {
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
   // Walk all the way up the path to the cathedral doors.
   await cp.keyboard.down('KeyW');
-  ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 120000, 200), 'reaching the cathedral doors opens the church');
+  const sizes = new Set();
+  ok(await waitFor(async () => { sizes.add((await hs()).scale); return cp.evaluate(() => window.__sqChurch.active); }, 120000, 200), 'reaching the cathedral doors opens the church');
+  ok(sizes.size === 1, 'saint size is constant all the way up the path', [...sizes].join(','));
   await cp.keyboard.up('KeyW');
   await cp.waitForSelector('#leave-church', { state: 'visible' });
   await sleep(1500);
@@ -387,7 +399,7 @@ try {
   const c1 = await cp.evaluate(() => window.__sqChurch.pos);
   ok(Math.abs(c1.x) < 14.3 && c1.z > -39.1, 'saint stays inside the walls', JSON.stringify(c1));
   await cp.locator('#leave-church').click();
-  ok(await waitFor(async () => !(await cp.evaluate(() => window.__sqChurch.active)) && (await hs()).y > 0.4, 5000), '"Leave church" returns home outside the doors');
+  ok(await waitFor(async () => !(await cp.evaluate(() => window.__sqChurch.active)) && (await hs()).t > 10, 5000), '"Leave church" returns to the cathedral doors');
   await sleep(700);
   await cp.keyboard.down('KeyW');
   ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 60000, 200), 'walking up again re-enters the church');

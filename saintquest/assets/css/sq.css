@@ -28,6 +28,10 @@ h1, h2, h3, .brand, .big-btn b { font-family: Fredoka, Nunito, sans-serif; }
 #bg { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; display: block; }
 #saint-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; outline: none; }
 #saint-hit { cursor: pointer; border-radius: 40%; z-index: 1; }
+#walk-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+.villager, #signpost { transition: opacity .35s; }
+body.walked .villager, body.walked #signpost { opacity: 0; pointer-events: none; }
+#walk-load { position: fixed; z-index: 4; right: 16px; bottom: 74px; padding: 3px 12px; font-size: 12px; font-weight: 800; pointer-events: none; }
 #bg { cursor: default; }
 #saint-plate.dim { opacity: .45; }
 #walk-hint { position: fixed; z-index: 4; transform: translate(-50%, -100%); background: var(--cream); border: 3px solid var(--gold); border-radius: 14px; padding: 4px 12px; font: 700 15px Fredoka, sans-serif; white-space: nowrap; pointer-events: auto; cursor: pointer; box-shadow: var(--shadow); animation: fade .2s; }
@@ -367,7 +371,7 @@ textarea.input { resize: vertical; min-height: 70px; }
 .church-title b { display: block; font: 700 24px Fredoka, sans-serif; color: var(--gold-dd, #7a5300); }
 .church-title small { font-weight: 800; color: #6b5a3a; }
 .church-title.gone { opacity: 0; }
-body.in-church #saint-plate, body.in-church #edge-next, body.in-church #walk-hint, body.in-church #walk-help, body.in-church #quest-banner { display: none !important; }
+body.in-church #saint-plate, body.in-church #walk-load, body.in-church #edge-next, body.in-church #walk-hint, body.in-church #walk-help, body.in-church #quest-banner { display: none !important; }
 #church-stick { left: 18px; bottom: 104px; }
 #door-fx { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
 #door-fx .door-frame { position: absolute; perspective: 300px; border-radius: 50% 50% 0 0 / 30% 30% 0 0; overflow: visible; transition: transform .6s ease-in; }
@@ -379,6 +383,13 @@ body.in-church #saint-plate, body.in-church #edge-next, body.in-church #walk-hin
 #door-fx.open .door-leaf.r { transform: rotateY(105deg); }
 #door-fx.open .door-glow { opacity: 1; }
 #door-fx.zoom .door-frame { transform: scale(40); }
+#door-fx.painted .door-frame { perspective: 1400px; }
+#door-fx.painted .door-leaf { border: 0; background-repeat: no-repeat; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
+#door-fx.painted .door-leaf.l { border-radius: 100% 0 0 0 / 28% 0 0 0; }
+#door-fx.painted .door-leaf.r { border-radius: 0 100% 0 0 / 0 28% 0 0; }
+#door-fx.painted.zoom .door-frame { transform: scale(5); }
+body.walked #saint-plate { opacity: 0; pointer-events: none; }
+#saint-plate { transition: opacity .35s; }
 #door-fx .door-white { position: absolute; inset: 0; background: #fffaf0; opacity: 0; transition: opacity .55s ease-in; }
 #door-fx.zoom .door-white { opacity: 1; transition-delay: .1s; }
 #door-fx.done { transition: opacity .6s; opacity: 0; }

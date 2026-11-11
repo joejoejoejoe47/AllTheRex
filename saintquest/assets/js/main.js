@@ -1,7 +1,7 @@
 import * as api from './api.js';
 import { $, $$, el, toast, openModal, sparkle, thumb, fmt, closeAllModals } from './ui.js';
 import { state, setMe, onChange, def, homeSaint } from './state.js';
-import { initHome, showSaint, cheer, layout, pause, onDoor, onNear, freeze, placeAtDoor, doorRect, saintScreen } from './home.js';
+import { initHome, showSaint, cheer, layout, pause, onDoor, onNear, freeze, placeAtDoor, doorRect, saintScreen, preloadWalk } from './home.js';
 import { onAction, isTouch } from './walkinput.js';
 import { enterChurch, doorTransition, inChurch } from './church.js';
 import { openStore } from './store.js';
@@ -55,6 +55,7 @@ function enter(me) {
   $('#deeds-pill').hidden = false;
   $('#saint-plate').hidden = false;
   layout();
+  preloadWalk();
   if (me.questions && me.questions.some((q) => q.role === 'owner' && q.status === 'pending')) {
     setTimeout(() => openNotes(), 600);
   }
@@ -252,7 +253,7 @@ let nearV = null;
 function wireWalking() {
   const hint = $('#walk-hint');
   const help = $('#walk-help');
-  if (isTouch()) help.innerHTML = 'Walk with the joystick or tap the path · walk up to the church to go inside';
+  if (isTouch()) help.innerHTML = 'Push the joystick up to walk to the church, down to walk back';
   let helpShown = false;
   const showHelp = () => {
     if (helpShown || !state.me) return;

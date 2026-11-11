@@ -1,0 +1,21 @@
+{
+ "fps": 24,
+ "frames": 289,
+ "duration": 12.0,
+ "sets": {
+  "hd": {
+   "step": 2,
+   "count": 145,
+   "w": 854,
+   "h": 480,
+   "dir": "walk/hd/"
+  },
+  "sd": {
+   "step": 3,
+   "count": 97,
+   "w": 640,
+   "h": 360,
+   "dir": "walk/sd/"
+  }
+ }
+}

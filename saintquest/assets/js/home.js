@@ -1,26 +1,20 @@
 // Home scene: the village picture as a "cover" background, hotspots that stay
 // glued to the picture at any screen size, and the player's best saint as a
-// real 3D model. WASD / arrows / joystick / tap walk the saint around the
-// painted path and grass with perspective (smaller as it walks toward the
-// cathedral); reaching the cathedral doors opens the church.
+// real 3D model at a constant size in the lower middle. Holding W plays the
+// walk up the path (a frame sequence) forward, S plays it backward, A/D step
+// the saint left/right; nothing moves when no key is held. Reaching the end
+// of the path (the cathedral doors) opens the church.
 import { createSaint, THREE } from './saint3d.js';
 import { $ } from './ui.js';
 import { direction, isTouch, makeJoystick, clearKeys } from './walkinput.js';
+import * as frames from './walkframes.js';
 
 const W = 1280, H = 720;
-const HERO_X = 0.484; // where the saint starts, as a fraction of the picture width
-const START_Y = 0.72; // feet, fraction of the picture height
-const PPU = 92; // picture pixels per model unit at the start spot
-const HORIZON = 0.2965; // perspective vanishing line (size → 0 there)
-const DOOR = { x: 0.502, y: 0.372 }; // cathedral doors (feet line)
-const ZOOM_MAX = 0.15;
-// Walkable band: [feetY, minX, maxX] from the doors down to the front grass.
-const BOUNDS = [
-  [0.365, 0.490, 0.514], [0.40, 0.480, 0.540], [0.44, 0.500, 0.580], [0.48, 0.470, 0.590],
-  [0.53, 0.430, 0.610], [0.60, 0.380, 0.640], [0.66, 0.280, 0.680], [0.72, 0.200, 0.720],
-  [0.80, 0.180, 0.780], [0.86, 0.160, 0.800],
-];
-const Y_MIN = BOUNDS[0][0], Y_MAX = BOUNDS[BOUNDS.length - 1][0];
+const HERO_X = 0.484; // where the saint stands, as a fraction of the picture width
+const FEET_Y = 0.72; // feet line, fraction of the picture height
+const PPU = 92; // picture pixels per model unit (constant: the saint never changes size)
+const SIDE_SPEED = 0.11; // picture widths per second for A/D
+const ACCEL = 9; // ease in/out of the walk (1/s)
 export const VILLAGERS = [
   { deed: 'apples', name: 'Grandma Agnes', x: 0.215, y: 0.70 },
   { deed: 'lamb', name: 'Little Tobias', x: 0.275, y: 0.68 },
@@ -28,45 +22,31 @@ export const VILLAGERS = [
 ];
 
 let stageRect = { left: 0, top: 0, scale: 1 };
-let base = { left: 0, top: 0, scale: 1 };
 let renderer = null, scene = null, camera = null, current = null, currentKey = null, clock = null, running = true, shadow = null, pivot = null;
 let loadToken = 0;
-let zoom = 1;
-const pos = { x: HERO_X, y: START_Y };
-let heading = 0, wantHeading = 0, idleFor = 0, walking = false, anim = 'Idle_A', target = null, doorFired = false, frozen = false;
+let t = 0, vel = 0, sx = HERO_X, sideVel = 0;
+let heading = 0, wantHeading = 0, idleFor = 0, walking = false, anim = 'Idle_A', doorFired = false, frozen = false;
+let walkCtx = null, drawnT = -1, drawnN = -1;
 const listeners = { layout: [], door: [], near: [] };
 let nearVillager = null;
 
 // Read-only view for the browser test.
 window.__sqHome = {
   get key() { return currentKey; }, get loaded() { return !!current; },
-  get pos() { return { x: pos.x, y: pos.y }; }, get walking() { return walking; }, get anim() { return anim; },
-  get zoom() { return zoom; }, get heading() { return heading; }, get near() { return nearVillager && nearVillager.deed; },
+  get pos() { return { x: sx, y: FEET_Y }; }, get t() { return t; }, get duration() { return frames.duration(); },
+  get frame() { return Math.round(t * frames.fps()); }, get walking() { return walking; }, get anim() { return anim; },
+  get scale() { return pivot ? pivot.scale.x / PPU : null; }, get heading() { return heading; },
+  get near() { return nearVillager && nearVillager.deed; }, get framesLoaded() { return frames.progress(); }, get frameSet() { return frames.setName(); },
 };
 
 export function onLayout(fn) { listeners.layout.push(fn); }
 export function onDoor(fn) { listeners.door.push(fn); }
 export function onNear(fn) { listeners.near.push(fn); }
-export const sizeAt = (fy) => Math.max(0.05, (fy - HORIZON) / (START_Y - HORIZON));
 
-function rangeAt(fy) {
-  if (fy <= BOUNDS[0][0]) return [BOUNDS[0][1], BOUNDS[0][2]];
-  for (let i = 1; i < BOUNDS.length; i++) {
-    const [y1, a1, b1] = BOUNDS[i];
-    if (fy <= y1) {
-      const [y0, a0, b0] = BOUNDS[i - 1];
-      const t = (fy - y0) / (y1 - y0);
-      return [a0 + (a1 - a0) * t, b0 + (b1 - b0) * t];
-    }
-  }
-  const l = BOUNDS[BOUNDS.length - 1];
-  return [l[1], l[2]];
-}
-function clampPos(p) {
-  p.y = Math.min(Y_MAX, Math.max(Y_MIN, p.y));
-  const [a, b] = rangeAt(p.y);
-  p.x = Math.min(b, Math.max(a, p.x));
-  return p;
+/** Sideways room: wide on the painted home picture (to reach the villagers), the path's width once walking. */
+function sideRange() {
+  const k = Math.min(1, t / 0.8);
+  return [0.20 + (HERO_X - 0.11 - 0.20) * k, 0.72 + (HERO_X + 0.11 - 0.72) * k];
 }
 
 export function layout() {
@@ -76,49 +56,31 @@ export function layout() {
   if (vw / vh > 1.2) left = (vw - W * scale) / 2;
   left = Math.min(0, Math.max(vw - W * scale, left));
   const top = Math.min(0, Math.max(vh - H * scale, (vh - H * scale) * 0.55));
-  base = { left, top, scale };
-  applyZoom(true);
+  stageRect = { left, top, scale };
+  $('#stage').style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
   resizeRenderer();
-  // Saint name plate stays where it always was (under the starting spot).
   const plate = $('#saint-plate');
   plate.style.left = (left + HERO_X * W * scale) + 'px';
   plate.style.top = Math.min(vh - 150, top + 0.745 * H * scale) + 'px';
-  // If the signpost is cut off (tall phones), show an edge arrow instead.
   const sp = $('#signpost').getBoundingClientRect();
-  $('#edge-next').hidden = !(sp.right > vw - 10 || sp.left < 0) || !current;
+  $('#edge-next').hidden = !(sp.right > vw - 10 || sp.left < 0) || !current || t > 0.05;
   for (const fn of listeners.layout) fn(stageRect);
-}
-
-/** Zoom gently toward the cathedral as the saint walks up the path. */
-function applyZoom(force = false) {
-  const p = Math.min(1, Math.max(0, (START_Y - pos.y) / (START_Y - DOOR.y)));
-  const z = 1 + ZOOM_MAX * p * p * (3 - 2 * p);
-  if (!force && Math.abs(z - zoom) < 0.0004) return;
-  zoom = z;
-  const s = base.scale * z;
-  const left = base.left + DOOR.x * W * base.scale * (1 - z);
-  const top = base.top + 0.33 * H * base.scale * (1 - z);
-  stageRect = { left, top, scale: s };
-  $('#stage').style.transform = `translate(${left}px, ${top}px) scale(${s})`;
 }
 
 export function toScreen(fx, fy) {
   return { x: stageRect.left + fx * W * stageRect.scale, y: stageRect.top + fy * H * stageRect.scale };
-}
-function toPicture(cx, cy) {
-  return { x: (cx - stageRect.left) / (W * stageRect.scale), y: (cy - stageRect.top) / (H * stageRect.scale) };
 }
 
 function resizeRenderer() {
   if (!renderer) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   renderer.setPixelRatio(dpr);
-  // Buffer matches the un-zoomed stage size; the gentle zoom is a CSS scale.
-  renderer.setSize(Math.max(1, Math.round(W * base.scale)), Math.max(1, Math.round(H * base.scale)), false);
+  renderer.setSize(Math.max(1, Math.round(W * stageRect.scale)), Math.max(1, Math.round(H * stageRect.scale)), false);
 }
 
 export function initHome() {
   const canvas = $('#saint-canvas');
+  walkCtx = $('#walk-canvas').getContext('2d');
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
   } catch (e) {
@@ -130,7 +92,7 @@ export function initHome() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
     scene = new THREE.Scene();
-    // Fixed camera: picture pixels, x right, y up (=-picture y).
+    // Fixed camera in picture pixels: x right, y up (= -picture y).
     camera = new THREE.OrthographicCamera(0, W, 0, -H, -2000, 2000);
     camera.position.set(0, 0, 1000);
     scene.add(new THREE.HemisphereLight(0xfff3d6, 0x7c9a52, 1.5));
@@ -140,7 +102,6 @@ export function initHome() {
     const rim = new THREE.DirectionalLight(0xfff0c0, 1.2);
     rim.position.set(-3, 3, -4);
     scene.add(rim);
-    // Soft contact shadow under the feet.
     const g = document.createElement('canvas');
     g.width = g.height = 128;
     const x = g.getContext('2d');
@@ -153,24 +114,31 @@ export function initHome() {
     shadow.renderOrder = -1;
     scene.add(shadow);
     pivot = new THREE.Group();
-    pivot.rotation.x = 0.07; // look very slightly down on the saint
+    pivot.rotation.x = 0.07;
     scene.add(pivot);
     clock = new THREE.Clock();
     renderer.setAnimationLoop(tick);
+  } else {
+    clock = { getDelta: (() => { let l = performance.now(); return () => { const n = performance.now(); const d = (n - l) / 1000; l = n; return d; }; })() };
+    const loop = () => { tick(); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
   }
-  // Tap / click on the ground to walk there.
-  $('#stage').addEventListener('click', (e) => {
-    if (e.target.id !== 'bg' || frozen) return;
-    const p = toPicture(e.clientX, e.clientY);
-    if (p.y < Y_MIN - 0.03) { if (Math.abs(p.x - DOOR.x) < 0.05 && p.y > 0.28) target = { x: DOOR.x, y: Y_MIN - 0.01 }; return; }
-    target = clampPos({ x: p.x, y: p.y });
-  });
   $('#saint-hit').addEventListener('click', () => $('#saint-canvas').dispatchEvent(new Event('click')));
   if (isTouch()) document.body.append(makeJoystick('home-stick'));
+  frames.onProgress((p) => {
+    const pill = $('#walk-load');
+    if (p >= 1) { pill.hidden = true; drawnN = -1; return; }
+    pill.hidden = false;
+    pill.textContent = `Loading the path… ${Math.round(p * 100)}%`;
+    drawnN = -1;
+  });
   window.addEventListener('resize', layout);
   document.addEventListener('visibilitychange', () => { running = !document.hidden; });
   layout();
 }
+
+/** Start downloading the walk frames (after login). */
+export function preloadWalk() { frames.startLoading().catch((e) => console.warn('walk frames', e)); }
 
 function setAnim(name, speed = 1) {
   if (!current) return;
@@ -178,32 +146,22 @@ function setAnim(name, speed = 1) {
 }
 
 function step(dt) {
-  let d = frozen ? { x: 0, y: 0 } : direction();
-  if ((d.x || d.y) && target) target = null;
-  if (!d.x && !d.y && target && !frozen) {
-    const dx = (target.x - pos.x) * (W / H), dy = target.y - pos.y;
-    const l = Math.hypot(dx, dy);
-    if (l < 0.006) target = null; else d = { x: dx / l, y: dy / l };
-  }
-  const moving = !!(d.x || d.y);
-  if (moving) {
-    const s = sizeAt(pos.y);
-    const before = { x: pos.x, y: pos.y };
-    pos.x += d.x * 0.105 * s * dt;
-    pos.y += d.y * 0.19 * s * dt;
-    clampPos(pos);
-    if (target && Math.hypot(pos.x - before.x, pos.y - before.y) < 1e-5) target = null;
-    wantHeading = Math.atan2(d.x, d.y);
-    idleFor = 0;
-    if (!doorFired && pos.y <= DOOR.y && Math.abs(pos.x - DOOR.x) < 0.03) {
-      doorFired = true;
-      target = null;
-      for (const fn of listeners.door) fn();
-    }
-  } else {
-    idleFor += dt;
-    if (idleFor > 2.5) wantHeading = 0; // turn back to face the viewer
-  }
+  const d = frozen ? { x: 0, y: 0 } : direction();
+  const end = frames.duration();
+  // Forward/back through the walk video, with a short ease in/out.
+  const want = -d.y; // W = +1 (forward), S = -1 (back)
+  vel += (want - vel) * Math.min(1, dt * ACCEL);
+  if (!want && Math.abs(vel) < 0.03) vel = 0;
+  t = Math.min(end, Math.max(0, t + vel * dt));
+  if ((t === 0 && vel < 0) || (t === end && vel > 0)) vel = 0;
+  // Sideways steps.
+  sideVel += (d.x - sideVel) * Math.min(1, dt * ACCEL);
+  if (!d.x && Math.abs(sideVel) < 0.03) sideVel = 0;
+  const [a, b] = sideRange();
+  sx = Math.min(b, Math.max(a, sx + sideVel * SIDE_SPEED * dt));
+  const moving = !!(d.x || d.y) || vel !== 0 || sideVel !== 0;
+  if (d.x || d.y) { wantHeading = Math.atan2(d.x, d.y); idleFor = 0; }
+  else if (!moving) { idleFor += dt; if (idleFor > 2.5) wantHeading = 0; }
   if (moving !== walking) {
     walking = moving;
     setAnim(moving ? 'Walking_A' : 'Idle_A', moving ? 1.25 : 1);
@@ -211,44 +169,56 @@ function step(dt) {
   let diff = wantHeading - heading;
   diff = Math.atan2(Math.sin(diff), Math.cos(diff));
   heading += diff * Math.min(1, dt * 10);
-  if (walking || idleFor < 0.1) applyZoom();
-  // Who is close enough to help?
-  let near = null;
-  for (const v of VILLAGERS) {
-    if (Math.hypot((v.x - pos.x) * (W / H), v.y - pos.y) < 0.11) { near = v; break; }
+  if (t < end - 0.25) doorFired = false;
+  if (!doorFired && t >= end - 0.001 && d.y < 0) {
+    doorFired = true;
+    vel = 0;
+    for (const fn of listeners.door) fn();
   }
+  let near = null;
+  if (t < 0.05) for (const v of VILLAGERS) if (Math.hypot((v.x - sx) * (W / H), v.y - FEET_Y) < 0.11) { near = v; break; }
   if (near !== nearVillager) { nearVillager = near; for (const fn of listeners.near) fn(near); }
 }
 
+function drawScene() {
+  const n = Math.round(frames.progress() * 1000);
+  if (t === drawnT && n === drawnN) return;
+  const fade = Math.min(1, (t * frames.fps()) / 6); // cross-fade from the painted picture
+  const vc = $('#walk-canvas');
+  if (t <= 0) { vc.style.opacity = '0'; } else if (frames.draw(walkCtx, t)) { vc.style.opacity = String(fade); }
+  const away = t > 0.02;
+  document.body.classList.toggle('walked', away);
+  if (away !== (drawnT > 0.02)) layout();
+  drawnT = t;
+  drawnN = n;
+}
+
 function tick() {
-  if (!running || !renderer) return;
-  const dt = Math.min(0.05, clock.getDelta());
+  if (!running) return;
+  const dt = Math.min(0.1, clock.getDelta());
+  step(dt);
+  drawScene();
+  if (!renderer) return;
   if (current) {
-    step(dt);
     current.update(dt);
-    const s = sizeAt(pos.y);
     let pop = 1;
     if (current.object.userData.pop !== undefined) {
       current.object.userData.pop = Math.min(1, current.object.userData.pop + dt * 3);
       const p = current.object.userData.pop;
       pop = p < 1 ? 0.6 + 0.4 * (1 - Math.pow(1 - p, 3)) + Math.sin(p * Math.PI) * 0.12 : 1;
     }
-    const k = PPU * s * pop;
-    pivot.position.set(pos.x * W, -pos.y * H, 0);
-    pivot.scale.setScalar(k);
+    pivot.position.set(sx * W, -FEET_Y * H, 0);
+    pivot.scale.setScalar(PPU * pop);
     const sway = !walking && Math.abs(heading) < 0.05 ? Math.sin(performance.now() / 2000) * 0.12 : 0;
     current.object.rotation.y = heading + sway;
-    shadow.position.set(pos.x * W, -pos.y * H + 2 * s, -500);
-    shadow.scale.set(150 * s, 42 * s, 1);
-    // Clickable box that follows the saint (opens its page).
+    shadow.position.set(sx * W, -FEET_Y * H + 2, -500);
+    shadow.scale.set(150, 42, 1);
     const hit = $('#saint-hit');
-    const hw = 110 * s, hh = 230 * s;
-    hit.style.left = (pos.x * W - hw / 2) + 'px';
-    hit.style.top = (pos.y * H - hh) + 'px';
-    hit.style.width = hw + 'px';
-    hit.style.height = hh + 'px';
-    const plate = $('#saint-plate');
-    plate.classList.toggle('dim', pos.y > 0.69 && Math.abs(pos.x - HERO_X) < 0.13 && (pos.y - START_Y) > -0.01 && Math.hypot(pos.x - HERO_X, pos.y - START_Y) > 0.02);
+    hit.style.left = (sx * W - 55) + 'px';
+    hit.style.top = (FEET_Y * H - 230) + 'px';
+    hit.style.width = '110px';
+    hit.style.height = '230px';
+    $('#saint-plate').classList.toggle('dim', Math.abs(sx - HERO_X) > 0.02);
   }
   renderer.render(scene, camera);
 }
@@ -256,27 +226,29 @@ function tick() {
 export function pause(p) { running = !p; if (!p && clock) clock.getDelta(); }
 
 /** Stop walking input (e.g. during the church transition). */
-export function freeze(f) { frozen = f; target = null; if (f) clearKeys(); }
+export function freeze(f) { frozen = f; if (f) { clearKeys(); vel = 0; sideVel = 0; } }
 
-/** Put the saint back outside the church doors, facing the viewer. */
+/** Back outside the cathedral doors (end of the path), facing the viewer. */
 export function placeAtDoor() {
-  pos.x = 0.52; pos.y = 0.43;
-  clampPos(pos);
+  t = Math.max(0, frames.duration() - 0.5);
+  vel = sideVel = 0;
+  sx = HERO_X;
   heading = wantHeading = 0;
   idleFor = 0;
   doorFired = false;
-  target = null;
-  applyZoom(true);
+  drawnT = -1;
 }
 
-export function resetPosition() { pos.x = HERO_X; pos.y = START_Y; heading = wantHeading = 0; doorFired = false; target = null; applyZoom(true); }
+export function resetPosition() { t = 0; vel = sideVel = 0; sx = HERO_X; heading = wantHeading = 0; doorFired = false; drawnT = -1; }
 
-/** Screen rect of the cathedral doors (for the door-opening transition). */
+/** Screen rect of the cathedral doors as framed at the end of the walk. */
 export function doorRect() {
-  const a = toScreen(DOOR.x - 0.016, 0.305), b = toScreen(DOOR.x + 0.016, DOOR.y);
-  return { left: a.x, top: a.y, width: b.x - a.x, height: b.y - a.y };
+  const a = toScreen(0.333, 0.0), b = toScreen(0.667, 0.855);
+  // The painted doors themselves (cut from the end frame) swing open.
+  const url = frames.frameUrl(frames.duration());
+  return { left: a.x, top: a.y, width: b.x - a.x, height: b.y - a.y, bg: url ? { url, w: W * stageRect.scale, h: H * stageRect.scale, x: stageRect.left - a.x, y: stageRect.top - a.y } : null };
 }
-export function saintScreen() { return toScreen(pos.x, pos.y); }
+export function saintScreen() { return toScreen(sx, FEET_Y); }
 export function currentDef() { return current ? currentKey : null; }
 
 /** Show a saint (catalog def). Returns when the model is on screen. */

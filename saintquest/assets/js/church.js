@@ -270,10 +270,17 @@ export function doorTransition(rect) {
     const fx = document.createElement('div');
     fx.id = 'door-fx';
     const w = Math.max(rect.width, 40), h = Math.max(rect.height, 56);
+    if (rect.bg) fx.classList.add('painted');
     const frame = document.createElement('div');
     frame.className = 'door-frame';
     Object.assign(frame.style, { left: rect.left + rect.width / 2 - w / 2 + 'px', top: rect.top + rect.height - h + 'px', width: w + 'px', height: h + 'px' });
     frame.innerHTML = '<div class="door-glow"></div><div class="door-leaf l"></div><div class="door-leaf r"></div>';
+    if (rect.bg) {
+      const [l, r] = frame.querySelectorAll('.door-leaf');
+      for (const [leaf, dx] of [[l, 0], [r, -w / 2]]) {
+        Object.assign(leaf.style, { backgroundImage: `url("${rect.bg.url}")`, backgroundSize: `${rect.bg.w}px ${rect.bg.h}px`, backgroundPosition: `${rect.bg.x + dx}px ${rect.bg.y}px` });
+      }
+    }
     const white = document.createElement('div');
     white.className = 'door-white';
     fx.append(frame, white);
