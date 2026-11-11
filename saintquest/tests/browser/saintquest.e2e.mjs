@@ -429,6 +429,14 @@ try {
   ok(await holdUntil('KeyS', async () => (await ds()).seg === 'main', 60000), 'S walks back out of Market Street to the crossroads');
   ok(await holdUntil('KeyD', async () => { const d = await ds(); return d.seg === 'park' && d.t > 1.2; }, 30000), 'D at the crossroads turns right into Park Square');
   await shot(dp, 'park-square');
+  // Sign out from the home screen: ends the session on the server and shows the login screen.
+  ok(await dp.locator('#logout-btn').isVisible() && /Sign out/.test(await dp.textContent('#logout-btn')), 'a visible Sign out button is on the home screen');
+  await dp.locator('#logout-btn').click();
+  ok(await waitFor(() => dp.locator('#auth-form').isVisible(), 5000), 'Sign out returns to the login / sign-up screen');
+  const meAfter = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/me')).status);
+  ok(meAfter === 401, 'the session is ended on the server', String(meAfter));
+  const noCsrf = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status);
+  ok(noCsrf === 403 || noCsrf === 419 || noCsrf === 400, 'logout without the CSRF token is refused', String(noCsrf));
   await D.ctx.close();
 
   ok(errors.length === 0, 'no page errors', errors.join(' | '));

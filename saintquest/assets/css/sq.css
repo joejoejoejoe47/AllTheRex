@@ -411,3 +411,5 @@ body.walked #saint-plate { opacity: 0; pointer-events: none; }
 #place-name { position: fixed; z-index: 3; left: 50%; top: 92px; transform: translateX(-50%); font: 700 22px Fredoka, sans-serif; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 2px rgba(0,0,0,.6); letter-spacing: .5px; pointer-events: none; }
 body.in-church #junction-hint, body.in-church #place-name { display: none !important; }
 @media (max-width: 820px) { #junction-hint { top: 118px; font-size: 14px; } #place-name { top: 74px; font-size: 18px; } }
+.signout-btn { margin-left: auto; flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; border: 2px solid var(--gold, #f3c64d); background: #fffaf0; color: #6b4a00; font: 700 12px Fredoka, sans-serif; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.signout-btn:hover { background: #fff3c9; }
