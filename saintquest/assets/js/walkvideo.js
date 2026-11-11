@@ -102,8 +102,9 @@ export function advance(seg, t, vel) {
   if (!p) return t;
   const D = p.dur;
   const dir = vel > 0.02 ? 1 : vel < -0.02 ? -1 : 0;
-  if (dir === 1 && t >= D - 0.005) return D;
-  if (dir === -1 && t <= 0.005) return 0;
+  // Within a frame or two of either end counts as there (clips end a hair early).
+  if (dir === 1 && t >= D - 0.04) return D;
+  if (dir === -1 && t <= 0.04) return 0;
   if (dir === 0) {
     for (const v of [p.fwd, p.rev]) if (!v.paused) v.pause();
     if (active && active.seg !== seg) active = null;
@@ -135,8 +136,6 @@ export function advance(seg, t, vel) {
     if (v.ended || Math.abs(v.currentTime - want) > 0.03) v.currentTime = Math.max(0, Math.min(D - 0.02, want));
     v.play().catch(() => {});
   }
-  // A clip that played to its last frame means we reached the end (or the start, walking back).
-  if (!v.seeking && activeDir === dir && v.duration && v.currentTime >= v.duration - 0.03) return dir === 1 ? D : 0;
   if (v.paused || v.seeking || !ready(v)) return t;
   const vt = v.currentTime;
   const nt = dir === 1 ? vt : D - vt;
