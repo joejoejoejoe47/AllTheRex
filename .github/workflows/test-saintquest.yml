@@ -1,0 +1,76 @@
+name: Test saintquest
+
+# Runs Saint Quest tests only. It never deploys and never touches other site
+# paths.
+
+on:
+  pull_request:
+    paths:
+      - "saintquest/**"
+      - ".github/workflows/test-saintquest.yml"
+      - ".github/workflows/deploy-saintquest.yml"
+  push:
+    branches: [main]
+    paths:
+      - "saintquest/**"
+      - ".github/workflows/test-saintquest.yml"
+      - ".github/workflows/deploy-saintquest.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-saintquest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: PHP extensions
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-cli php-sqlite3 php-mbstring php-xml php-gd php-mysql
+          php -m | grep -E -i '^(gd|pdo_sqlite|pdo_mysql)$'
+
+      - name: PHP unit tests
+        run: php saintquest/tests/run.php
+
+      - name: Health diagnosis (reason codes, no secrets)
+        env:
+          PHP_BIN: php
+        run: node saintquest/tests/health.test.mjs
+
+      - name: Real-pointer browser test (SQLite)
+        env:
+          PHP_BIN: php
+        run: |
+          npm install --no-save --no-audit --no-fund --prefix "$RUNNER_TEMP/pw" playwright-core@1.65.0
+          export PLAYWRIGHT_CORE="$RUNNER_TEMP/pw/node_modules/playwright-core/index.mjs"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node saintquest/tests/browser/saintquest.e2e.mjs
+
+      - name: MySQL end-to-end (same engine family as production)
+        env:
+          PHP_BIN: php
+        run: |
+          set -euo pipefail
+          sudo systemctl start mysql.service
+          mysql -uroot -proot -e "CREATE DATABASE sq_ci CHARACTER SET utf8mb4; CREATE USER 'sq'@'%' IDENTIFIED BY 'sq-ci-pass'; GRANT ALL ON sq_ci.* TO 'sq'@'%';"
+          mkdir -p "$RUNNER_TEMP/sq-storage"
+          SQ_DB_DRIVER=mysql SQ_DB_HOST=127.0.0.1 SQ_DB_PORT=3306 SQ_DB_NAME=sq_ci SQ_DB_USER=sq SQ_DB_PASS=sq-ci-pass SQ_STORAGE="$RUNNER_TEMP/sq-storage" \
+            php -S 127.0.0.1:8898 -t saintquest saintquest/index.php > /tmp/php-mysql.log 2>&1 &
+          sleep 1
+          curl -sS http://127.0.0.1:8898/api/health | tee /tmp/h.json; echo
+          grep -q '"db":true' /tmp/h.json || { cat /tmp/php-mysql.log; exit 1; }
+          mysql -uroot -proot -e "SHOW TABLES FROM sq_ci"
+          export PLAYWRIGHT_CORE="$RUNNER_TEMP/pw/node_modules/playwright-core/index.mjs"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          BASE=http://127.0.0.1:8898 node saintquest/tests/browser/saintquest.e2e.mjs || { tail -80 /tmp/php-mysql.log; exit 1; }
+          mysql -uroot -proot -e "SELECT username, virtue, lifetime, good_deeds FROM sq_ci.sq_users; SELECT status, COUNT(*) FROM sq_ci.sq_card_claims GROUP BY status"

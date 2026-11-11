@@ -1,0 +1,41 @@
+# Apache / LiteSpeed / Plesk.
+Options -Indexes
+DirectoryIndex index.php index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^app(/|$) - [F,L]
+  RewriteRule ^tests(/|$) - [F,L]
+  RewriteRule ^install\.php$ - [F,L]
+  RewriteRule \.(env|sqlite|sql)$ - [F,L]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|mjs|css|json)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(woff2?|png|jpe?g|webp|glb)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+  <FilesMatch "^(index\.html|app\.html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_mime.c>
+  AddType text/javascript .mjs
+  AddType text/javascript .js
+  AddType application/json .json
+  AddType model/gltf-binary .glb
+  AddType image/webp .webp
+</IfModule>
+
+<FilesMatch "\.(env|sqlite|sql)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+</FilesMatch>

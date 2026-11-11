@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!--SQ_BASE-->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Saint Quest</title>
+  <meta name="description" content="Saint Quest: collect cute 3D saints, help the villagers, win Holy Battles, trade with friends and add real saint cards with your camera.">
+  <meta name="theme-color" content="#f3c64d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4l22 8v18c0 15-10 25-22 30C20 55 10 45 10 30V12z' fill='%23f3c64d' stroke='%23a8741a' stroke-width='3'/%3E%3Cpath d='M29 16h6v10h10v6H35v16h-6V32H19v-6h10z' fill='%23fff8e1'/%3E%3C/svg%3E">
+  <link rel="preload" as="image" href="assets/img/home-bg.webp" type="image/webp">
+  <link rel="modulepreload" href="assets/vendor/three-bundle.min.js">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/sq.css">
+</head>
+<body>
+  <main id="scene" aria-label="Saint Quest village">
+    <div id="stage">
+      <picture><source srcset="assets/img/home-bg.webp" type="image/webp"><img id="bg" src="assets/img/home-bg.jpg" alt="A sunny village path leading to a golden cathedral among floating islands" draggable="false"></picture>
+      <canvas id="saint-canvas" aria-label="Your saint" role="button" tabindex="0"></canvas>
+      <button class="hotspot villager" data-deed="apples" id="villager-apples" type="button" aria-label="Help Grandma Agnes"><span class="bubble">!</span></button>
+      <button class="hotspot villager" data-deed="lamb" id="villager-lamb" type="button" aria-label="Help Little Tobias"><span class="bubble">!</span></button>
+      <button class="hotspot villager" data-deed="chapel" id="villager-chapel" type="button" aria-label="Help Brother Peter"><span class="bubble">!</span></button>
+      <button class="hotspot" id="signpost" type="button" aria-label="Next saint"><span class="sign-arrow" aria-hidden="true">➜</span><span class="sign-tip">Next saint</span></button>
+    </div>
+    <div id="saint-plate" hidden>
+      <button class="plate-arrow" id="prev-saint" type="button" aria-label="Previous saint">‹</button>
+      <div class="plate-text"><strong id="saint-name"></strong><small id="saint-sub"></small></div>
+      <button class="plate-arrow" id="next-saint" type="button" aria-label="Next saint">›</button>
+    </div>
+    <button id="edge-next" type="button" aria-label="Next saint" hidden>➜</button>
+  </main>
+
+  <header id="topbar">
+    <button class="pill-btn" id="trade-btn" type="button"><span aria-hidden="true">⇄</span> Trade</button>
+    <button class="pill-btn" id="add-btn" type="button"><span aria-hidden="true">＋</span> Add</button>
+    <form id="search-form" role="search" autocomplete="off">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input id="search" type="search" placeholder="Search saints, trades and players" aria-label="Search saints">
+      <div id="search-results" hidden></div>
+    </form>
+    <button class="icon-btn" id="bell-btn" type="button" aria-label="Notifications"><span aria-hidden="true">🔔</span><b id="bell-count" hidden>0</b></button>
+  </header>
+
+  <aside id="profile" class="panel blue" hidden>
+    <button id="avatar" type="button" aria-label="My saints"><img alt="" id="avatar-img"></button>
+    <div class="profile-text">
+      <div class="who"><strong id="p-name"></strong><button class="tiny-link" id="logout-btn" type="button">Log out</button></div>
+      <div class="lvl" id="p-level"></div>
+      <div class="meter-label"><span>Virtue</span><span id="p-meter-text"></span></div>
+      <div class="meter"><span class="heart" aria-hidden="true">💛</span><div class="bar"><i id="p-meter"></i></div></div>
+      <div class="wallet"><span aria-hidden="true">✦</span> <b id="p-wallet">0</b> virtue points to spend</div>
+    </div>
+  </aside>
+  <div id="deeds-pill" class="pill cream" hidden><span aria-hidden="true">⭐</span> Good Deeds: <b id="p-deeds">0</b></div>
+
+  <aside id="leaderboard" class="panel cream">
+    <h2><span aria-hidden="true">👑</span> Leaderboard <span aria-hidden="true">🏆</span></h2>
+    <ol id="lb-list"></ol>
+  </aside>
+
+  <button id="battle-btn" type="button" class="big-btn"><span class="shield" aria-hidden="true">✝</span><span><b>Holy Battle</b><small>Win virtue with your saints</small></span></button>
+  <div id="quest-banner" class="panel cream" role="status"><span class="shield sm" aria-hidden="true">✝</span><div><b id="quest-title">Quest: Help the villagers</b><small id="quest-text">Tap a villager with a “!” to lend a helping hand.</small></div></div>
+  <button id="store-btn" type="button" class="panel blue small-btn"><span aria-hidden="true">🛍️</span> Store</button>
+
+  <section id="trade-drop" aria-label="Trade" hidden></section>
+  <div id="modal-root"></div>
+  <div id="battle-root" hidden></div>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <div id="auth" hidden></div>
+  <noscript><p class="noscript">Saint Quest needs JavaScript turned on.</p></noscript>
+  <a id="credits-link" href="#credits">Credits</a>
+  <script type="module" src="assets/js/main.js"></script>
+</body>
+</html>
