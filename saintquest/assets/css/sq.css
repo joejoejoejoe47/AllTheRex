@@ -402,3 +402,33 @@ body.walked #saint-plate { opacity: 0; pointer-events: none; }
   .church-title { top: 140px; bottom: auto; }
   .church-title b { font-size: 18px; }
 }
+
+/* ---------- walk videos, crossroads, people you meet ---------- */
+#walk-videos { position: fixed; left: 0; top: 0; width: 2px; height: 2px; overflow: hidden; opacity: 0.01; pointer-events: none; z-index: -1; }
+#walk-videos video { width: 2px; height: 2px; }
+#junction-hint { position: fixed; z-index: 4; left: 50%; top: 132px; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; padding: 6px 16px; font: 700 16px Fredoka, sans-serif; white-space: nowrap; pointer-events: none; animation: fade .25s; }
+#junction-hint b { color: var(--gold-d, #a8741a); font-size: 14px; }
+#junction-hint kbd, .case-btn kbd { display: inline-block; min-width: 22px; padding: 0 5px; border-radius: 6px; background: #fff; border: 2px solid var(--gold-d, #a8741a); font: 700 13px Nunito, sans-serif; text-align: center; }
+#place-name { position: fixed; z-index: 3; left: 50%; top: 92px; transform: translateX(-50%); font: 700 22px Fredoka, sans-serif; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 2px rgba(0,0,0,.6); letter-spacing: .5px; pointer-events: none; }
+.case-btn { position: fixed; z-index: 6; transform: translate(-50%, -100%); display: flex; gap: 8px; align-items: center; padding: 8px 16px; border-radius: 16px; border: 3px solid var(--gold, #f3c64d); background: linear-gradient(180deg, #fffdf3, #ffeeb8); font: 700 16px Fredoka, sans-serif; color: #4a3200; box-shadow: 0 6px 18px rgba(80, 50, 0, .35), 0 0 0 4px rgba(255, 230, 140, .45); cursor: pointer; white-space: nowrap; animation: case-pop .3s ease-out, case-glow 1.6s ease-in-out .3s infinite; }
+.case-btn:disabled { opacity: .6; cursor: default; }
+@keyframes case-pop { from { transform: translate(-50%, -80%) scale(.7); opacity: 0; } }
+@keyframes case-glow { 50% { box-shadow: 0 6px 18px rgba(80, 50, 0, .35), 0 0 0 9px rgba(255, 230, 140, .25); } }
+.say-bubble { position: fixed; z-index: 5; transform: translate(-50%, -100%); max-width: min(360px, 80vw); padding: 7px 12px; border-radius: 14px; background: rgba(255, 255, 255, .96); border: 3px solid #8fc3ff; box-shadow: 0 4px 14px rgba(0,0,0,.25); font: 700 14px Nunito, sans-serif; color: #253047; pointer-events: none; animation: fade .15s; }
+.say-bubble b { display: block; font: 700 12px Fredoka, sans-serif; color: #3b6fb6; text-transform: uppercase; letter-spacing: .5px; }
+.say-bubble.mine { border-color: var(--gold, #f3c64d); }
+.say-bubble.mine b { color: #a8741a; }
+.say-bubble::after { content: ''; position: absolute; left: 50%; bottom: -10px; margin-left: -8px; border: 8px solid transparent; border-top-color: #8fc3ff; border-bottom: 0; }
+.say-bubble.mine::after { border-top-color: var(--gold, #f3c64d); }
+body.in-church .case-btn, body.in-church .say-bubble, body.in-church #junction-hint, body.in-church #place-name { display: none !important; }
+.mystery-box { position: fixed; z-index: 4; left: 50%; bottom: 96px; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; text-align: center; max-width: min(520px, 92vw); padding: 12px 20px; border-radius: 18px; background: rgba(255, 250, 232, .95); border: 3px solid var(--gold, #f3c64d); box-shadow: 0 0 30px rgba(255, 210, 90, .7); transition: opacity 1s; }
+.mystery-box b { font: 700 20px Fredoka, sans-serif; color: #7a5300; }
+.mystery-box small { font-weight: 800; color: #6b5a3a; }
+.mystery-box.dim { box-shadow: var(--shadow); }
+.mystery-box.gone { opacity: 0; pointer-events: none; }
+.gold-glow { background: linear-gradient(180deg, #ffe58a, #f3b733); border: 3px solid #a8741a; color: #4a3200; font: 700 17px Fredoka, sans-serif; animation: case-glow 1.4s ease-in-out infinite; }
+#church-root.lantern-lit::after { content: ''; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 40%, rgba(255, 220, 120, .55), rgba(255, 200, 80, 0) 60%); animation: fade 1.2s; }
+.blessing { display: grid; gap: 2px; text-align: center; margin: 0 0 12px; padding: 12px 14px; border-radius: 16px; background: linear-gradient(180deg, #fff8d8, #ffe9a6); border: 3px solid var(--gold, #f3c64d); }
+.blessing b { font: 700 20px Fredoka, sans-serif; color: #7a5300; }
+.blessing small { font-weight: 800; color: #a8741a; }
+@media (max-width: 820px) { #junction-hint { top: 118px; font-size: 14px; } #place-name { top: 74px; font-size: 18px; } .case-btn { font-size: 14px; padding: 7px 12px; } }
