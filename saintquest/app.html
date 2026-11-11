@@ -8,7 +8,7 @@
   <meta name="description" content="Saint Quest: collect cute 3D saints, help the villagers, win Holy Battles, trade with friends and add real saint cards with your camera.">
   <meta name="theme-color" content="#f3c64d">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 4l22 8v18c0 15-10 25-22 30C20 55 10 45 10 30V12z' fill='%23f3c64d' stroke='%23a8741a' stroke-width='3'/%3E%3Cpath d='M29 16h6v10h10v6H35v16h-6V32H19v-6h10z' fill='%23fff8e1'/%3E%3C/svg%3E">
-  <link rel="preload" as="image" href="assets/img/home-bg.webp" type="image/webp">
+  <link rel="preload" as="image" href="assets/img/home-bg.webp?v=3" type="image/webp">
   <link rel="modulepreload" href="assets/vendor/three-bundle.min.js">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,7 +18,7 @@
 <body>
   <main id="scene" aria-label="Saint Quest village">
     <div id="stage">
-      <picture><source srcset="assets/img/home-bg.webp" type="image/webp"><img id="bg" src="assets/img/home-bg.jpg" alt="A sunny village path leading to a golden cathedral among floating islands" draggable="false"></picture>
+      <picture><source srcset="assets/img/home-bg.webp?v=3" type="image/webp"><img id="bg" src="assets/img/home-bg.jpg?v=3" alt="A sunny village path leading to a golden cathedral among floating islands" draggable="false"></picture>
       <canvas id="walk-canvas" aria-hidden="true"></canvas>
       <canvas id="saint-canvas" aria-label="Your saint" role="button" tabindex="0"></canvas>
       <button class="hotspot" id="saint-hit" type="button" aria-label="Open your saint" tabindex="-1"></button>
@@ -34,8 +34,10 @@
     </div>
     <button id="edge-next" type="button" aria-label="Next saint" hidden>➜</button>
     <div id="walk-hint" hidden></div>
-    <div id="walk-help" class="panel cream" hidden>Hold <b>W</b> to walk up the path to the church · <b>S</b> to walk back · <b>A</b>/<b>D</b> to step aside</div>
+    <div id="walk-help" class="panel cream" hidden>Hold <b>W</b> to walk · <b>S</b> to walk back · <b>A</b>/<b>D</b> turn at the crossroads or step aside</div>
     <div id="walk-load" class="panel cream" hidden>Loading the path…</div>
+    <div id="junction-hint" class="panel cream" hidden></div>
+    <div id="place-name" hidden></div>
   </main>
 
   <header id="topbar">
@@ -52,7 +54,7 @@
   <aside id="profile" class="panel blue" hidden>
     <button id="avatar" type="button" aria-label="My saints"><img alt="" id="avatar-img"></button>
     <div class="profile-text">
-      <div class="who"><strong id="p-name"></strong><button class="tiny-link" id="logout-btn" type="button">Log out</button></div>
+      <div class="who"><strong id="p-name"></strong><button class="signout-btn" id="logout-btn" type="button" title="Sign out of Saint Quest"><span aria-hidden="true">⏻</span> Sign out</button></div>
       <div class="lvl" id="p-level"></div>
       <div class="meter-label"><span>Virtue</span><span id="p-meter-text"></span></div>
       <div class="meter"><span class="heart" aria-hidden="true">💛</span><div class="bar"><i id="p-meter"></i></div></div>

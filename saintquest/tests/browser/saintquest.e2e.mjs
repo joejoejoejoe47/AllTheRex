@@ -339,7 +339,7 @@ try {
   let h1 = await hs();
   ok(Math.abs(Math.abs(h1.heading) - Math.PI) < 0.35, 'walking forward shows the saint\'s back', String(h1.heading));
   ok(h1.scale === h0.scale && h0.scale === 1, 'the saint stays the same size while walking', `${h0.scale} -> ${h1.scale}`);
-  ok(h1.walked && await cp.locator('#villager-chapel').evaluate((e) => getComputedStyle(e).opacity) === '0' && await cp.locator('#signpost').evaluate((e) => getComputedStyle(e).pointerEvents) === 'none', 'villager markers and signpost fade away once you walk off the painted scene');
+  ok(h1.walked && await waitFor(async () => await cp.locator('#villager-chapel').evaluate((e) => getComputedStyle(e).opacity) === '0' && await cp.locator('#signpost').evaluate((e) => getComputedStyle(e).pointerEvents) === 'none', 5000, 100), 'villager markers and signpost fade away once you walk off the painted scene');
   await cp.keyboard.up('KeyW');
   ok(await waitFor(async () => { const h = await hs(); return !h.walking && h.anim === 'Idle_A'; }, 5000, 100), 'releasing W stops the walk (idle)');
   const hStop = await hs();
@@ -368,7 +368,7 @@ try {
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
   // Walk back to frame 0: the painted scene and its villagers return.
   await cp.keyboard.down('KeyS');
-  ok(await waitFor(async () => (await hs()).t === 0, 30000, 100), 'holding S rewinds all the way to the home picture');
+  ok(await waitFor(async () => (await hs()).t === 0, 30000, 100), 'holding S rewinds all the way to the home picture', await (cp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
   await cp.keyboard.up('KeyS');
   ok(await waitFor(async () => !(await hs()).walked, 3000, 100), 'villager markers come back at frame 0');
   // Step over to Brother Peter with D and press E.
@@ -403,13 +403,41 @@ try {
   ok(await waitFor(async () => !(await cp.evaluate(() => window.__sqChurch.active)) && (await hs()).t > 10, 5000), '"Leave church" returns to the cathedral doors');
   await sleep(700);
   await cp.keyboard.down('KeyW');
-  ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 60000, 200), 'walking up again re-enters the church');
+  ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 60000, 200), 'walking up again re-enters the church', await (cp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
   await cp.keyboard.up('KeyW');
   await sleep(1500);
   await cp.keyboard.down('KeyS');
   ok(await waitFor(() => cp.evaluate(() => !window.__sqChurch.active), 60000, 200), 'walking back out of the door returns home');
   await cp.keyboard.up('KeyS');
   await C.ctx.close();
+
+  // ---------- crossroads and side paths (their own videos) ----------
+  const D = await newPlayer('D');
+  await signup(D.page, 'Dx' + stamp);
+  const dp = D.page;
+  await waitFor(() => dp.evaluate(() => window.__sqHome.loaded));
+  await waitFor(() => dp.evaluate(() => window.__sqHome.framesLoaded >= 1), 90000, 300);
+  await dp.evaluate(() => document.activeElement && document.activeElement.blur());
+  const ds = () => dp.evaluate(() => ({ seg: window.__sqHome.seg, t: window.__sqHome.t, j: window.__sqHome.atJunction, scale: window.__sqHome.scale }));
+  const holdUntil = async (key, fn, ms) => { await dp.keyboard.down(key); const r = await waitFor(fn, ms, 100); await dp.keyboard.up(key); return r; };
+  ok(await holdUntil('KeyW', async () => (await ds()).j, 40000), 'walking up the path reaches the crossroads');
+  ok(await dp.locator('#junction-hint').isVisible() && /Market Street/.test(await dp.textContent('#junction-hint')) && /Park Square/.test(await dp.textContent('#junction-hint')), 'the crossroads shows A Market Street / D Park Square');
+  ok(await holdUntil('KeyA', async () => { const d = await ds(); return d.seg === 'market' && d.t > 1.2; }, 30000), 'A at the crossroads turns left into Market Street (its own video)');
+  ok((await ds()).scale === 1, 'saint size unchanged on the side path');
+  await holdUntil('KeyW', async () => (await ds()).t > 3, 30000);
+  await shot(dp, 'market-street');
+  ok(await holdUntil('KeyS', async () => (await ds()).seg === 'main', 60000), 'S walks back out of Market Street to the crossroads', await (dp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
+  ok(await holdUntil('KeyD', async () => { const d = await ds(); return d.seg === 'park' && d.t > 1.2; }, 30000), 'D at the crossroads turns right into Park Square', await (dp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
+  await shot(dp, 'park-square');
+  // Sign out from the home screen: ends the session on the server and shows the login screen.
+  ok(await dp.locator('#logout-btn').isVisible() && /Sign out/.test(await dp.textContent('#logout-btn')), 'a visible Sign out button is on the home screen');
+  await dp.locator('#logout-btn').click();
+  ok(await waitFor(() => dp.evaluate(() => !document.querySelector('#auth').hidden && !!document.querySelector('#auth-form') && document.querySelector('#profile').hidden), 10000), 'Sign out returns to the login / sign-up screen', await dp.evaluate(() => JSON.stringify({ auth: document.querySelector('#auth').hidden, form: !!document.querySelector('#auth-form'), profile: document.querySelector('#profile').hidden })));
+  const meAfter = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/me')).status);
+  ok(meAfter === 401, 'the session is ended on the server', String(meAfter));
+  const noCsrf = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status);
+  ok(noCsrf === 403 || noCsrf === 419 || noCsrf === 400, 'logout without the CSRF token is refused', String(noCsrf));
+  await D.ctx.close();
 
   ok(errors.length === 0, 'no page errors', errors.join(' | '));
   await A.ctx.close();
