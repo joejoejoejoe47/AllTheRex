@@ -8,7 +8,7 @@
 const base = () => (window.SQ_BASE || '') + '/assets/';
 let manifest = null, started = false, readyFns = [];
 const players = {}; // seg -> { fwd, rev, ready }
-let host = null, lastDrawn = null, active = null, activeDir = 0, idleSince = 0;
+let blendUntil = 0, host = null, lastDrawn = null, active = null, activeDir = 0, idleSince = 0;
 
 export const segments = () => (manifest ? manifest.segments : null);
 export const junction = () => (manifest ? manifest.junction : 4);
@@ -153,7 +153,11 @@ export function draw(ctx, seg, t) {
   else if (ready(p.fwd) && !p.fwd.seeking && Math.abs(p.fwd.currentTime - t) < 0.06) v = p.fwd;
   else if (ready(p.rev) && !p.rev.seeking && Math.abs(p.rev.currentTime - (p.dur - t)) < 0.06) v = p.rev;
   if (!v) return lastDrawn !== null; // keep the last good frame
+  // Changing path (at the crossroads): blend over ~0.25 s instead of cutting.
+  if (lastDrawn && lastDrawn !== seg) blendUntil = performance.now() + 250;
+  ctx.globalAlpha = performance.now() < blendUntil ? 0.3 : 1;
   ctx.drawImage(v, 0, 0, s.w, s.h);
+  ctx.globalAlpha = 1;
   lastDrawn = seg;
   return true;
 }
