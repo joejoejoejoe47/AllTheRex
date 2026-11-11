@@ -134,6 +134,7 @@ final class Saints
             'unseen' => Notify::unseen($userId),
             'questions' => Cards::openQuestions($userId),
             'deedsToday' => Deeds::today($userId),
+            'cases' => Cases::status($userId),
         ];
     }
 

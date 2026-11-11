@@ -1,7 +1,12 @@
 import * as api from './api.js';
 import { $, $$, el, toast, openModal, sparkle, thumb, fmt, closeAllModals } from './ui.js';
 import { state, setMe, onChange, def, homeSaint } from './state.js';
-import { initHome, showSaint, cheer, layout, pause, onDoor, onNear, freeze, placeAtDoor, doorRect, saintScreen, preloadWalk } from './home.js';
+import { initHome, showSaint, cheer, layout, pause, onDoor, onNear, freeze, placeAtDoor, doorRect, saintScreen, preloadWalk, slideTo } from './home.js';
+import * as street from './street.js';
+import * as audio from './audio.js';
+import * as hud from './hud.js';
+import * as dialogue from './dialogue.js';
+import { LINES } from './lines.js';
 import { onAction, isTouch } from './walkinput.js';
 import { enterChurch, doorTransition, inChurch } from './church.js';
 import { openStore } from './store.js';
@@ -90,9 +95,16 @@ onChange(({ me }) => {
   $('#bell-count').textContent = unseen > 9 ? '9+' : String(unseen);
   for (const b of $$('.villager')) b.classList.toggle('done', me.deedsToday.includes(b.dataset.deed));
   const left = 3 - me.deedsToday.length;
-  $('#quest-title').textContent = left > 0 ? 'Quest: Help the villagers' : 'Quest complete for today!';
-  $('#quest-text').textContent = left > 0 ? `Tap a villager with a “!” or walk up and press E (${me.deedsToday.length}/3 today).` : 'Come back tomorrow, or win a Holy Battle for more virtue.';
+  const cs = me.cases || { clues: [], kindDone: 0, mysterySolved: true, mysteryReady: false };
+  if (!cs.mysterySolved) {
+    $('#quest-title').textContent = cs.mysteryReady ? '✨ Holy Mystery: go into the cathedral!' : 'Holy Mystery: The Silent Bell';
+    $('#quest-text').textContent = cs.mysteryReady ? 'Saint Clare’s lantern is waiting inside. Walk up the path to the doors.' : `Clues ${cs.clues.length}/3 · people helped ${Math.min(3, cs.kindDone)}/3 — listen to the townsfolk on the paths.`;
+  } else {
+    $('#quest-title').textContent = left > 0 ? 'Quest: Help the villagers' : 'Quest complete for today!';
+    $('#quest-text').textContent = left > 0 ? `Tap a villager with a “!” or walk up and press E (${me.deedsToday.length}/3 today).` : 'Walk the paths and help the people you meet, or win a Holy Battle.';
+  }
   renderHomeSaint();
+  hud.render();
 });
 
 function renderHomeSaint() {
@@ -277,8 +289,22 @@ function wireWalking() {
   });
   const helpNear = () => { if (!nearV || !state.me) return false; const v = nearV; hint.hidden = true; openDeed(v.deed); return true; };
   hint.addEventListener('click', helpNear);
-  onAction(() => helpNear());
-  (function follow() { placeHint(); requestAnimationFrame(follow); })();
+  onAction(() => street.pressPrompt() || helpNear());
+  street.setHooks({ freeze, cheer, slideTo });
+  hud.start();
+  // Home theme: plays while you are at home (not in the church or a battle).
+  let atHome = null;
+  const soundBtn = $('#sound-btn');
+  const syncSound = (m) => { soundBtn.firstElementChild.textContent = m ? '🔇' : '🔊'; soundBtn.setAttribute('aria-pressed', String(m)); soundBtn.setAttribute('aria-label', m ? 'Turn sound on' : 'Mute sound'); soundBtn.title = m ? 'Sound off' : 'Sound on'; };
+  syncSound(audio.isMuted());
+  soundBtn.addEventListener('click', () => audio.setMuted(!audio.isMuted()));
+  audio.onMute(syncSound);
+  (function follow() {
+    placeHint();
+    const home = !!state.me && !inChurch() && $('#battle-root').hidden && !document.body.classList.contains('in-church');
+    if (home !== atHome) { atHome = home; audio.music(home); audio.ambient(home); if (!home) street.hush(); }
+    requestAnimationFrame(follow);
+  })();
   onDoor(async () => {
     if (!state.me || inChurch()) return;
     const s = homeSaint();
@@ -294,6 +320,7 @@ function wireWalking() {
         fx,
         onLeave: () => { placeAtDoor(); pause(false); freeze(false); layout(); },
       });
+      mysteryInChurch();
     } catch (e) {
       console.warn('church failed', e);
       if (fx) fx.remove();
@@ -301,6 +328,69 @@ function wireWalking() {
       placeAtDoor(); pause(false); freeze(false);
     }
   });
+}
+
+// ---------- the Holy Mystery: Saint Clare's lantern in the cathedral ----------
+function mysteryInChurch() {
+  const root = $('#church-root');
+  const cs = state.me && state.me.cases;
+  if (!root || !cs || cs.mysterySolved) return;
+  const box = el('div.mystery-box');
+  if (!cs.mysteryReady) {
+    box.append(el('b', { text: '🏮 Saint Clare’s lantern is dark' }), el('small', { text: `Clues ${cs.clues.length}/3 · people helped ${Math.min(3, cs.kindDone)}/3. Listen to the townsfolk on the paths and help the people you meet.` }));
+    box.classList.add('dim');
+    root.append(box);
+    setTimeout(() => box.classList.add('gone'), 7000);
+    return;
+  }
+  const btn = el('button.btn.gold-glow#mystery-btn', { type: 'button', text: '🏮 Light Saint Clare’s lantern' });
+  box.append(el('b', { text: '✨ The Holy Mystery' }), el('small', { text: 'You found all the clues and helped the people of the village. The lantern is waiting!' }), btn);
+  root.append(box);
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    let r;
+    try { r = await api.post('mystery/solve'); } catch (e) { toast(e.message, true); btn.disabled = false; return; }
+    box.remove();
+    await mysteryCutscene(root, r.reward);
+    await refresh(true);
+  });
+}
+
+// A short cutscene: letterbox bars, Father Anselm, the saint's prayer, the
+// lantern flaring up, the great bell tolling, then the reward card.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function line(name, id, face, mine = false) {
+  const l = LINES[id];
+  dialogue.show(name, l.text, face, l.dur, mine);
+  await audio.say(id, Math.max(1500, l.dur * 1000));
+  await wait(250);
+}
+async function mysteryCutscene(root, reward) {
+  document.body.classList.add('cutscene');
+  const bars = el('div#cutscene.cutscene', {}, el('div.cs-bar.top'), el('div.cs-bar.bottom'), el('div.cs-glow'), el('div.cs-lantern', { text: '🏮' }));
+  document.body.append(bars);
+  requestAnimationFrame(() => bars.classList.add('on'));
+  await wait(700);
+  await line('Father Anselm', 'anselm_cut', { emoji: '👴', color: '#efe3c8' });
+  const s = homeSaint();
+  await line('You', 'saint_light', s ? { img: thumb(s.key, 'head'), color: '#fff3c9' } : { emoji: '😇' }, true);
+  dialogue.hide();
+  bars.classList.add('lit');
+  root.classList.add('lantern-lit');
+  audio.effect('sfx/bell-toll.mp3');
+  for (let i = 0; i < 3; i++) setTimeout(() => { bars.classList.remove('shake'); void bars.offsetWidth; bars.classList.add('shake'); sparkle(innerWidth / 2, innerHeight * 0.4, ['🔔', '✨', '💛']); }, i * 1400);
+  await wait(1600);
+  const card = el('div.cs-card', {}, el('small', { text: 'The Holy Mystery' }), el('b', { text: 'The Silent Bell — Solved!' }), el('span.cs-reward', { text: '+0 ✦' }), el('p', { text: 'Saint Clare’s lantern shines over the village, and the great bell rings again.' }));
+  bars.append(card);
+  let n = 0;
+  const tick = setInterval(() => { n = Math.min(reward, n + Math.ceil(reward / 25)); card.querySelector('.cs-reward').textContent = `+${n} ✦ virtue`; if (n >= reward) clearInterval(tick); }, 40);
+  await line('Father Anselm', 'mystery_done', { emoji: '👴', color: '#efe3c8' });
+  await wait(1800);
+  dialogue.hide();
+  bars.classList.remove('on');
+  await wait(700);
+  bars.remove();
+  document.body.classList.remove('cutscene');
 }
 
 export { pause as pauseHome, nextSaint };

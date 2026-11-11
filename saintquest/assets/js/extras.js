@@ -88,6 +88,8 @@ export function openCredits() {
       el('li', { text: 'Village background: concept art created for Saint Quest (AI-generated).' }),
       el('li', { text: 'Cathedral interior: built for Saint Quest from simple 3D shapes and hand-drawn canvas textures (no outside models).' }),
       el('li', { text: 'Walk videos (the Saints’ Path, Market Street, Park Square): created for Saint Quest (AI-generated), smoothed to 60 fps with ffmpeg motion interpolation.' }),
+      el('li', {}, 'Voices: recorded for Saint Quest with ', el('a', { href: 'https://github.com/rhasspy/piper', target: '_blank', rel: 'noopener', text: 'Piper TTS' }), ' (MIT) and its libritts_r voice, trained on ', el('a', { href: 'https://www.openslr.org/141/', target: '_blank', rel: 'noopener', text: 'LibriTTS-R' }), ' (CC BY 4.0). Home theme: the music of the Saint Quest walk video, extended into a loop. Bells, chimes, birdsong, wind and footsteps: synthesised for Saint Quest.'),
+      el('li', { text: 'Townsfolk: the same KayKit Adventurers models (CC0) without halos.' }),
       el('li', {}, el('a', { href: 'https://threejs.org', target: '_blank', rel: 'noopener', text: 'three.js' }), ' (MIT) for 3D.'),
       el('li', {}, el('a', { href: 'https://github.com/cozmo/jsQR', target: '_blank', rel: 'noopener', text: 'jsQR' }), ' (Apache-2.0) to read card QR codes.'),
       el('li', {}, el('a', { href: 'https://github.com/kazuhikoarase/qrcode-generator', target: '_blank', rel: 'noopener', text: 'qrcode-generator' }), ' by Kazuhiko Arase (MIT) to print card QR codes.'),

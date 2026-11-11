@@ -5,13 +5,28 @@ A kid-friendly saint-collecting game served at https://alltherex.com/saintquest/
 * Username + password accounts (no email). Every new player gets St. Francis.
 * Home: the village picture with your highest-rated saint as a real three.js
   3D model on the path. The signpost arrow switches between your saints.
-* Walking: hold W to play the walk up the path (a frame sequence in
-  `assets/walk/`, cut from a generated first-person walk video: 145 frames
-  854x480 for desktop, 97 frames 640x360 for phones/slow links, cross-faded),
-  S to play it backward, A/D to step aside. The saint keeps a constant size
-  and walks/idles with its KayKit clips; the camera never turns. The end of the
-  path (the cathedral doors) opens into a 3D cathedral interior (no pews) with
-  a fixed follow camera. E helps a nearby villager on the home picture.
+* Walking: hold W to walk (real video: generated first-person clips,
+  motion-interpolated to 60 fps, with a reversed copy so S plays backward
+  smoothly; `assets/walk/v2/`, `walk.json`), A/D to step aside. At the
+  crossroads A turns into Market Street and D into Park Square (each its own
+  video; walking back out returns to the crossroads). The saint keeps a
+  constant size. The end of the main path (the cathedral doors) opens into a
+  3D cathedral interior (no pews, `church.js`, swappable for a model later).
+  E helps a nearby villager on the home picture.
+* People on the paths (`street.js`): 3D KayKit townsfolk placed in the video
+  with a road perspective. Walking up to them plays their recorded voice
+  (`assets/audio/voice/`, Piper TTS libritts_r, CC BY 4.0) with a caption and
+  a moving mouth, and shows a button for their case: Rosie is lost, Old
+  Martha is lonely, Simon the beggar ("Give 50 virtue points to the poor";
+  the next Store visit pays 100 back: "Give, and it shall be given to you"),
+  Jakob wants to steal an apple, Ezra is sick, Tom and Leo are fighting (your
+  saint shouts "Stop!"), Mia has no one to play with. Townsfolk gossip gives
+  three clues for the Holy Mystery (the silent bell); with all clues and three
+  people helped, Saint Clare's lantern can be lit in the cathedral. Cases are
+  server-side (`Cases.php`, `sq_cases`, `sq_blessings`): kindness once a day,
+  clues and the mystery once ever.
+* Sound (`audio.js`): the home theme (the walk video's music, extended into a
+  48 s loop) plays at home; one mute button in the top bar.
 * Virtue points (wallet), level + virtue meter (lifetime virtue), Good Deeds
   (help the three villagers once a day), podium leaderboard.
 * Store (buy saints with virtue), Trade (golden plate: set a price and a
