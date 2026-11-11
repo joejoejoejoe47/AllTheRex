@@ -327,7 +327,7 @@ try {
   const cp = C.page;
   await waitFor(() => cp.evaluate(() => window.__sqHome.loaded));
   const hs = () => cp.evaluate(() => { const h = window.__sqHome; return { ...h.pos, t: h.t, frame: h.frame, walking: h.walking, anim: h.anim, heading: h.heading, scale: h.scale, near: h.near, walked: document.body.classList.contains('walked') }; });
-  await waitFor(() => cp.evaluate(() => window.__sqHome.framesLoaded > 0.05), 90000, 300);
+  await waitFor(() => cp.evaluate(() => window.__sqHome.framesLoaded >= 1), 90000, 300);
   await waitFor(async () => (await hs()).scale === 1, 10000, 100); // after the pop-in
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
   let h0 = await hs();
@@ -339,7 +339,7 @@ try {
   let h1 = await hs();
   ok(Math.abs(Math.abs(h1.heading) - Math.PI) < 0.35, 'walking forward shows the saint\'s back', String(h1.heading));
   ok(h1.scale === h0.scale && h0.scale === 1, 'the saint stays the same size while walking', `${h0.scale} -> ${h1.scale}`);
-  ok(h1.walked && await cp.locator('#villager-chapel').evaluate((e) => getComputedStyle(e).opacity) === '0' && await cp.locator('#signpost').evaluate((e) => getComputedStyle(e).pointerEvents) === 'none', 'villager markers and signpost fade away once you walk off the painted scene');
+  ok(h1.walked && await waitFor(async () => await cp.locator('#villager-chapel').evaluate((e) => getComputedStyle(e).opacity) === '0' && await cp.locator('#signpost').evaluate((e) => getComputedStyle(e).pointerEvents) === 'none', 5000, 100), 'villager markers and signpost fade away once you walk off the painted scene');
   await cp.keyboard.up('KeyW');
   ok(await waitFor(async () => { const h = await hs(); return !h.walking && h.anim === 'Idle_A'; }, 5000, 100), 'releasing W stops the walk (idle)');
   const hStop = await hs();
@@ -416,7 +416,7 @@ try {
   await signup(D.page, 'Dx' + stamp);
   const dp = D.page;
   await waitFor(() => dp.evaluate(() => window.__sqHome.loaded));
-  await waitFor(() => dp.evaluate(() => window.__sqHome.framesLoaded > 0.05), 90000, 300);
+  await waitFor(() => dp.evaluate(() => window.__sqHome.framesLoaded >= 1), 90000, 300);
   await dp.evaluate(() => document.activeElement && document.activeElement.blur());
   const ds = () => dp.evaluate(() => ({ seg: window.__sqHome.seg, t: window.__sqHome.t, j: window.__sqHome.atJunction, scale: window.__sqHome.scale, near: window.__sqStreet.near, busy: window.__sqStreet.busy, vis: window.__sqStreet.visible, virtue: window.__sq.me.virtue, cases: window.__sq.me.cases }));
   const holdUntil = async (key, fn, ms) => { await dp.keyboard.down(key); const r = await waitFor(fn, ms, 100); await dp.keyboard.up(key); return r; };
