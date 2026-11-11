@@ -5,6 +5,10 @@ A kid-friendly saint-collecting game served at https://alltherex.com/saintquest/
 * Username + password accounts (no email). Every new player gets St. Francis.
 * Home: the village picture with your highest-rated saint as a real three.js
   3D model on the path. The signpost arrow switches between your saints.
+* Walk the saint with W A S D / arrow keys (joystick or tap-to-walk on touch);
+  it shrinks with perspective up the path, and the cathedral doors open into a
+  3D cathedral interior (no pews) with a fixed follow camera. E helps a nearby
+  villager.
 * Virtue points (wallet), level + virtue meter (lifetime virtue), Good Deeds
   (help the three villagers once a day), podium leaderboard.
 * Store (buy saints with virtue), Trade (golden plate: set a price and a
@@ -63,3 +67,4 @@ PHP_BIN=php node saintquest/tests/browser/saintquest.e2e.mjs   # real pointer e2
 * three.js r186 (MIT), jsQR 1.4.0 (Apache-2.0), qrcode-generator 2.0.4 (MIT).
 * Fonts: Fredoka and Nunito (SIL OFL) via Google Fonts.
 * Village background: concept art created for Saint Quest (AI-generated).
+* Cathedral interior: primitives + canvas textures made for Saint Quest.
