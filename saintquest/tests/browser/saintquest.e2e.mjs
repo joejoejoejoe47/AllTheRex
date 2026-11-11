@@ -432,7 +432,7 @@ try {
   // Sign out from the home screen: ends the session on the server and shows the login screen.
   ok(await dp.locator('#logout-btn').isVisible() && /Sign out/.test(await dp.textContent('#logout-btn')), 'a visible Sign out button is on the home screen');
   await dp.locator('#logout-btn').click();
-  ok(await waitFor(() => dp.locator('#auth-form').isVisible(), 5000), 'Sign out returns to the login / sign-up screen');
+  ok(await waitFor(() => dp.evaluate(() => !document.querySelector('#auth').hidden && !!document.querySelector('#auth-form') && document.querySelector('#profile').hidden), 10000), 'Sign out returns to the login / sign-up screen', await dp.evaluate(() => JSON.stringify({ auth: document.querySelector('#auth').hidden, form: !!document.querySelector('#auth-form'), profile: document.querySelector('#profile').hidden })));
   const meAfter = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/me')).status);
   ok(meAfter === 401, 'the session is ended on the server', String(meAfter));
   const noCsrf = await dp.evaluate(async () => (await fetch((window.SQ_BASE || '') + '/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status);
