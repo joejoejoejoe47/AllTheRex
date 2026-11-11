@@ -368,7 +368,7 @@ try {
   await cp.evaluate(() => document.activeElement && document.activeElement.blur());
   // Walk back to frame 0: the painted scene and its villagers return.
   await cp.keyboard.down('KeyS');
-  ok(await waitFor(async () => (await hs()).t === 0, 30000, 100), 'holding S rewinds all the way to the home picture');
+  ok(await waitFor(async () => (await hs()).t === 0, 30000, 100), 'holding S rewinds all the way to the home picture', await (cp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
   await cp.keyboard.up('KeyS');
   ok(await waitFor(async () => !(await hs()).walked, 3000, 100), 'villager markers come back at frame 0');
   // Step over to Brother Peter with D and press E.
@@ -403,7 +403,7 @@ try {
   ok(await waitFor(async () => !(await cp.evaluate(() => window.__sqChurch.active)) && (await hs()).t > 10, 5000), '"Leave church" returns to the cathedral doors');
   await sleep(700);
   await cp.keyboard.down('KeyW');
-  ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 60000, 200), 'walking up again re-enters the church');
+  ok(await waitFor(() => cp.evaluate(() => window.__sqChurch.active), 60000, 200), 'walking up again re-enters the church', await (cp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
   await cp.keyboard.up('KeyW');
   await sleep(1500);
   await cp.keyboard.down('KeyS');
@@ -426,8 +426,8 @@ try {
   ok((await ds()).scale === 1, 'saint size unchanged on the side path');
   await holdUntil('KeyW', async () => (await ds()).t > 3, 30000);
   await shot(dp, 'market-street');
-  ok(await holdUntil('KeyS', async () => (await ds()).seg === 'main', 60000), 'S walks back out of Market Street to the crossroads');
-  ok(await holdUntil('KeyD', async () => { const d = await ds(); return d.seg === 'park' && d.t > 1.2; }, 30000), 'D at the crossroads turns right into Park Square');
+  ok(await holdUntil('KeyS', async () => (await ds()).seg === 'main', 60000), 'S walks back out of Market Street to the crossroads', await (dp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
+  ok(await holdUntil('KeyD', async () => { const d = await ds(); return d.seg === 'park' && d.t > 1.2; }, 30000), 'D at the crossroads turns right into Park Square', await (dp).evaluate(() => window.__sqWalk && window.__sqWalk.state() + ' t=' + window.__sqHome.t + ' seg=' + window.__sqHome.seg));
   await shot(dp, 'park-square');
   // Sign out from the home screen: ends the session on the server and shows the login screen.
   ok(await dp.locator('#logout-btn').isVisible() && /Sign out/.test(await dp.textContent('#logout-btn')), 'a visible Sign out button is on the home screen');

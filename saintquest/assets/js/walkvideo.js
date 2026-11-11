@@ -169,3 +169,12 @@ export function draw(ctx, seg, t) {
 export function endUrl(seg = 'main') {
   return manifest ? base() + manifest.segments[seg].end : null;
 }
+
+// Read-only view for the browser test.
+window.__sqWalk = {
+  state() {
+    const o = {};
+    for (const k in players) for (const w of ['fwd', 'rev']) { const v = players[k][w]; o[k + '.' + w] = `rs${v.readyState} ct${v.currentTime.toFixed(2)}/${(v.duration || 0).toFixed(2)} ${v.paused ? 'P' : 'play'}${v.seeking ? ' seek' : ''}${v.ended ? ' end' : ''}${v.error ? ' err' + v.error.code : ''} r${v.playbackRate.toFixed(2)} ${v.src.slice(0, 5)} dl${players[k].progress[w].toFixed(2)}`; }
+    return JSON.stringify({ active: active && active.seg, activeDir, ...o });
+  },
+};
