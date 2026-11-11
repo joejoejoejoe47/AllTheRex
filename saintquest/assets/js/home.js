@@ -15,6 +15,7 @@ const FEET_Y = 0.72; // feet line, fraction of the picture height
 const PPU = 92; // picture pixels per model unit (constant: the saint never changes size)
 const SIDE_SPEED = 0.11; // picture widths per second for A/D
 const ACCEL = 9; // ease in/out of the walk (1/s)
+const PLAY_SPEED = 0.5; // the walk video plays at half speed (the whole path takes ~24 s)
 export const VILLAGERS = [
   { deed: 'apples', name: 'Grandma Agnes', x: 0.215, y: 0.70 },
   { deed: 'lamb', name: 'Little Tobias', x: 0.275, y: 0.68 },
@@ -149,9 +150,9 @@ function step(dt) {
   const d = frozen ? { x: 0, y: 0 } : direction();
   const end = frames.duration();
   // Forward/back through the walk video, with a short ease in/out.
-  const want = -d.y; // W = +1 (forward), S = -1 (back)
+  const want = -d.y * PLAY_SPEED; // W forward, S back
   vel += (want - vel) * Math.min(1, dt * ACCEL);
-  if (!want && Math.abs(vel) < 0.03) vel = 0;
+  if (!want && Math.abs(vel) < 0.015) vel = 0;
   t = Math.min(end, Math.max(0, t + vel * dt));
   if ((t === 0 && vel < 0) || (t === end && vel > 0)) vel = 0;
   // Sideways steps.
@@ -164,7 +165,7 @@ function step(dt) {
   else if (!moving) { idleFor += dt; if (idleFor > 2.5) wantHeading = 0; }
   if (moving !== walking) {
     walking = moving;
-    setAnim(moving ? 'Walking_A' : 'Idle_A', moving ? 1.25 : 1);
+    setAnim(moving ? 'Walking_A' : 'Idle_A', moving ? 0.8 : 1); // stride paced to the half-speed video
   }
   let diff = wantHeading - heading;
   diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -230,7 +231,7 @@ export function freeze(f) { frozen = f; if (f) { clearKeys(); vel = 0; sideVel =
 
 /** Back outside the cathedral doors (end of the path), facing the viewer. */
 export function placeAtDoor() {
-  t = Math.max(0, frames.duration() - 0.5);
+  t = Math.max(0, frames.duration() - 0.4);
   vel = sideVel = 0;
   sx = HERO_X;
   heading = wantHeading = 0;
