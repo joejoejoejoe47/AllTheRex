@@ -132,7 +132,7 @@ export function advance(seg, t, vel) {
   if (Math.abs(v.playbackRate - rate) > 0.01) v.playbackRate = rate;
   if (v.paused && ready(v)) v.play().catch(() => {});
   // A clip that played to its last frame means we reached the end (or the start, walking back).
-  if (v.ended || (v.duration && v.currentTime >= v.duration - 0.03)) return dir === 1 ? D : 0;
+  if (!v.seeking && activeDir === dir && v.duration && v.currentTime >= v.duration - 0.03) return dir === 1 ? D : 0;
   if (v.paused || v.seeking || !ready(v)) return t;
   const vt = v.currentTime;
   const nt = dir === 1 ? vt : D - vt;
