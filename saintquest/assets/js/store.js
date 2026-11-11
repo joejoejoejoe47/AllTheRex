@@ -1,4 +1,5 @@
 // The Store: every saint for sale for virtue points, with live 3D previews.
+import { say } from './audio.js';
 import * as api from './api.js';
 import { el, openModal, toast, sparkle, thumb, fmt } from './ui.js';
 import { state, def } from './state.js';
@@ -9,6 +10,24 @@ const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 export function statBars(stats) {
   const row = (label, v, tip) => [el('span', { title: tip, text: label }), el('div.stat-bar', { title: `${v}/10` }, el('i', { style: { width: v * 10 + '%' } }))];
   return el('div.stats', {}, ...row('🙏 Faith', stats.faith, 'Power of light attacks'), ...row('🕊️ Hope', stats.hope, 'Speed'), ...row('💛 Charity', stats.charity, 'Light (health) in battles'));
+}
+
+/** "Give, and it shall be given to you": the beggar's gift comes back doubled the next time the Store opens. */
+async function claimBlessing(wrap, rerender) {
+  const cs = state.me && state.me.cases;
+  if (!cs || !cs.blessing) return;
+  try {
+    const r = await api.post('blessing/claim');
+    if (!r.paid) return;
+    const t = document.getElementById('toast');
+    if (t) t.hidden = true;
+    await state.refresh(true);
+    rerender();
+    wrap.prepend(el('div.blessing#blessing', {}, el('b', { text: '“Give, and it shall be given to you.”' }), el('small', { text: 'Luke 6:38' }),
+      el('span', { text: `Your gift to the poor came back: +${fmt(r.paid)} coins (virtue points) in your wallet!` })));
+    sparkle(innerWidth / 2, innerHeight / 3, ['🪙', '✨', '💛']);
+    say('store_blessing', 4000);
+  } catch { /* try again next time */ }
 }
 
 export function openStore(query = '', focusKey = null) {
@@ -77,5 +96,6 @@ export function openStore(query = '', focusKey = null) {
   }
 
   if (focusKey && def(focusKey)) detail(focusKey, query); else list(query);
+  claimBlessing(wrap, () => { if (!focusKey && wrap.querySelector('.grid')) list(query); });
   return modal;
 }

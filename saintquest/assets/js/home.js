@@ -8,6 +8,9 @@ import { createSaint, THREE } from './saint3d.js';
 import { $, el } from './ui.js';
 import { direction, isTouch, makeJoystick, clearKeys } from './walkinput.js';
 import * as walk from './walkvideo.js';
+import * as street from './street.js';
+import * as hud from './hud.js';
+import * as audio from './audio.js';
 
 const W = 1280, H = 720;
 const HERO_X = 0.484; // where the saint stands, as a fraction of the picture width
@@ -117,6 +120,7 @@ export function initHome() {
     pivot = new THREE.Group();
     pivot.rotation.x = 0.07;
     scene.add(pivot);
+    street.init({ scene, W, H, PPU, HERO_X, FEET_Y, toScreen, stageScale: () => stageRect.scale });
     clock = new THREE.Clock();
     renderer.setAnimationLoop(tick);
     addVillagers().catch((e) => console.warn('villagers', e));
@@ -158,6 +162,14 @@ async function addVillagers() {
     people.push({ v, look, s, p, sh });
   }
 }
+// Footsteps on the cobbles, paced to the walk animation.
+let stepPhase = 0;
+function footsteps(dt) {
+  if (!walking || frozen || anim !== 'Walking_A') { stepPhase = 0.6; return; }
+  stepPhase += dt / 0.42;
+  if (stepPhase >= 1) { stepPhase -= 1; audio.step(seg); }
+}
+
 function placeVillagers(dt) {
   // k = how far the camera has moved past them (0 at the painted picture).
   const k = seg === 'main' ? Math.min(1, t / 0.9) : 1;
@@ -177,7 +189,11 @@ function placeVillagers(dt) {
 }
 
 /** Start downloading the walk frames (after login). */
-export function preloadWalk() { walk.startLoading().catch((e) => console.warn('walk video', e)); }
+export function preloadWalk() {
+  walk.onReady(() => { const m = walk.segments(); hud.setGeometry({ junction: walk.junction(), dur: { main: m.main.duration, market: m.market.duration, park: m.park.duration } }); });
+  walk.startLoading().catch((e) => console.warn('walk video', e));
+  street.preload();
+}
 
 function setAnim(name, speed = 1) {
   if (!current) return;
@@ -289,6 +305,9 @@ function tick() {
   drawScene();
   if (!renderer) return;
   placeVillagers(dt);
+  street.update(dt, { seg, t, sx, vel, visible: seg !== 'main' || t > 0.02 });
+  hud.update({ seg, t, vel });
+  footsteps(dt);
   if (current) {
     current.update(dt);
     let pop = 1;
@@ -355,6 +374,7 @@ export async function showSaint(def) {
   if (token !== loadToken) { s.dispose(); return; }
   if (current) { pivot.remove(current.object); current.dispose(); }
   current = s;
+  street.setSaintMouth(street.attachMouth(s.object));
   currentKey = def.key;
   s.object.userData.pop = 0;
   pivot.add(s.object);
