@@ -187,10 +187,16 @@ final class Db
     }
 
     /** UTC time with milliseconds, for ordering rows created within one second. */
+    /** UTC timestamp with microseconds, strictly increasing within one PHP process (stable ordering). */
     public static function nowPrecise(): string
     {
-        $t = microtime(true);
-        return gmdate('Y-m-d H:i:s', (int) $t) . sprintf('.%03d', (int) (($t - floor($t)) * 1000));
+        static $last = 0;
+        $us = (int) floor(microtime(true) * 1_000_000);
+        if ($us <= $last) {
+            $us = $last + 1;
+        }
+        $last = $us;
+        return gmdate('Y-m-d H:i:s', intdiv($us, 1_000_000)) . sprintf('.%06d', $us % 1_000_000);
     }
 
     public static function nowMs(): int
