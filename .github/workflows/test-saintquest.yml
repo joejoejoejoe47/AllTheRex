@@ -35,8 +35,17 @@ jobs:
 
       - name: PHP extensions
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq php-cli php-sqlite3 php-mbstring php-xml php-gd php-mysql
+          need() { php -m 2>/dev/null | grep -qix "$1"; }
+          if command -v php >/dev/null && need gd && need pdo_sqlite && need pdo_mysql && need mbstring; then
+            echo "runner PHP already has gd, pdo_sqlite, pdo_mysql, mbstring: $(php -r 'echo PHP_VERSION;')"
+          else
+            # apt mirrors are sometimes unreachable; retry a few times.
+            for i in 1 2 3 4; do
+              sudo apt-get update -qq || true
+              if sudo apt-get install -y -qq --fix-missing php-cli php-sqlite3 php-mbstring php-xml php-gd php-mysql; then break; fi
+              echo "apt attempt $i failed; retrying"; sleep $((i * 15))
+            done
+          fi
           php -m | grep -E -i '^(gd|pdo_sqlite|pdo_mysql)$'
 
       - name: PHP unit tests

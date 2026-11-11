@@ -1,7 +1,9 @@
 import * as api from './api.js';
 import { $, $$, el, toast, openModal, sparkle, thumb, fmt, closeAllModals } from './ui.js';
 import { state, setMe, onChange, def, homeSaint } from './state.js';
-import { initHome, showSaint, cheer, layout, pause } from './home.js';
+import { initHome, showSaint, cheer, layout, pause, onDoor, onNear, freeze, placeAtDoor, doorRect, saintScreen, preloadWalk } from './home.js';
+import { onAction, isTouch } from './walkinput.js';
+import { enterChurch, doorTransition, inChurch } from './church.js';
 import { openStore } from './store.js';
 import { openTrade, closeTrade } from './trade.js';
 import { openSaint, openPlayer } from './saintview.js';
@@ -20,6 +22,7 @@ async function boot() {
   initHome();
   showSaint(def('francis'));
   wire();
+  wireWalking();
   loadLeaderboard();
   let sess;
   try {
@@ -52,6 +55,7 @@ function enter(me) {
   $('#deeds-pill').hidden = false;
   $('#saint-plate').hidden = false;
   layout();
+  preloadWalk();
   if (me.questions && me.questions.some((q) => q.role === 'owner' && q.status === 'pending')) {
     setTimeout(() => openNotes(), 600);
   }
@@ -87,7 +91,7 @@ onChange(({ me }) => {
   for (const b of $$('.villager')) b.classList.toggle('done', me.deedsToday.includes(b.dataset.deed));
   const left = 3 - me.deedsToday.length;
   $('#quest-title').textContent = left > 0 ? 'Quest: Help the villagers' : 'Quest complete for today!';
-  $('#quest-text').textContent = left > 0 ? `Tap a villager with a “!” to lend a helping hand (${me.deedsToday.length}/3 today).` : 'Come back tomorrow, or win a Holy Battle for more virtue.';
+  $('#quest-text').textContent = left > 0 ? `Tap a villager with a “!” or walk up and press E (${me.deedsToday.length}/3 today).` : 'Come back tomorrow, or win a Holy Battle for more virtue.';
   renderHomeSaint();
 });
 
@@ -242,6 +246,61 @@ function renderSearch(r, q) {
   if (!out.length) out.push(el('p.muted', { text: `No saints found for “${q}”.` }));
   results.replaceChildren(...out);
   results.hidden = false;
+}
+
+// ---------- walking: villagers (E), church doors ----------
+let nearV = null;
+function wireWalking() {
+  const hint = $('#walk-hint');
+  const help = $('#walk-help');
+  if (isTouch()) help.innerHTML = 'Push the joystick up to walk to the church, down to walk back';
+  let helpShown = false;
+  const showHelp = () => {
+    if (helpShown || !state.me) return;
+    helpShown = true;
+    help.hidden = false;
+    setTimeout(() => help.classList.add('gone'), 7000);
+    setTimeout(() => { help.hidden = true; }, 7800);
+  };
+  setTimeout(showHelp, 1500);
+  const placeHint = () => {
+    if (!nearV || hint.hidden) return;
+    const p = saintScreen();
+    hint.style.left = p.x + 'px';
+    hint.style.top = (p.y - 10 - 0.0) + 'px';
+  };
+  onNear((v) => {
+    nearV = v && state.me && !state.me.deedsToday.includes(v.deed) ? v : null;
+    if (!nearV) { hint.hidden = true; return; }
+    hint.replaceChildren(el('kbd', { text: isTouch() ? 'Tap' : 'E' }), `Help ${nearV.name}`);
+    hint.hidden = false;
+  });
+  const helpNear = () => { if (!nearV || !state.me) return false; const v = nearV; hint.hidden = true; openDeed(v.deed); return true; };
+  hint.addEventListener('click', helpNear);
+  onAction(() => helpNear());
+  (function follow() { placeHint(); requestAnimationFrame(follow); })();
+  onDoor(async () => {
+    if (!state.me || inChurch()) return;
+    const s = homeSaint();
+    const d = s ? def(s.key) : def('francis');
+    freeze(true);
+    closeTrade();
+    hint.hidden = true;
+    let fx = null;
+    try {
+      fx = await doorTransition(doorRect());
+      pause(true);
+      await enterChurch(d, {
+        fx,
+        onLeave: () => { placeAtDoor(); pause(false); freeze(false); layout(); },
+      });
+    } catch (e) {
+      console.warn('church failed', e);
+      if (fx) fx.remove();
+      toast('The church doors are stuck. Please try again.', true);
+      placeAtDoor(); pause(false); freeze(false);
+    }
+  });
 }
 
 export { pause as pauseHome, nextSaint };

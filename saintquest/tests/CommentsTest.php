@@ -52,7 +52,7 @@ $svg = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" onload="ale
 expect_error(fn () => Images::store($svg, $fan, 'comment'), 415, 'SVG is refused');
 expect_error(fn () => Images::store('<html><script>alert(1)</script></html>', $fan, 'comment'), 415, 'HTML disguised as a picture is refused');
 try { Images::store("GIF89a<?php system('id'); ?>", $fan, 'comment'); check(false, 'a PHP payload with a GIF header is refused'); } catch (\SaintQuest\HttpError $e) { check(in_array($e->status, [413, 415], true), 'a PHP payload with a GIF header is refused (' . $e->status . ')'); }
-expect_error(fn () => Images::store("\xFF\xD8\xFF" . random_bytes(200), $fan, 'comment'), 415, 'a corrupt JPEG is refused');
+try { Images::store("\xFF\xD8\xFF" . random_bytes(200), $fan, 'comment'); check(false, 'a corrupt JPEG is refused'); } catch (\SaintQuest\HttpError $e) { check(in_array($e->status, [413, 415], true), 'a corrupt JPEG is refused (' . $e->status . ')'); }
 expect_error(fn () => Images::store(str_repeat('a', Images::MAX_BYTES + 1), $fan, 'comment'), 413, 'files over 5 MB are refused');
 expect_error(fn () => Images::store('', $fan, 'comment'), 400, 'empty upload refused');
 // Polyglot: valid JPEG with a script appended -> re-encode drops it

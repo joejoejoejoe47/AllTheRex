@@ -84,11 +84,11 @@ final class Images
         $white = imagecolorallocate($dst, 255, 255, 255);
         imagefill($dst, 0, 0, $white);
         imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
-        imagedestroy($src);
+        unset($src); // imagedestroy() is a no-op since PHP 8 and deprecated in 8.5
         ob_start();
         imagejpeg($dst, null, 84);
         $jpeg = (string) ob_get_clean();
-        imagedestroy($dst);
+        unset($dst);
 
         $id = Auth::randomId();
         $dir = Config::storagePath('uploads');

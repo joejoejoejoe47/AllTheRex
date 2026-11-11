@@ -26,7 +26,21 @@ h1, h2, h3, .brand, .big-btn b { font-family: Fredoka, Nunito, sans-serif; }
 #scene { position: fixed; inset: 0; overflow: hidden; }
 #stage { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; transform-origin: 0 0; }
 #bg { position: absolute; inset: 0; width: 100%; height: 100%; user-select: none; display: block; }
-#saint-canvas { position: absolute; left: 39.5%; top: 31%; width: 21%; height: 52%; cursor: pointer; outline: none; }
+#saint-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; outline: none; }
+#saint-hit { cursor: pointer; border-radius: 40%; z-index: 1; }
+#walk-canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0; }
+.villager, #signpost { transition: opacity .35s; }
+body.walked .villager, body.walked #signpost { opacity: 0; pointer-events: none; }
+#walk-load { position: fixed; z-index: 4; right: 16px; bottom: 74px; padding: 3px 12px; font-size: 12px; font-weight: 800; pointer-events: none; }
+#bg { cursor: default; }
+#saint-plate.dim { opacity: .45; }
+#walk-hint { position: fixed; z-index: 4; transform: translate(-50%, -100%); background: var(--cream); border: 3px solid var(--gold); border-radius: 14px; padding: 4px 12px; font: 700 15px Fredoka, sans-serif; white-space: nowrap; pointer-events: auto; cursor: pointer; box-shadow: var(--shadow); animation: fade .2s; }
+#walk-hint kbd { display: inline-block; min-width: 22px; padding: 0 5px; margin-right: 4px; border-radius: 6px; background: #fff; border: 2px solid var(--gold-d); font: 700 13px Nunito, sans-serif; text-align: center; }
+#walk-help { position: fixed; z-index: 4; left: 50%; bottom: 84px; transform: translateX(-50%); padding: 4px 14px; font-weight: 800; font-size: 13px; pointer-events: none; white-space: nowrap; transition: opacity .6s; }
+#walk-help.gone { opacity: 0; }
+.walk-stick { position: fixed; z-index: 5; left: 18px; bottom: 104px; width: 104px; height: 104px; border-radius: 50%; background: rgba(255,255,255,.35); border: 3px solid rgba(255,255,255,.85); touch-action: none; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.walk-stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #ffd54f); border: 3px solid var(--gold-d); pointer-events: none; }
+body.in-church #home-stick, body.in-auth #home-stick { display: none; }
 #saint-canvas:focus-visible { filter: drop-shadow(0 0 8px #fff); }
 .hotspot { position: absolute; background: transparent; border: 0; padding: 0; border-radius: 24px; }
 .hotspot:focus-visible { outline: 3px solid #fff; }
@@ -347,4 +361,44 @@ textarea.input { resize: vertical; min-height: 70px; }
   .hud .big { font-size: 20px; }
   .round-btn { width: 72px; height: 72px; }
   .battle-help { display: none; }
+}
+
+/* church */
+#church-root { position: fixed; inset: 0; z-index: 3; background: #f3e6cc; }
+#church-root canvas { display: block; width: 100%; height: 100%; }
+#leave-church { position: fixed; z-index: 6; left: 50%; top: 66px; transform: translateX(-50%); font-size: 18px; padding: 10px 22px; background: linear-gradient(180deg, #fffaf0, #ffe7a8); border: 4px solid var(--gold); box-shadow: var(--shadow); }
+.church-title { position: fixed; left: 50%; top: 124px; transform: translateX(-50%); text-align: center; background: rgba(255, 248, 230, .92); border: 3px solid var(--gold); border-radius: 16px; padding: 6px 18px; transition: opacity 1s; pointer-events: none; }
+.church-title b { display: block; font: 700 24px Fredoka, sans-serif; color: var(--gold-dd, #7a5300); }
+.church-title small { font-weight: 800; color: #6b5a3a; }
+.church-title.gone { opacity: 0; }
+body.in-church #saint-plate, body.in-church #walk-load, body.in-church #edge-next, body.in-church #walk-hint, body.in-church #walk-help, body.in-church #quest-banner { display: none !important; }
+#church-stick { left: 18px; bottom: 104px; }
+#door-fx { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
+#door-fx .door-frame { position: absolute; perspective: 300px; border-radius: 50% 50% 0 0 / 30% 30% 0 0; overflow: visible; transition: transform .6s ease-in; }
+#door-fx .door-glow { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(circle at 50% 70%, #fffbe8, #ffe08a 60%, #f0b437); box-shadow: 0 0 30px 10px #fff3b8; opacity: 0; transition: opacity .5s; }
+#door-fx .door-leaf { position: absolute; top: 0; bottom: 0; width: 50%; background: linear-gradient(90deg, #6b3d1c, #8b5a2b 50%, #6b3d1c); border: 2px solid #d9a93f; transition: transform .7s cubic-bezier(.5, 0, .3, 1); }
+#door-fx .door-leaf.l { left: 0; transform-origin: 0 50%; border-radius: 100% 0 0 0 / 30% 0 0 0; }
+#door-fx .door-leaf.r { right: 0; transform-origin: 100% 50%; border-radius: 0 100% 0 0 / 0 30% 0 0; }
+#door-fx.open .door-leaf.l { transform: rotateY(-105deg); }
+#door-fx.open .door-leaf.r { transform: rotateY(105deg); }
+#door-fx.open .door-glow { opacity: 1; }
+#door-fx.zoom .door-frame { transform: scale(40); }
+#door-fx.painted .door-frame { perspective: 1400px; }
+#door-fx.painted .door-leaf { border: 0; background-repeat: no-repeat; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
+#door-fx.painted .door-leaf.l { border-radius: 100% 0 0 0 / 28% 0 0 0; }
+#door-fx.painted .door-leaf.r { border-radius: 0 100% 0 0 / 0 28% 0 0; }
+#door-fx.painted.zoom .door-frame { transform: scale(5); }
+body.walked #saint-plate { opacity: 0; pointer-events: none; }
+#saint-plate { transition: opacity .35s; }
+#door-fx .door-white { position: absolute; inset: 0; background: #fffaf0; opacity: 0; transition: opacity .55s ease-in; }
+#door-fx.zoom .door-white { opacity: 1; transition-delay: .1s; }
+#door-fx.done { transition: opacity .6s; opacity: 0; }
+.church-fade { position: fixed; inset: 0; z-index: 7; background: #fffaf0; pointer-events: none; animation: fade .4s; }
+.church-fade.out { transition: opacity .5s; opacity: 0; }
+@media (max-width: 820px), (max-height: 520px) and (orientation: landscape) {
+  .walk-stick, #church-stick { bottom: 136px; left: 12px; width: 96px; height: 96px; }
+  #walk-help { bottom: 136px; left: auto; right: 10px; transform: none; white-space: normal; max-width: calc(100vw - 140px); text-align: center; }
+  #leave-church { top: auto; bottom: 136px; left: auto; right: 12px; transform: none; font-size: 16px; padding: 8px 14px; }
+  .church-title { top: 140px; bottom: auto; }
+  .church-title b { font-size: 18px; }
 }
