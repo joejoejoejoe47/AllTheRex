@@ -48,7 +48,59 @@ function morse_known($id) {
   return null;
 }
 
+function morse_library_path() {
+  return morse_dir() . DIRECTORY_SEPARATOR . "library.json";
+}
+
+function morse_remember($project) {
+  if (!is_array($project) || !isset($project["id"])) return;
+  $lib = morse_read(morse_library_path());
+  $projects = $lib && isset($lib["projects"]) && is_array($lib["projects"]) ? $lib["projects"] : [];
+  $next = [];
+  $replaced = false;
+  foreach ($projects as $item) {
+    if (is_array($item) && isset($item["id"]) && $item["id"] === $project["id"]) {
+      $next[] = $project;
+      $replaced = true;
+    } else {
+      $next[] = $item;
+    }
+  }
+  if (!$replaced) $next[] = $project;
+  morse_write(morse_library_path(), ["projects" => $next]);
+}
+
+function morse_all_projects() {
+  $byId = [];
+  $lib = morse_read(morse_library_path());
+  if ($lib && isset($lib["projects"]) && is_array($lib["projects"])) {
+    foreach ($lib["projects"] as $project) {
+      if (is_array($project) && isset($project["id"])) $byId[$project["id"]] = $project;
+    }
+  }
+  foreach (morse_index() as $account) {
+    if (!isset($account["id"])) continue;
+    $bag = morse_read(morse_bag($account["id"]));
+    if (!$bag || !isset($bag["projects"]) || !is_array($bag["projects"])) continue;
+    foreach ($bag["projects"] as $project) {
+      if (is_array($project) && isset($project["id"])) $byId[$project["id"]] = $project;
+    }
+  }
+  return array_values($byId);
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "GET") {
+  if (isset($_GET["catalog"])) {
+    $names = [];
+    foreach (morse_all_projects() as $project) {
+      $names[] = [
+        "id" => $project["id"],
+        "name" => isset($project["name"]) && $project["name"] !== "" ? $project["name"] : "Project",
+      ];
+    }
+    echo json_encode(["projects" => $names]);
+    exit;
+  }
   $id = morse_id(isset($_GET["id"]) ? $_GET["id"] : "");
   if ($id !== "") {
     if (!morse_known($id)) {
@@ -112,7 +164,17 @@ if ($action === "create") {
   $index = morse_index();
   $id = bin2hex(random_bytes(8));
   $index[] = ["id" => $id, "name" => $name];
-  if (!morse_write(morse_dir() . DIRECTORY_SEPARATOR . "index.json", $index) || !morse_write(morse_bag($id), ["projects" => []])) {
+  $wanted = [];
+  if (isset($data["projectIds"]) && is_array($data["projectIds"])) {
+    foreach ($data["projectIds"] as $projectId) {
+      if (is_string($projectId) && $projectId !== "") $wanted[$projectId] = true;
+    }
+  }
+  $chosen = [];
+  foreach (morse_all_projects() as $project) {
+    if (isset($wanted[$project["id"]])) $chosen[] = $project;
+  }
+  if (!morse_write(morse_dir() . DIRECTORY_SEPARATOR . "index.json", $index) || !morse_write(morse_bag($id), ["projects" => $chosen])) {
     http_response_code(500);
     echo json_encode(["error" => "save"]);
     exit;
@@ -173,4 +235,5 @@ if (!morse_write(morse_bag($id), ["projects" => $next])) {
   echo json_encode(["error" => "save"]);
   exit;
 }
+morse_remember($incoming);
 echo json_encode(["ok" => true]);
