@@ -36,10 +36,22 @@ if (!is_array($site) || !isset($site["pages"]) || !is_array($site["pages"])) {
   echo json_encode(["error" => "bad site"]);
   exit;
 }
-$dir = __DIR__ . "/sites";
-if (!is_dir($dir) && !mkdir($dir, 0777, true)) {
+$candidates = [__DIR__ . "/live", __DIR__ . "/sites", __DIR__];
+$dir = "";
+foreach ($candidates as $candidate) {
+  if (!is_dir($candidate)) @mkdir($candidate, 0777, true);
+  if (is_dir($candidate) && is_writable($candidate)) {
+    $dir = $candidate;
+    break;
+  }
+}
+if ($dir === "") {
   http_response_code(500);
-  echo json_encode(["error" => "no folder"]);
+  echo json_encode([
+    "error" => "save",
+    "here" => is_writable(__DIR__),
+    "tmp" => is_writable(sys_get_temp_dir()),
+  ]);
   exit;
 }
 $payload = json_encode(
@@ -57,4 +69,5 @@ if ($written === false) {
   echo json_encode(["error" => "save", "writable" => is_writable($dir)]);
   exit;
 }
-echo json_encode(["ok" => true, "slug" => $slug]);
+$folder = basename($dir) === "studios" ? "" : basename($dir) . "/";
+echo json_encode(["ok" => true, "slug" => $slug, "path" => $folder]);
