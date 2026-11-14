@@ -42,7 +42,6 @@ if (!is_dir($dir) && !mkdir($dir, 0777, true)) {
   echo json_encode(["error" => "no folder"]);
   exit;
 }
-@chmod($dir, 0777);
 $payload = json_encode(
   ["title" => isset($site["title"]) ? $site["title"] : $slug, "pages" => $site["pages"]],
   JSON_UNESCAPED_SLASHES
@@ -52,9 +51,10 @@ if ($payload === false) {
   echo json_encode(["error" => "encode"]);
   exit;
 }
-if (file_put_contents($dir . "/" . $slug . ".json", $payload, LOCK_EX) === false) {
+$written = @file_put_contents($dir . "/" . $slug . ".json", $payload);
+if ($written === false) {
   http_response_code(500);
-  echo json_encode(["error" => "save"]);
+  echo json_encode(["error" => "save", "writable" => is_writable($dir)]);
   exit;
 }
 echo json_encode(["ok" => true, "slug" => $slug]);
