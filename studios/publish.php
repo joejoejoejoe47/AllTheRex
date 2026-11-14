@@ -61,7 +61,11 @@ if (!is_array($site) || !isset($site["pages"]) || !is_array($site["pages"])) {
   exit;
 }
 $payload = json_encode(
-  ["title" => isset($site["title"]) ? $site["title"] : $slug, "pages" => $site["pages"]],
+  [
+    "title" => isset($site["title"]) ? $site["title"] : $slug,
+    "pages" => $site["pages"],
+    "width" => isset($site["width"]) ? (int) $site["width"] : 0,
+  ],
   JSON_UNESCAPED_SLASHES
 );
 if ($payload === false) {
