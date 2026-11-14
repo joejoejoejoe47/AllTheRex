@@ -1,12 +1,36 @@
 <?php
 header("Content-Type: application/json");
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Cache-Control: no-store");
 if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
   http_response_code(204);
   exit;
 }
+
+function morse_slug($value) {
+  $slug = strtolower(trim($value));
+  if (!preg_match("/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/", $slug)) return "";
+  return $slug;
+}
+
+function morse_file($slug) {
+  return rtrim(sys_get_temp_dir(), "\\/") . DIRECTORY_SEPARATOR . "morse-" . $slug . ".json";
+}
+
+if ($_SERVER["REQUEST_METHOD"] === "GET") {
+  $slug = morse_slug(isset($_GET["site"]) ? $_GET["site"] : "");
+  $file = $slug ? morse_file($slug) : "";
+  if ($file === "" || !is_file($file)) {
+    http_response_code(404);
+    echo json_encode(["error" => "missing"]);
+    exit;
+  }
+  readfile($file);
+  exit;
+}
+
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
   http_response_code(405);
   echo json_encode(["error" => "post"]);
@@ -24,8 +48,8 @@ if (!is_array($data)) {
   echo json_encode(["error" => "bad json"]);
   exit;
 }
-$slug = isset($data["slug"]) ? strtolower($data["slug"]) : "";
-if (!preg_match("/^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/", $slug)) {
+$slug = morse_slug(isset($data["slug"]) ? $data["slug"] : "");
+if ($slug === "") {
   http_response_code(400);
   echo json_encode(["error" => "bad name"]);
   exit;
@@ -34,24 +58,6 @@ $site = $data["site"] ?? null;
 if (!is_array($site) || !isset($site["pages"]) || !is_array($site["pages"])) {
   http_response_code(400);
   echo json_encode(["error" => "bad site"]);
-  exit;
-}
-$candidates = [__DIR__ . "/live", __DIR__ . "/sites", __DIR__];
-$dir = "";
-foreach ($candidates as $candidate) {
-  if (!is_dir($candidate)) @mkdir($candidate, 0777, true);
-  if (is_dir($candidate) && is_writable($candidate)) {
-    $dir = $candidate;
-    break;
-  }
-}
-if ($dir === "") {
-  http_response_code(500);
-  echo json_encode([
-    "error" => "save",
-    "here" => is_writable(__DIR__),
-    "tmp" => is_writable(sys_get_temp_dir()),
-  ]);
   exit;
 }
 $payload = json_encode(
@@ -63,11 +69,9 @@ if ($payload === false) {
   echo json_encode(["error" => "encode"]);
   exit;
 }
-$written = @file_put_contents($dir . "/" . $slug . ".json", $payload);
-if ($written === false) {
+if (@file_put_contents(morse_file($slug), $payload) === false) {
   http_response_code(500);
-  echo json_encode(["error" => "save", "writable" => is_writable($dir)]);
+  echo json_encode(["error" => "save"]);
   exit;
 }
-$folder = basename($dir) === "studios" ? "" : basename($dir) . "/";
-echo json_encode(["ok" => true, "slug" => $slug, "path" => $folder]);
+echo json_encode(["ok" => true, "slug" => $slug]);
