@@ -153,6 +153,17 @@ if (!is_array($data)) {
 }
 $action = isset($data["action"]) ? $data["action"] : "";
 
+if ($action === "library") {
+  if (!isset($data["project"]) || !is_array($data["project"]) || !isset($data["project"]["id"])) {
+    http_response_code(400);
+    echo json_encode(["error" => "bad project"]);
+    exit;
+  }
+  morse_remember($data["project"]);
+  echo json_encode(["ok" => true]);
+  exit;
+}
+
 if ($action === "create") {
   $name = trim(isset($data["name"]) ? $data["name"] : "");
   $name = preg_replace("/[\r\n\t]+/", " ", $name);
