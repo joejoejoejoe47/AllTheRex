@@ -392,8 +392,8 @@ final class Mores
             if ($changed === 0) {
                 return false; // someone else already settled this game
             }
-            if (self::variantOf($game) !== '') {
-                // Variant games: no coins, no rating change, no bot streak (owner t205u).
+            if (self::variantOf($game) !== '' || self::setupVersusBot($game)) {
+                // Variant games, and a hand-built setup against MorseBot: no coins, no rating (owner t205u).
                 $game['status'] = $status;
                 $game['winner_user_id'] = $winnerUserId;
                 $game['scored'] = 1;
@@ -414,6 +414,17 @@ final class Mores
                 $game = $latest;
             }
         }
+    }
+
+    /** A custom opening against MorseBot (or MorseBot2) does not pay coins or move ratings. */
+    private static function setupVersusBot(array $game): bool
+    {
+        if (trim((string) ($game['start_fen'] ?? '')) === '') {
+            return false;
+        }
+        $whiteBot = Constants::isBotUserId((string) $game['white_user_id']);
+        $blackBot = Constants::isBotUserId((string) $game['black_user_id']);
+        return $whiteBot !== $blackBot;
     }
 
     private static function noteBotStreak(array &$game, string $status, ?string $winnerUserId): void
@@ -820,10 +831,12 @@ final class Mores
             $game['winner_user_id'] = $winner;
 
             if ($status === 'white_win' || $status === 'black_win' || $status === 'draw') {
-                if ($winner !== null) {
-                    self::payWinCoins($game, $winner, true);
+                if (!self::setupVersusBot($game)) {
+                    if ($winner !== null) {
+                        self::payWinCoins($game, $winner, true);
+                    }
+                    self::settleElo($game, $status, $winner);
                 }
-                self::settleElo($game, $status, $winner);
             }
             return null;
         });
@@ -1295,14 +1308,14 @@ final class Mores
         }
 
         $inboxRows = Db::all(
-            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant
+            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant, c.setup_fen
              FROM challenges c JOIN profiles p ON p.user_id = c.from_user_id
              WHERE c.to_user_id = ? AND c.status = 'pending'
              ORDER BY c.created_at DESC",
             [$userId]
         );
         $outRows = Db::all(
-            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant
+            "SELECT c.id, c.mode, c.status, c.created_at, p.username, c.kind, c.variant, c.setup_fen
              FROM challenges c JOIN profiles p ON p.user_id = c.to_user_id
              WHERE c.from_user_id = ? AND c.status IN ('pending', 'declined')
              ORDER BY c.created_at DESC LIMIT 8",
@@ -1340,6 +1353,7 @@ final class Mores
                 'kind' => self::kindOf($r),
                 'expiresInMs' => self::namedExpiry($r),
                 'variant' => Variants::valid($r['variant'] ?? null) ? (string) $r['variant'] : null,
+                'setupFen' => trim((string) ($r['setup_fen'] ?? '')) !== '' ? trim((string) $r['setup_fen']) : null,
             ], $inboxRows),
             'outgoing' => array_map(static fn (array $r): array => [
                 'id' => (string) $r['id'],
@@ -1351,6 +1365,7 @@ final class Mores
                 'kind' => self::kindOf($r) === 'football' ? 'football' : 'named',
                 'expiresInMs' => self::namedExpiry($r),
                 'variant' => Variants::valid($r['variant'] ?? null) ? (string) $r['variant'] : null,
+                'setupFen' => trim((string) ($r['setup_fen'] ?? '')) !== '' ? trim((string) $r['setup_fen']) : null,
             ], $outRows),
             'activeGameId' => $matched ?? ($active !== null ? (string) $active['id'] : null),
             // Football vs a player (t234u): the challenger's home page opens the game once it is accepted
