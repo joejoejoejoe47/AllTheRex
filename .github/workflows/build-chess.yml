@@ -6,6 +6,7 @@ name: Build Morse Chess site
 # It never touches main when run from php-chess-site. workflow_dispatch on main
 # commits into chess/ on that branch. Full-precision Kokoro weights (325 MB)
 # are stripped before commit and fetched at deploy time; they are not stored here.
+# Morse Chess Legendary's front controller (site-legendary/) is copied into chessledgendary/.
 
 on:
   push:
@@ -35,7 +36,10 @@ jobs:
           node-version: 22
       - name: Install
         working-directory: mc
-        run: npm install --no-audit --no-fund
+        # onnxruntime-node's postinstall tries a CUDA (GPU) binary that 404s; the site never uses it.
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+        run: npm install --no-audit --no-fund --onnxruntime-node-install-cuda=skip
       - name: Build
         working-directory: mc
         run: npm run build
@@ -58,6 +62,12 @@ jobs:
             bash mc/scripts/strip_kokoro_onnx_for_git.sh chess
           fi
           bash .github/scripts/strip_kokoro_onnx_for_git.sh chess
+          # Morse Chess Legendary (alltherex.com/chessledgendary/): a 3-file front controller that
+          # re-skins the chess/ build next door. Only present once morse-chess ships site-legendary/.
+          if [ -d mc/site-legendary ]; then
+            mkdir -p chessledgendary
+            cp -R mc/site-legendary/. chessledgendary/
+          fi
           rm -rf mc
       - name: Guard no oversized files in chess/
         run: bash .github/scripts/guard_chess_git_size.sh chess
@@ -66,6 +76,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A chess
+          if [ -d chessledgendary ]; then git add -A chessledgendary; fi
           git diff --cached --quiet && { echo "No changes."; exit 0; }
           git commit -m "Build Morse Chess front end from morse-chess@${{ inputs.source_ref || 'php-port' }}"
           git push
