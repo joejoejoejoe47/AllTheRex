@@ -36,7 +36,10 @@ jobs:
           node-version: 22
       - name: Install
         working-directory: mc
-        run: npm install --no-audit --no-fund
+        # onnxruntime-node's postinstall tries a CUDA (GPU) binary that 404s; the site never uses it.
+        env:
+          ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+        run: npm install --no-audit --no-fund --onnxruntime-node-install-cuda=skip
       - name: Build
         working-directory: mc
         run: npm run build
