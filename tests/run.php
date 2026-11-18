@@ -310,6 +310,11 @@ $bk = rex_external_search('book', 'North and South');
 check('book search merges title + general queries without duplicates', count($bk['results']) === 2 && $bk['results'][0]['creator'] === 'John Jakes');
 unset($GLOBALS['REX_HTTP']);
 
+echo "Amazon links\n";
+$al = amazon_url(['category' => 'book', 'title' => 'North & South', 'creator' => 'John Jakes']);
+check('amazon link is a search ending with the affiliate tag', str_starts_with($al, 'https://www.amazon.com/s?k=North%20%26%20South%20John%20Jakes') && str_ends_with($al, '&tag=movierecs-20'));
+check('amazon link picks the right department', str_contains(amazon_url(['category' => 'album', 'title' => 'X', 'creator' => '']), 'i=music'));
+
 echo "Upgrading an older database\n";
 $old = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 $old->exec('CREATE TABLE items (id INTEGER PRIMARY KEY, category TEXT, title TEXT, creator TEXT, year INTEGER, dedupe_key TEXT, created_by INTEGER, created_at TEXT)');

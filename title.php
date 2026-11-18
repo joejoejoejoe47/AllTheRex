@@ -50,6 +50,7 @@ page_head($it['title'], $it['category']);
       <?php star_widget((int)$it['id'], isset($it['my_rating']) ? (int)$it['my_rating'] : null, $back); ?>
       <?php if (!$u): ?><p class="hint"><a href="<?= e(url('login.php')) ?>">Log in</a> or <a href="<?= e(url('register.php')) ?>">sign up</a> to save ratings.</p><?php endif; ?>
     </div>
+    <p class="buy"><a class="btn small ghost" href="<?= e(amazon_url($it)) ?>" target="_blank" rel="sponsored nofollow noopener">Find on Amazon</a></p>
   </div>
 </section>
 

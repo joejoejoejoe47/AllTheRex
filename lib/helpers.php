@@ -133,3 +133,12 @@ function current_back(): string
     $qs   = $_SERVER['QUERY_STRING'] ?? '';
     return safe_back($file . ($qs !== '' ? '?' . $qs : ''), $file);
 }
+
+
+/** Amazon search link (affiliate tag at the end of the query string) for a movie, album or book. */
+function amazon_url(array $it): string
+{
+    $index = ['movie' => 'movies-tv', 'album' => 'music', 'book' => 'stripbooks'][$it['category']] ?? 'aps';
+    $terms = trim((string)$it['title'] . ' ' . (string)($it['creator'] ?? ''));
+    return 'https://www.amazon.com/s?k=' . rawurlencode($terms) . '&i=' . $index . '&tag=movierecs-20';
+}

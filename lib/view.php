@@ -45,7 +45,7 @@ function page_foot(): void
 {
     ?>
 </main>
-<footer class="foot">Ratings from everyone make the recommendations. Rate a few titles you know and the rest follows.</footer>
+<footer class="foot">Ratings from everyone make the recommendations. Rate a few titles you know and the rest follows.<br><small>As an Amazon Associate we earn from qualifying purchases.</small></footer>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
