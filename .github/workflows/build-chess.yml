@@ -6,7 +6,8 @@ name: Build Morse Chess site
 # It never touches main when run from php-chess-site. workflow_dispatch on main
 # commits into chess/ on that branch. Full-precision Kokoro weights (325 MB)
 # are stripped before commit and fetched at deploy time; they are not stored here.
-# Morse Chess Legendary's front controller (site-legendary/) is copied into chessledgendary/.
+# Morse Chess Legendary's front controller (site-legendary/) is copied into chessLegendary/;
+# the old address's redirect controller (site-legendary-redirect/) into chessledgendary/.
 
 on:
   push:
@@ -62,11 +63,16 @@ jobs:
             bash mc/scripts/strip_kokoro_onnx_for_git.sh chess
           fi
           bash .github/scripts/strip_kokoro_onnx_for_git.sh chess
-          # Morse Chess Legendary (alltherex.com/chessledgendary/): a 3-file front controller that
-          # re-skins the chess/ build next door. Only present once morse-chess ships site-legendary/.
+          # Morse Chess Legendary (alltherex.com/chessLegendary/): a 3-file front controller that
+          # re-skins the chess/ build next door. The old misspelled /chessledgendary/ folder gets the
+          # 3-file redirect controller (301 to the same path under /chessLegendary/).
           if [ -d mc/site-legendary ]; then
-            mkdir -p chessledgendary
-            cp -R mc/site-legendary/. chessledgendary/
+            rm -rf chessLegendary && mkdir -p chessLegendary
+            cp -R mc/site-legendary/. chessLegendary/
+          fi
+          if [ -d mc/site-legendary-redirect ]; then
+            rm -rf chessledgendary && mkdir -p chessledgendary
+            cp -R mc/site-legendary-redirect/. chessledgendary/
           fi
           rm -rf mc
       - name: Guard no oversized files in chess/
@@ -76,7 +82,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A chess
-          if [ -d chessledgendary ]; then git add -A chessledgendary; fi
+          for d in chessLegendary chessledgendary; do if [ -e "$d" ] || git ls-files --error-unmatch "$d" >/dev/null 2>&1; then git add -A "$d"; fi; done
           git diff --cached --quiet && { echo "No changes."; exit 0; }
           git commit -m "Build Morse Chess front end from morse-chess@${{ inputs.source_ref || 'php-port' }}"
           git push
