@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "chess/**"
+      - "chessLegendary/**"
       - "chessledgendary/**"
       - ".github/workflows/deploy-chess.yml"
   workflow_dispatch:
@@ -186,17 +187,23 @@ jobs:
           [ "$bad" = 0 ]
 
       # Morse Chess Legendary: three small files (index.php, .htaccess, web.config) that serve the
-      # chess/ build above with the Legendary theme at /chessledgendary/. It shares chess/'s API,
-      # assets and database, so it goes up after chess/ is live and smoke-tested. A failure here
-      # never rolls back /chess (the rollback step below only follows the chess smoke test).
+      # chess/ build above with the Legendary theme at /chessLegendary/. It shares chess/'s API,
+      # assets and database, so it goes up after chess/ is live and smoke-tested. The old misspelled
+      # /chessledgendary/ folder gets a 3-file redirect controller (301, path + query kept). IIS
+      # ignores case, so /chesslegendary/ is the same folder (the controller 301s it to the canonical
+      # spelling). A failure here never rolls back /chess (the rollback only follows the chess smoke test).
       - name: Upload Legendary front controller
         id: legendary
-        if: hashFiles('chessledgendary/index.php') != ''
+        if: hashFiles('chessLegendary/index.php') != ''
         run: |
           set -euo pipefail
-          for dest in chessledgendary alltherex/chessledgendary; do
-            echo "== $dest"
-            lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 4; set cmd:fail-exit yes; mkdir -p -f $dest; put chessledgendary/.htaccess -o $dest/.htaccess; put chessledgendary/web.config -o $dest/web.config; put chessledgendary/index.php -o $dest/index.php; bye" "$FTP_HOST"
+          up() { # $1 = repo folder, $2 = server folder
+            echo "== $1 -> $2"
+            lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 4; set cmd:fail-exit yes; mkdir -p -f $2; put $1/.htaccess -o $2/.htaccess; put $1/web.config -o $2/web.config; put $1/index.php -o $2/index.php; bye" "$FTP_HOST"
+          }
+          for root in "" alltherex/; do
+            up chessLegendary "${root}chessLegendary"
+            if [ -f chessledgendary/index.php ]; then up chessledgendary "${root}chessledgendary"; fi
           done
 
       - name: Smoke test Legendary
@@ -205,12 +212,20 @@ jobs:
           set -u
           sleep 3
           want=$(grep -o 'assets/index-[^"]*\.js' chess/app.html | head -1)
-          for path in "" store; do
-            page=$(curl -fsS -m 30 "https://alltherex.com/chessledgendary/$path?smoke=$GITHUB_RUN_ID") || { echo "::error::/chessledgendary/$path did not load"; exit 1; }
-            echo "$page" | grep -q 'window.MORSE_THEME="legendary"' || { echo "::error::/chessledgendary/$path is not the Legendary shell"; exit 1; }
-            echo "$page" | grep -q 'window.MORSE_BASE="/chess"' || { echo "::error::/chessledgendary/$path does not point at the /chess API"; exit 1; }
-            echo "$page" | grep -q "$want" || { echo "::error::/chessledgendary/$path does not load $want"; exit 1; }
+          for path in "" store boards; do
+            page=$(curl -fsS -m 30 "https://alltherex.com/chessLegendary/$path?smoke=$GITHUB_RUN_ID") || { echo "::error::/chessLegendary/$path did not load"; exit 1; }
+            echo "$page" | grep -q 'window.MORSE_THEME="legendary"' || { echo "::error::/chessLegendary/$path is not the Legendary shell"; exit 1; }
+            echo "$page" | grep -q 'window.MORSE_BASE="/chess"' || { echo "::error::/chessLegendary/$path does not point at the /chess API"; exit 1; }
+            echo "$page" | grep -q 'window.MORSE_ROUTER_BASE="/chessLegendary"' || { echo "::error::/chessLegendary/$path router is not at /chessLegendary"; exit 1; }
+            echo "$page" | grep -q "$want" || { echo "::error::/chessLegendary/$path does not load $want"; exit 1; }
           done
+          if [ -f chessledgendary/index.php ]; then
+            for old in chessledgendary chesslegendary; do
+              loc=$(curl -sS -m 30 -o /dev/null -w '%{http_code} %{redirect_url}' "https://alltherex.com/$old/store?smoke=$GITHUB_RUN_ID")
+              echo "/$old/store -> $loc"
+              case "$loc" in "301 https://alltherex.com/chessLegendary/store?smoke=$GITHUB_RUN_ID") ;; *) echo "::error::/$old/ does not 301 to /chessLegendary/"; exit 1;; esac
+            done
+          fi
           echo "legendary ok"
 
       - name: Roll back the page to the previous build
