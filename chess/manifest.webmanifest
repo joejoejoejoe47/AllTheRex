@@ -6,5 +6,6 @@
   "display": "standalone",
   "background_color": "#0c0d0b",
   "theme_color": "#0c0d0b",
-  "icons": [{ "src": "__grok/icon-180.png", "sizes": "180x180", "type": "image/png" }]
+  "icons": [{ "src": "__grok/icon-180.png", "sizes": "180x180", "type": "image/png" }],
+  "protocol_handlers": [{ "protocol": "web+morsechess", "url": "./app.html?open=%s" }]
 }

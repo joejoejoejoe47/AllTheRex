@@ -12,6 +12,14 @@
     <meta property="og:description" content="Sit at the Morse table. Challenge a name, or sit across MorseBot." />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <script>
+      window.addEventListener("pointerdown", function () {
+        if (!navigator.registerProtocolHandler) return;
+        try {
+          navigator.registerProtocolHandler("web+morsechess", location.origin + "/chess/app.html?open=%s");
+        } catch (e) {}
+      }, { once: true });
+    </script>
     <link rel="apple-touch-icon" href="./__grok/icon-180.png" />
     <link
       rel="stylesheet"
