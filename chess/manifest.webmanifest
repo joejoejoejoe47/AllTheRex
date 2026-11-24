@@ -4,11 +4,7 @@
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone"],
-  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
-  "handle_links": "preferred",
   "background_color": "#0c0d0b",
   "theme_color": "#0c0d0b",
-  "icons": [{ "src": "__grok/icon-180.png", "sizes": "180x180", "type": "image/png" }],
-  "protocol_handlers": [{ "protocol": "web+morsechess", "url": "./app.html?open=%s" }]
+  "icons": [{ "src": "__grok/icon-180.png", "sizes": "180x180", "type": "image/png" }]
 }
