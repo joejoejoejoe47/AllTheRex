@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=21';
-import { storyHtml, storyPng } from './share.js?v=21';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=21';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=22';
+import { storyHtml, storyPng } from './share.js?v=22';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=22';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -176,10 +176,9 @@ async function pageHero() {
 
 // ---------------- Play (02 / 03 / 05 / 08) ----------------
 function elCard(el, extra = '') {
-  const long = el.name.length > 11 ? ' long' : '';
   const isNew = state.newIds.has(el.id) ? ' is-new' : '';
   const rar = ' ' + rarityClass(el);
-  return `<button class="el${long}${isNew}${extra}${rar}" data-id="${el.id}" style="--c:${colorOf(el)}" title="${esc(el.name)}${el.tagline ? ' — ' + esc(el.tagline) : ''}${el.rarity ? ' · ' + el.rarity : ''}">
+  return `<button class="el${nameClass(el.name)}${isNew}${extra}${rar}" data-id="${el.id}" style="--c:${colorOf(el)};${nameVars(el.name)}" title="${esc(el.name)}${el.tagline ? ' — ' + esc(el.tagline) : ''}${el.rarity ? ' · ' + el.rarity : ''} — Double-click or long-press for the recipe">
     ${el.mineFirst ? '<span class="star" title="Your First Discovery">⭐</span>' : ''}
     <span class="i">${ico(el.emoji)}</span><span class="n">${esc(el.name)}</span></button>`;
 }
@@ -205,7 +204,7 @@ async function pagePlay() {
         ${playChrome(state)}
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
-          <button class="mini-btn" id="btnRecipe" title="Long-press or right-click a card">Recipe Book</button>
+          <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
           <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
         <div class="strip-wrap">
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
@@ -473,7 +472,7 @@ function resultAction(act) {
 
 // ---------------- Drag and drop + tap ----------------
 function setupDrag() {
-  let start = null, ghost = null, src = null, hold = null, dragging = false, srcEl = null;
+  let start = null, ghost = null, src = null, hold = null, dragging = false, srcEl = null, lastTap = null, pendingPick = 0;
   const isTouch = (e) => e.pointerType === 'touch';
   const blockScroll = (e) => { if (dragging) e.preventDefault(); };
   document.addEventListener('touchmove', blockScroll, { passive: false });
@@ -540,7 +539,21 @@ function setupDrag() {
     start = null;
     dragging = false;
     if (!wasDrag) {
-      if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 10 && srcEl) pickElement(srcEl);
+      if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < 10 && srcEl) {
+        const now = performance.now();
+        if (lastTap && now - lastTap.t < 340 && lastTap.id === srcEl.id) {
+          clearTimeout(pendingPick);
+          pendingPick = 0;
+          lastTap = null;
+          if (navigator.vibrate) navigator.vibrate(12);
+          openRecipe(srcEl.id, { api, toast, ico, artHtml, BASE });
+        } else {
+          lastTap = { t: now, id: srcEl.id };
+          clearTimeout(pendingPick);
+          const picked = srcEl;
+          pendingPick = setTimeout(() => { pendingPick = 0; pickElement(picked); }, 280);
+        }
+      }
       return;
     }
     const t = targetAt(e.clientX, e.clientY);
@@ -568,11 +581,22 @@ function setupDrag() {
     g.style.top = r.top + r.height / 2 + 'px';
     setTimeout(() => g.remove(), 260);
   }
-  function onCancel() { clearTimeout(hold); start = null; dragging = false; if (ghost) { ghost.remove(); ghost = null; } }
+  function onCancel() { clearTimeout(hold); clearTimeout(pendingPick); start = null; dragging = false; if (ghost) { ghost.remove(); ghost = null; } }
+  function onDbl(e) {
+    const card = e.target.closest('#strip .el, .coll-grid .el, .recent-row .el, .sheet .el, .rb-pick .el');
+    if (!card) return;
+    e.preventDefault();
+    clearTimeout(pendingPick);
+    pendingPick = 0;
+    lastTap = null;
+    const id = +card.dataset.id;
+    if (id) openRecipe(id, { api, toast, ico, artHtml, BASE });
+  }
   document.addEventListener('pointerdown', onDown);
   document.addEventListener('pointermove', onMove);
   document.addEventListener('pointerup', onUp);
   document.addEventListener('pointercancel', onCancel);
+  document.addEventListener('dblclick', onDbl);
   document.addEventListener('contextmenu', ctxOpen);
   function ctxOpen(e) {
     const card = e.target.closest('#strip .el, .coll-grid .el, .recent-row .el, .sheet .el, .rb-pick .el');
@@ -587,6 +611,7 @@ function setupDrag() {
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointercancel', onCancel);
     document.removeEventListener('touchmove', blockScroll);
+    document.removeEventListener('dblclick', onDbl);
     document.removeEventListener('contextmenu', ctxOpen);
   };
 }
@@ -1070,7 +1095,7 @@ function openRecipePicker() {
   wrap.innerHTML = `<div class="modal book rb-pick">
     <button class="x" aria-label="Close">${svg.close}</button>
     <h3>Recipe Book</h3>
-    <p class="muted">Pick a card to see how you made it and what it can turn into. You can also long-press or right-click any element card.</p>
+    <p class="muted">Pick a card to see how you made it and what it can turn into. You can also double-click, double-tap, long-press, or right-click any element card.</p>
     <div class="coll-grid">${list.map((e) => elCard(e)).join('') || '<p class="muted">Nothing to look up yet.</p>'}</div>
   </div>`;
   document.body.appendChild(wrap);
@@ -1089,7 +1114,7 @@ function openRecipePicker() {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=21').then((m) => {
+import('./clash.js?v=22').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1116,7 +1141,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=21');
+    const m = window.__ccClashMod || await import('./clash.js?v=22');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

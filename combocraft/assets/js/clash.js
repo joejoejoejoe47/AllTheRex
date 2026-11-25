@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=21';
+import { rarityClass, nameClass, nameVars } from './features.js?v=22';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -397,7 +397,7 @@ function paintLoadout(m, soft) {
       <div class="lo-grid" id="loGrid">
         ${(m.collection || []).map((e) => {
           const on = picked.has(e.id);
-          return `<button type="button" class="el lo-el ${rarityClass(e)}${on ? ' on' : ''}" data-id="${e.id}" title="${esc(e.name)} · ${esc(e.rarity)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span><span class="rar-pill ${rarityClass(e)}">${esc(e.rarity)}</span></button>`;
+          return `<button type="button" class="el lo-el ${rarityClass(e)}${nameClass(e.name)}${on ? ' on' : ''}" data-id="${e.id}" style="${nameVars(e.name)}" title="${esc(e.name)} · ${esc(e.rarity)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span><span class="rar-pill ${rarityClass(e)}">${esc(e.rarity)}</span></button>`;
         }).join('')}
       </div>
       <div class="clash-lo-act">
@@ -522,7 +522,7 @@ function paintArena(m, now, soft) {
       ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
       ${inKick ? `<div class="rl-kick"><b>${kickWord}</b></div>` : ''}
       <div class="rl-panel rl-hand" id="clHand">
-        ${hand.map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}" data-tok="${esc(e.token)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
+        ${hand.map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}${nameClass(e.name)}" data-tok="${esc(e.token)}" style="${nameVars(e.name)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
       </div>
       <div class="rl-quick" id="clQuick">
         ${['What a combo!','Nice one!','Close one!','Calculated.','Wow!'].map((q) => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join('')}
@@ -1429,7 +1429,7 @@ function paintPartyMatch(m) {
       ${spectate ? '' : `<div class="rl-panel rl-col orange" style="margin:12px 28px 0"><h3>@${esc(m.oppName)} · Live</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(m.oppPlays || []).slice().reverse().map((p) => card(p, true)).join('') || '<div class="muted">Waiting for the other party…</div>'}</div></div>`}
       ${spectate ? `<div class="rl-res-acts"><button class="btn-rl rl-back" id="pmLeave"><span>Leave Party</span></button><button class="btn-rl rl-back" id="pmExit"><span>Exit to menu</span></button></div>` : `
       <div class="rl-panel rl-hand" id="pmHand">
-        ${(m.hand || []).slice(-24).map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}" data-tok="${esc(e.token)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
+        ${(m.hand || []).slice(-24).map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}${nameClass(e.name)}" data-tok="${esc(e.token)}" style="${nameVars(e.name)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
       </div>`}
     </div>`;
   if (!spectate) {
@@ -1558,7 +1558,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=21');
+  const { createVoice } = await import('./voice.js?v=22');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

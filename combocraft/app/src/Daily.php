@@ -35,6 +35,10 @@ final class Daily
         $day = self::today();
         $player = $player ?? Player::current();
         $chain = $player ? self::loadChain($player, $day) : self::freshChain($day, []);
+        $auto = [];
+        if ($player) {
+            $auto = self::claimOwned($player, $day, $chain);
+        }
         $target = self::viewForKey($chain['target_key']);
         $stats = ['streak' => 0, 'best_streak' => 0, 'wins' => 0, 'last_day' => ''];
         if ($player) {
@@ -74,6 +78,7 @@ final class Daily
             'bestStreak' => (int) $stats['best_streak'],
             'wins' => (int) $stats['wins'],
             'share' => self::shareText($day, $target, $chain, (int) $stats['streak']),
+            'autoSolved' => $auto,
         ];
     }
 
@@ -621,6 +626,81 @@ final class Daily
     }
 
     /** @param array<string,mixed> $player @param array<string,mixed> $result */
+
+    /**
+     * If the player already owns the current target, mark it solved, award
+     * the usual daily score, and keep advancing while they already have
+     * the next ones too.
+     * @param array<string,mixed> $player
+     * @param array<string,mixed> $chain
+     * @return list<array{level:int,name:string,key:string,scoreGain:int}>
+     */
+    private static function claimOwned(array $player, string $day, array &$chain): array
+    {
+        $owned = [];
+        try {
+            foreach (Game::collection($player) as $el) {
+                $k = Text::key((string) ($el['name'] ?? ''));
+                if ($k !== '') {
+                    $owned[$k] = $el;
+                }
+            }
+        } catch (\Throwable $e) {
+            return [];
+        }
+        $claimed = [];
+        $changed = false;
+        for ($i = 0; $i < 40; $i++) {
+            if (!empty($chain['cleared'])) {
+                break;
+            }
+            $key = (string) ($chain['target_key'] ?? '');
+            if ($key === '' || !isset($owned[$key])) {
+                break;
+            }
+            $level = (int) $chain['level'];
+            $name = (string) $chain['target_name'];
+            $steps = (int) $chain['steps'];
+            $gain = 10 * $level + $steps;
+            if (!in_array($key, $chain['solved_list'], true)) {
+                $chain['solved_list'][] = $key;
+                $chain['solved_list'] = array_values(array_unique($chain['solved_list']));
+                $chain['score'] = (int) $chain['score'] + $gain;
+                if (count($chain['solved_list']) === 1) {
+                    self::markLegacySolved($player, $day, $owned[$key], [], 0);
+                    self::bumpStreak($player['id'], $day);
+                }
+                $claimed[] = [
+                    'level' => $level,
+                    'name' => $name,
+                    'key' => $key,
+                    'scoreGain' => $gain,
+                ];
+                $changed = true;
+            }
+            $next = self::pickForLevel($day, $level + 1, $chain['solved_list']);
+            if ($next) {
+                $chain['level'] = $level + 1;
+                $chain['target_key'] = $next['key'];
+                $chain['target_name'] = $next['name'];
+                $chain['steps'] = $next['steps'];
+                $chain['combos'] = 0;
+                $chain['path'] = json_encode([], JSON_UNESCAPED_UNICODE);
+                $chain['cleared'] = false;
+                $changed = true;
+            } else {
+                $chain['cleared'] = true;
+                $changed = true;
+                break;
+            }
+        }
+        if ($changed) {
+            $chain['history'] = self::historyFromSolved($day, $chain['solved_list']);
+            self::saveChain($player['id'], $day, $chain);
+        }
+        return $claimed;
+    }
+
     private static function markLegacySolved(array $player, string $day, array $result, array $path, int $combos): void
     {
         $t = self::target($day);

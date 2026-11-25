@@ -16,12 +16,14 @@ final class Ai
     public const POLLINATIONS = 'https://text.pollinations.ai/openai';
 
     /** @return list<array{role:string,content:string}> */
-    public static function messages(string $a, string $b): array
+    public static function messages(string $a, string $b, bool $retry = false): array
     {
         $system = 'You power ComboCraft, a funny "combine anything" browser game like Infinite Craft. '
             . 'Given two elements, invent the ONE thing you get by combining them. Be clever, absurd and internet-funny, '
             . 'but family friendly (PG): no hate, slurs, sexual content, drugs, gore, self-harm, or real people\'s names. '
-            . 'Prefer short punchy names (1-4 words, up to 7 if the joke needs it), Title Case. '
+            . 'Prefer short punchy names: at most 3 words and 24 characters, Title Case. '
+            . 'Never pad a name with stacked prefixes like Double, Mega, Super, Ultra, Hyper, Triple, Giga or Squared, and never repeat a word. '
+            . 'If the obvious idea would be "Double Mega Money Squared", invent a fresh, creative short name instead. '
             . 'Use real, readable English words (no made-up gibberish words); a pun, a pop-culture-style concept or a funny '
             . 'situation is great. Sometimes the answer is simply the real thing (Water + Fire = Steam). '
             . 'The name must make the connection to BOTH inputs obvious. '
@@ -29,10 +31,19 @@ final class Ai
             . 'Examples: Cat + Chaos = Zoomies Apocalypse 🐈 "Hide your socks. Hide yourself."; '
             . 'AI + Love = The Perfect Boyfriend Who Never Texts Back 🤖; Money + Chaos = Crypto Black Hole 🕳️; '
             . 'Politician + Meme = Congressional Reaction Video 📺; Cat + Fire = Inferno Feline 😼.';
-        return [
+        $msgs = [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $a . ' + ' . $b],
         ];
+        if ($retry) {
+            $msgs[] = [
+                'role' => 'user',
+                'content' => 'That name was too long or just stacked prefixes (Double, Mega, Super, Squared). '
+                    . 'Invent a fresh, creative name of at most 3 words and 24 characters, with none of those prefixes. '
+                    . 'Reply with ONLY JSON.',
+            ];
+        }
+        return $msgs;
     }
 
     public static function seed(string $pairKey): int
@@ -41,13 +52,13 @@ final class Ai
     }
 
     /** @return array<string,mixed> OpenAI-style body for the free endpoint (also used by the browser relay). */
-    public static function pollinationsBody(string $a, string $b, string $pairKey): array
+    public static function pollinationsBody(string $a, string $b, string $pairKey, bool $retry = false): array
     {
         return [
             'model' => 'openai',
-            'messages' => self::messages($a, $b),
-            'temperature' => 0.9,
-            'seed' => self::seed($pairKey),
+            'messages' => self::messages($a, $b, $retry),
+            'temperature' => $retry ? 1.05 : 0.9,
+            'seed' => self::seed($pairKey) + ($retry ? 1 : 0),
             'reasoning_effort' => 'low',
             'response_format' => ['type' => 'json_object'],
             'referrer' => 'alltherex.com',
@@ -62,23 +73,29 @@ final class Ai
     public static function ask(string $a, string $b, string $pairKey): array
     {
         foreach (self::keyedProviders() as $p) {
-            $body = [
-                'model' => $p['model'],
-                'messages' => self::messages($a, $b),
-                'temperature' => 0.9,
-                'max_tokens' => 120,
-            ];
-            if ($p['json']) {
-                $body['response_format'] = ['type' => 'json_object'];
-            }
-            $res = self::post($p['url'], $body, ['Authorization: Bearer ' . $p['key']], 15);
-            if ($res['code'] === 200) {
-                $parsed = self::parse((string) $res['body']);
-                if ($parsed !== null) {
-                    return ['status' => 'ok', 'data' => $parsed, 'provider' => $p['name']];
+            for ($attempt = 0; $attempt < 2; $attempt++) {
+                $retry = $attempt === 1;
+                $body = [
+                    'model' => $p['model'],
+                    'messages' => self::messages($a, $b, $retry),
+                    'temperature' => $retry ? 1.05 : 0.9,
+                    'max_tokens' => 120,
+                ];
+                if ($p['json']) {
+                    $body['response_format'] = ['type' => 'json_object'];
                 }
+                $res = self::post($p['url'], $body, ['Authorization: Bearer ' . $p['key']], 15);
+                if ($res['code'] === 200) {
+                    $parsed = self::parse((string) $res['body']);
+                    if ($parsed !== null) {
+                        return ['status' => 'ok', 'data' => $parsed, 'provider' => $p['name']];
+                    }
+                    // Bad or puffed name — ask this provider once more for a short fresh one.
+                    continue;
+                }
+                error_log('[combocraft ai] ' . $p['name'] . ' http ' . $res['code']);
+                break;
             }
-            error_log('[combocraft ai] ' . $p['name'] . ' http ' . $res['code']);
         }
 
         if (Config::bool('CC_FREE_AI_DISABLED')) {
@@ -88,12 +105,18 @@ final class Ai
         if ($until > time()) {
             return ['status' => 'busy'];
         }
-        $res = self::post(self::POLLINATIONS, self::pollinationsBody($a, $b, $pairKey), [], 18);
-        if ($res['code'] === 200) {
-            $parsed = self::parse((string) $res['body']);
-            if ($parsed !== null) {
-                return ['status' => 'ok', 'data' => $parsed, 'provider' => 'pollinations'];
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $res = self::post(self::POLLINATIONS, self::pollinationsBody($a, $b, $pairKey, $attempt === 1), [], 18);
+            if ($res['code'] === 200) {
+                $parsed = self::parse((string) $res['body']);
+                if ($parsed !== null) {
+                    return ['status' => 'ok', 'data' => $parsed, 'provider' => 'pollinations'];
+                }
+                continue;
             }
+            break;
+        }
+        if (($res['code'] ?? 0) === 200) {
             return ['status' => 'failed'];
         }
         if (in_array($res['code'], [402, 429, 503, 0], true)) {
