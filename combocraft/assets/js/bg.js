@@ -1,5 +1,5 @@
 // Double-click the empty background to pick a bright scene or upload your own.
-import { esc } from './fx.js?v=27';
+import { esc } from './fx.js?v=28';
 
 const BGS = [
   { id: 'stadium', name: 'Stadium', file: 'assets/art/arena-bg.webp', thumb: 'assets/art/bg-stadium-thumb.webp' },
