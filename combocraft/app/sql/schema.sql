@@ -263,3 +263,123 @@ CREATE TABLE IF NOT EXISTS cc_clash_daily (
   PRIMARY KEY (day, player_id)
 );
 CREATE INDEX IF NOT EXISTS cc_clash_daily_pts ON cc_clash_daily (day, points);
+
+CREATE TABLE IF NOT EXISTS cc_clash_parties (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  name VARCHAR(24) NOT NULL DEFAULT '',
+  host_id VARCHAR(24) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_parties_host ON cc_clash_parties (host_id, status);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_members (
+  party_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  role VARCHAR(12) NOT NULL,
+  joined_at DATETIME NOT NULL,
+  last_seen DATETIME NOT NULL,
+  PRIMARY KEY (party_id, player_id)
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pm_player ON cc_clash_party_members (player_id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_invites (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  party_id VARCHAR(24) NOT NULL,
+  from_id VARCHAR(24) NOT NULL,
+  to_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  expires_at DATETIME NOT NULL,
+  status VARCHAR(16) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pi_to ON cc_clash_party_invites (to_id, status);
+CREATE INDEX IF NOT EXISTS cc_clash_pi_party ON cc_clash_party_invites (party_id, status);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_queue (
+  party_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  size INTEGER NOT NULL,
+  pair VARCHAR(32) NOT NULL DEFAULT '',
+  queued_at DATETIME NOT NULL,
+  last_seen DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pq_pair ON cc_clash_party_queue (pair, size, queued_at);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_matches (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  a_party VARCHAR(24) NOT NULL,
+  b_party VARCHAR(24) NOT NULL,
+  a_name VARCHAR(24) NOT NULL,
+  b_name VARCHAR(24) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  session INTEGER NOT NULL DEFAULT 0,
+  target_name VARCHAR(80) NOT NULL DEFAULT '',
+  target_emoji VARCHAR(32) NOT NULL DEFAULT '',
+  a_session INTEGER NOT NULL DEFAULT 0,
+  b_session INTEGER NOT NULL DEFAULT 0,
+  a_alive INTEGER NOT NULL DEFAULT 1,
+  b_alive INTEGER NOT NULL DEFAULT 1,
+  a_ends_at DATETIME NULL,
+  b_ends_at DATETIME NULL,
+  intro_until DATETIME NULL,
+  winner_party VARCHAR(24) NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pam_live ON cc_clash_party_matches (status, a_party);
+CREATE INDEX IF NOT EXISTS cc_clash_pam_live_b ON cc_clash_party_matches (status, b_party);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_plays (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  match_id VARCHAR(24) NOT NULL,
+  session INTEGER NOT NULL,
+  party_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  a_name VARCHAR(80) NOT NULL,
+  b_name VARCHAR(80) NOT NULL,
+  result_name VARCHAR(80) NOT NULL,
+  result_emoji VARCHAR(32) NOT NULL DEFAULT '',
+  result_tagline VARCHAR(160) NOT NULL DEFAULT '',
+  rarity VARCHAR(16) NOT NULL DEFAULT 'Common',
+  is_hit INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pp_match ON cc_clash_party_plays (match_id, session, party_id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_chat (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  party_id VARCHAR(24) NOT NULL,
+  match_id VARCHAR(24) NULL,
+  player_id VARCHAR(24) NOT NULL,
+  body VARCHAR(240) NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pc_party ON cc_clash_party_chat (party_id, id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_replays (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind VARCHAR(12) NOT NULL,
+  match_id VARCHAR(24) NOT NULL,
+  payload TEXT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_rep_created ON cc_clash_replays (created_at);
+
+CREATE TABLE IF NOT EXISTS cc_clash_rtc_peers (
+  room VARCHAR(64) NOT NULL,
+  peer_id VARCHAR(32) NOT NULL,
+  name VARCHAR(64) NOT NULL DEFAULT '',
+  last_seen DATETIME NOT NULL,
+  PRIMARY KEY (room, peer_id)
+);
+
+CREATE TABLE IF NOT EXISTS cc_clash_rtc_signals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room VARCHAR(64) NOT NULL,
+  to_peer VARCHAR(32) NOT NULL,
+  from_peer VARCHAR(32) NOT NULL,
+  kind VARCHAR(12) NOT NULL,
+  payload TEXT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_rtc_inbox ON cc_clash_rtc_signals (room, to_peer, id);

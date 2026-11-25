@@ -56,7 +56,7 @@ final class Clash
             [$p['id'], 'pending', 'waiting']
         );
         $match = self::activeMatch($p);
-        return [
+        $out = [
             'needName' => self::needName($p),
             'nickname' => $p['nickname'] ?: '',
             'incoming' => array_map(fn ($c) => self::challengeView($c, $p), $incoming),
@@ -64,6 +64,12 @@ final class Clash
             'match' => $match ? self::matchView($match, $p) : null,
             'now' => Db::nowMs(),
         ];
+        try {
+            $out += Party::decorateInbox($p);
+        } catch (\Throwable $e) {
+            error_log('[combocraft party inbox] ' . $e->getMessage());
+        }
+        return $out;
     }
 
     /** @param array<string,mixed> $p @return array<string,mixed> */
@@ -316,9 +322,7 @@ final class Clash
         if (!$ea || !$eb) {
             throw new HttpError('You can only combine cards from your loadout or this round\'s results.', 422);
         }
-        if ($aTok === $bTok) {
-            throw new HttpError('Pick two different cards.', 422);
-        }
+
         $made = self::craft($ea, $eb);
         $chain = !empty($ea['temp']) || !empty($eb['temp']);
         $double = !empty($ea['temp']) && !empty($eb['temp']);
@@ -612,6 +616,7 @@ final class Clash
             ['finished', $winnerId, Db::now(), $m['id'], 'finished']
         );
         self::awardDaily($m, $winnerId);
+        Party::recordDuel(array_merge($m, ['winner_id' => $winnerId]));
         Db::run('DELETE FROM cc_clash_queue WHERE player_id IN (?,?)', [$m['a_id'], $m['b_id']]);
     }
 
@@ -626,6 +631,7 @@ final class Clash
         // Close an open round so scores freeze.
         Db::run('UPDATE cc_clash_rounds SET settled = 1 WHERE match_id = ? AND settled = 0', [$m['id']]);
         self::awardDaily(array_merge($m, ['status' => 'forfeit']), $winner);
+        Party::recordDuel(array_merge($m, ['status' => 'forfeit', 'winner_id' => $winner]));
         Db::run('DELETE FROM cc_clash_queue WHERE player_id IN (?,?)', [$m['a_id'], $m['b_id']]);
     }
 
