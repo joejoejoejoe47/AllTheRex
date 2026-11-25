@@ -836,14 +836,20 @@ html.shaking { animation: shake .45s ease-in-out; }
 .arena .cl-hand .el .n { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 body.has-party-bar .clash-wrap.arena {
   min-height: calc(100vh - 80px - 80px);
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  padding-bottom: 12px;
 }
 body.has-party-bar .cl-hand {
-  max-height: min(230px, 30vh);
+  position: sticky;
+  bottom: calc(58px + env(safe-area-inset-bottom));
+  z-index: 65;
+  background: var(--bg);
+  max-height: min(230px, 32vh);
   overflow-y: auto;
   overflow-x: hidden;
-  margin-bottom: 8px;
+  margin: 8px 0 0;
+  padding: 10px 4px 12px;
   scrollbar-width: thin;
+  box-shadow: 0 -12px 20px color-mix(in srgb, var(--bg) 85%, transparent);
 }
 .share-card.cl-share { margin: 18px auto; max-width: 520px; padding: 28px 24px; border-radius: 22px; border: 1px solid var(--line); background: linear-gradient(180deg, #faf7ff, #fff); text-align: center; }
 [data-theme="dark"] .share-card.cl-share { background: linear-gradient(180deg, #1c152c, #14121c); }
@@ -963,8 +969,11 @@ body.has-party-bar { padding-bottom: 64px; }
   .clash-scoreboard { flex-direction: column; }
   .cc-chat-btn { top: auto; bottom: calc(86px + env(safe-area-inset-bottom)); transform: none; }
   .clash-wrap.arena { padding-bottom: calc(16px + 72px + env(safe-area-inset-bottom)); min-height: 0; }
-  body.has-party-bar .clash-wrap.arena { padding-bottom: 16px; min-height: 0; }
-  body.has-party-bar .cl-hand { max-height: min(210px, 28vh); }
+  body.has-party-bar .clash-wrap.arena { padding-bottom: 8px; min-height: 0; }
+  body.has-party-bar .cl-hand {
+    bottom: calc(70px + 58px + env(safe-area-inset-bottom));
+    max-height: min(200px, 30vh);
+  }
   .arena .cl-hand .el { width: 96px; height: 92px; }
 }
 
