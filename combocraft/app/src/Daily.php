@@ -135,17 +135,24 @@ final class Daily
         $prevLevel = (int) $chain['level'];
         $prevTarget = $chain['target_name'];
         $resultKey = Text::key((string) ($result['name'] ?? ''));
-        if (empty($chain['cleared']) && $resultKey !== '' && $resultKey === (string) $chain['target_key']) {
+        // Count it even when this result was already in the collection.
+        // Match by name key, stored name_key, element id, or a folded name —
+        // never require a first-time discovery ($newForYou is ignored).
+        if (empty($chain['cleared']) && self::hitsTarget($result, $chain)) {
             $just = true;
             $solved = $chain['solved_list'];
-            $solved[] = $resultKey;
+            $hitKey = (string) $chain['target_key'];
+            if ($hitKey === '') {
+                $hitKey = $resultKey;
+            }
+            $solved[] = $hitKey;
             $chain['solved_list'] = array_values(array_unique($solved));
             $gain = 10 * (int) $chain['level'] + (int) $chain['steps'];
             $chain['score'] = (int) $chain['score'] + $gain;
             $chain['history'][] = [
                 'level' => (int) $chain['level'],
                 'name' => $chain['target_name'],
-                'key' => $resultKey,
+                'key' => $hitKey,
                 'steps' => (int) $chain['steps'],
                 'combos' => (int) $chain['combos'],
             ];
@@ -627,6 +634,168 @@ final class Daily
 
     /** @param array<string,mixed> $player @param array<string,mixed> $result */
 
+
+    /**
+     * True when this combine result is the current daily target, even if the
+     * player already had the element. Does not depend on first-time discovery.
+     * @param array<string,mixed> $result
+     * @param array<string,mixed> $chain
+     */
+    public static function hitsTarget(array $result, array $chain): bool
+    {
+        return self::targetMatchKeys($chain, (string) ($result['name'] ?? ''), (int) ($result['id'] ?? 0));
+    }
+
+    /**
+     * Fold a name/key for a looser comparison (spaces, punctuation, case).
+     */
+    public static function foldName(string $name): string
+    {
+        $s = mb_strtolower(trim($name));
+        $s = preg_replace('/[^a-z0-9]+/u', '', $s) ?? '';
+        return $s;
+    }
+
+    /**
+     * @param array<string,mixed> $chain
+     */
+    private static function targetMatchKeys(array $chain, string $name, int $id): bool
+    {
+        $targetKey = (string) ($chain['target_key'] ?? '');
+        $targetName = (string) ($chain['target_name'] ?? '');
+        if ($targetKey === '' && $targetName === '') {
+            return false;
+        }
+        $resultKey = Text::key($name);
+        if ($targetKey !== '' && $resultKey !== '' && $resultKey === $targetKey) {
+            return true;
+        }
+        if ($targetName !== '' && $resultKey !== '' && $resultKey === Text::key($targetName)) {
+            return true;
+        }
+        $fold = self::foldName($name);
+        if ($fold !== '' && ($fold === self::foldName($targetName) || $fold === self::foldName($targetKey))) {
+            return true;
+        }
+        $el = null;
+        if ($id > 0) {
+            $el = Db::one('SELECT id, name, name_key FROM cc_elements WHERE id = ?', [$id]);
+        }
+        if ($el === null && $resultKey !== '') {
+            $el = Db::one('SELECT id, name, name_key FROM cc_elements WHERE name_key = ?', [$resultKey]);
+        }
+        if ($el === null && $fold !== '') {
+            $el = Db::one('SELECT id, name, name_key FROM cc_elements WHERE REPLACE(LOWER(name_key), \' \', \'\') = ? OR REPLACE(LOWER(name), \' \', \'\') = ?', [$fold, $fold]);
+        }
+        if ($el === null) {
+            return false;
+        }
+        $ek = (string) $el['name_key'];
+        $en = Text::key((string) $el['name']);
+        if ($targetKey !== '' && ($ek === $targetKey || $en === $targetKey)) {
+            return true;
+        }
+        if ($targetName !== '' && ($en === Text::key($targetName) || $ek === Text::key($targetName))) {
+            return true;
+        }
+        if ($fold !== '' && (self::foldName($ek) === $fold || self::foldName((string) $el['name']) === $fold)) {
+            return true;
+        }
+        if ($id > 0 && $targetKey !== '') {
+            $t = Db::one('SELECT id FROM cc_elements WHERE name_key = ?', [$targetKey]);
+            if ($t && (int) $t['id'] === (int) $el['id']) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Every owned element, indexed by name_key, Text::key(name), and folded name.
+     * @param array<string,mixed> $player
+     * @return array<string,array<string,mixed>>
+     */
+    private static function ownedLookup(array $player): array
+    {
+        $owned = [];
+        $index = static function (array &$owned, array $el): void {
+            $keys = [];
+            $name = (string) ($el['name'] ?? '');
+            $nk = (string) ($el['name_key'] ?? '');
+            if ($nk !== '') {
+                $keys[] = $nk;
+            }
+            $tk = Text::key($name);
+            if ($tk !== '') {
+                $keys[] = $tk;
+            }
+            $fold = self::foldName($name !== '' ? $name : $nk);
+            if ($fold !== '') {
+                $keys[] = $fold;
+            }
+            foreach ($keys as $k) {
+                if ($k !== '' && !isset($owned[$k])) {
+                    $owned[$k] = $el;
+                }
+            }
+        };
+        try {
+            foreach (Game::collection($player) as $el) {
+                $index($owned, $el);
+            }
+        } catch (\Throwable $e) {
+            // Fall through and try a raw query.
+        }
+        try {
+            $bases = Db::all('SELECT id, name, name_key, emoji FROM cc_elements WHERE is_base = 1');
+            foreach ($bases as $el) {
+                $index($owned, $el);
+            }
+            $mine = Db::all(
+                'SELECT e.id, e.name, e.name_key, e.emoji FROM cc_collection c JOIN cc_elements e ON e.id = c.element_id WHERE c.player_id = ?',
+                [$player['id']]
+            );
+            foreach ($mine as $el) {
+                $index($owned, $el);
+            }
+        } catch (\Throwable $e) {
+            error_log('[combocraft daily owned] ' . $e->getMessage());
+        }
+        return $owned;
+    }
+
+    /**
+     * The owned element that matches the current chain target, if any.
+     * @param array<string,array<string,mixed>> $owned
+     * @param array<string,mixed> $chain
+     * @return array<string,mixed>|null
+     */
+    private static function ownedHit(array $owned, array $chain): ?array
+    {
+        $key = (string) ($chain['target_key'] ?? '');
+        $name = (string) ($chain['target_name'] ?? '');
+        foreach ([$key, Text::key($name), self::foldName($key), self::foldName($name)] as $k) {
+            if ($k !== '' && isset($owned[$k])) {
+                return $owned[$k];
+            }
+        }
+        // Last resort: walk owned elements (small collections) with hitsTarget.
+        $seen = [];
+        foreach ($owned as $el) {
+            $id = (int) ($el['id'] ?? 0);
+            if ($id && isset($seen[$id])) {
+                continue;
+            }
+            if ($id) {
+                $seen[$id] = true;
+            }
+            if (self::hitsTarget($el, $chain)) {
+                return $el;
+            }
+        }
+        return null;
+    }
+
     /**
      * If the player already owns the current target, mark it solved, award
      * the usual daily score, and keep advancing while they already have
@@ -637,15 +806,8 @@ final class Daily
      */
     private static function claimOwned(array $player, string $day, array &$chain): array
     {
-        $owned = [];
-        try {
-            foreach (Game::collection($player) as $el) {
-                $k = Text::key((string) ($el['name'] ?? ''));
-                if ($k !== '') {
-                    $owned[$k] = $el;
-                }
-            }
-        } catch (\Throwable $e) {
+        $owned = self::ownedLookup($player);
+        if ($owned === []) {
             return [];
         }
         $claimed = [];
@@ -655,7 +817,8 @@ final class Daily
                 break;
             }
             $key = (string) ($chain['target_key'] ?? '');
-            if ($key === '' || !isset($owned[$key])) {
+            $hit = self::ownedHit($owned, $chain);
+            if ($key === '' || $hit === null) {
                 break;
             }
             $level = (int) $chain['level'];
@@ -667,7 +830,7 @@ final class Daily
                 $chain['solved_list'] = array_values(array_unique($chain['solved_list']));
                 $chain['score'] = (int) $chain['score'] + $gain;
                 if (count($chain['solved_list']) === 1) {
-                    self::markLegacySolved($player, $day, $owned[$key], [], 0);
+                    self::markLegacySolved($player, $day, $hit, [], 0);
                     self::bumpStreak($player['id'], $day);
                 }
                 $claimed[] = [

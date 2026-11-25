@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=23';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=24';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -150,8 +150,8 @@ export function onCombineExtras(res, { state, toast, shake, burst }) {
     toast(`+${res.coins.justGranted} Morse coins for your First Discovery!`);
   }
   if (res.daily) cacheDaily(res.daily);
+  if (res.daily) paintDailyBar(state);
   if (res.daily?.justSolved) {
-    paintDailyBar(state);
     const d = res.daily;
     const extra = d.autoSolved || [];
     d.autoSolved = [];
