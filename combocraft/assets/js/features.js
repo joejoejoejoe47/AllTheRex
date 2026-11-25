@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=25';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=26';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -57,7 +57,6 @@ export function rarityClass(el) {
 export function playChrome(state) {
   const d = state.daily;
   const h = state.hints || { left: 3 };
-  const p = state.progress || { unlocked: 0, world: 0, pct: 0 };
   const target = d?.target;
   const cleared = !!(d?.cleared || (d?.solved && !d?.level));
   const level = d?.level || 1;
@@ -76,13 +75,6 @@ export function playChrome(state) {
         <button class="mini-btn" id="hintBtn" ${h.left <= 0 ? 'disabled' : ''}>Hint · ${h.left}</button>
         <button class="mini-btn" id="dailyShare" ${(d?.score || cleared) ? '' : 'hidden'}>Share</button>
       </div>
-    </div>
-    <div class="world-bar" id="worldBar" title="How much of the known world you’ve unlocked">
-      <div class="wb-track"><i style="width:${p.pct || 0}%"></i></div>
-      <span>${p.unlocked || 0} / ${p.world || 0} unlocked</span>
-      <a href="achievements" data-link class="wb-link">Achievements</a>
-      <a href="speedrun" data-link class="wb-link">Speedrun</a>
-      <a href="clash" data-link class="wb-link">Clash</a>
     </div>`;
 }
 
