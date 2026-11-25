@@ -1,8 +1,8 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=26';
-import { storyHtml, storyPng } from './share.js?v=26';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=26';
-import { initBg, syncPrefs } from './bg.js?v=26';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=27';
+import { storyHtml, storyPng } from './share.js?v=27';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=27';
+import { initBg, syncPrefs } from './bg.js?v=27';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -105,7 +105,7 @@ const routes = {
   pricing: pagePricing,
   premium: pagePricing,
   achievements: () => pageAchievements({ api, state, view, toast }),
-  speedrun: () => pageSpeedrun({ api, state, view, toast, sfx, shake, burst, onExtras: (r) => onCombineExtras(r, { state, toast, shake, burst }), go }),
+  speedrun: () => go('play', true),
   clash: pageClash,
 };
 let cleanup = null;
@@ -813,7 +813,6 @@ $('#btnGear').onclick = async (e) => {
     <div class="row"><span>Daily combinations<div class="small">${me ? `${me.usedToday} of ${me.dailyLimit} used today (free plan)` : 'Free plan'}</div></span></div>
     <div class="row btnrow" data-go="nick">Change nickname <span class="small">${esc(me?.nickname || 'not set')}</span></div>
     <div class="row btnrow" data-go="achievements">Achievements</div>
-    <div class="row btnrow" data-go="speedrun">Speedrun</div>
     <div class="row btnrow" data-go="clash">Combo Clash</div>
     <div class="row btnrow" data-go="invite">Invite a friend</div>
     ${state.morse?.available ? `<div class="row btnrow" data-go="morse">${state.morse.linked ? 'Morse Chess · linked' : 'Link Morse Chess'} <span class="small">${state.morse.linked ? '+' + (state.morse.earned || 0) + ' coins' : (state.morse.signedIn ? 'ready to link' : 'sign in on Morse first')}</span></div>` : ''}
@@ -1126,7 +1125,7 @@ function openRecipePicker() {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=26').then((m) => {
+import('./clash.js?v=27').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1153,7 +1152,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=26');
+    const m = window.__ccClashMod || await import('./clash.js?v=27');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

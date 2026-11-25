@@ -84,10 +84,10 @@ final class Api
                 '/api/prefs/bg' => self::mutating(fn () => Http::json(['ok' => true] + Prefs::upload(Player::require()))),
                 '/api/hint' => self::mutating(fn () => Http::json(['ok' => true] + Hint::give(Player::require()))),
                 '/api/achievements' => self::goalsRoute(),
-                '/api/speedrun' => self::speedrunGet(),
-                '/api/speedrun/start' => self::mutating(fn () => Http::json(['ok' => true] + Speedrun::start(Player::require(), isset(Http::jsonBody()['targetId']) ? (int) Http::jsonBody()['targetId'] : null))),
-                '/api/speedrun/combine' => self::mutating(fn () => self::speedrunCombine()),
-                '/api/speedrun/board' => self::speedrunBoard(),
+                '/api/speedrun' => self::speedrunDisabled(),
+                '/api/speedrun/start' => self::speedrunDisabled(),
+                '/api/speedrun/combine' => self::speedrunDisabled(),
+                '/api/speedrun/board' => self::speedrunDisabled(),
                 '/api/morse' => self::morseGet(),
                 '/api/morse/link' => self::mutating(fn () => Http::json(['ok' => true] + MorseLink::link(Player::require()))),
                 '/api/clash/inbox' => self::clashInbox(),
@@ -303,6 +303,11 @@ final class Api
         self::get();
         $p = Player::require();
         Http::json(['ok' => true, 'badges' => Goals::all($p), 'progress' => Goals::progress($p)]);
+    }
+
+    private static function speedrunDisabled(): never
+    {
+        throw new HttpError('Speedrun is not available.', 404);
     }
 
     private static function speedrunGet(): never
