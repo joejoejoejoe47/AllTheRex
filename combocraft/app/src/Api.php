@@ -102,7 +102,21 @@ final class Api
                 '/api/clash/forfeit' => self::mutating(fn () => Http::json(['ok' => true] + Clash::forfeit(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
                 '/api/clash/revenge' => self::mutating(fn () => Http::json(['ok' => true] + Clash::revenge(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
                 '/api/clash/board' => self::clashBoard(),
+                '/api/clash/replays' => self::clashReplays(),
+                '/api/clash/party/invite' => self::mutating(fn () => Http::json(['ok' => true] + Party::invite(Player::require(), (string) (Http::jsonBody()['nickname'] ?? '')))),
+                '/api/clash/party/respond' => self::mutating(fn () => Http::json(['ok' => true] + Party::respond(Player::require(), (string) (Http::jsonBody()['id'] ?? ''), !empty(Http::jsonBody()['accept'])))),
+                '/api/clash/party/name' => self::mutating(fn () => Http::json(['ok' => true] + Party::setName(Player::require(), (string) (Http::jsonBody()['name'] ?? '')))),
+                '/api/clash/party/leave' => self::mutating(fn () => Http::json(['ok' => true] + Party::leave(Player::require()))),
+                '/api/clash/party/boot' => self::mutating(fn () => Http::json(['ok' => true] + Party::boot(Player::require(), (string) (Http::jsonBody()['playerId'] ?? '')))),
+                '/api/clash/party/ready' => self::mutating(fn () => Http::json(['ok' => true] + Party::ready(Player::require(), (string) (Http::jsonBody()['pair'] ?? '')))),
+                '/api/clash/party/cancel' => self::mutating(fn () => Http::json(['ok' => true] + Party::cancelReady(Player::require()))),
+                '/api/clash/party/match' => self::partyMatch(),
+                '/api/clash/party/play' => self::mutating(fn () => Http::json(['ok' => true] + Party::play(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['a'] ?? ''), (string) (Http::jsonBody()['b'] ?? '')))),
+                '/api/clash/party/chat' => Http::method() === 'POST' ? self::mutating(fn () => Http::json(['ok' => true] + Party::chatPost(Player::require(), (string) (Http::jsonBody()['body'] ?? '')))) : self::partyChat(),
+                '/api/clash/party/exit' => self::mutating(fn () => Http::json(['ok' => true] + Party::exitMatch(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
+                '/api/clash/rtc' => Party::rtc(),
                 default => throw new HttpError('Not found', 404),
+
             };
         } catch (HttpError $e) {
             Http::json(['ok' => false, 'error' => $e->getMessage(), 'status' => $e->status], $e->status);
@@ -327,5 +341,23 @@ final class Api
             $kind = 'wins';
         }
         Http::json(['ok' => true] + Clash::board($kind));
+    }
+
+    private static function clashReplays(): never
+    {
+        self::get();
+        Http::json(['ok' => true, 'replays' => Party::replays()]);
+    }
+
+    private static function partyMatch(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + Party::match(Player::require(), (string) ($_GET['id'] ?? '')));
+    }
+
+    private static function partyChat(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + Party::chatList(Player::require(), (int) ($_GET['after'] ?? 0)));
     }
 }
