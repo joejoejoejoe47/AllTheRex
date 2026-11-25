@@ -840,7 +840,7 @@ body.has-party-bar .clash-wrap.arena {
 }
 body.has-party-bar .cl-hand {
   position: sticky;
-  bottom: calc(58px + env(safe-area-inset-bottom));
+  bottom: var(--party-clearance, calc(58px + env(safe-area-inset-bottom)));
   z-index: 65;
   background: var(--bg);
   max-height: min(230px, 32vh);
@@ -971,9 +971,13 @@ body.has-party-bar { padding-bottom: 64px; }
   .clash-wrap.arena { padding-bottom: calc(16px + 72px + env(safe-area-inset-bottom)); min-height: 0; }
   body.has-party-bar .clash-wrap.arena { padding-bottom: 8px; min-height: 0; }
   body.has-party-bar .cl-hand {
-    bottom: calc(70px + 58px + env(safe-area-inset-bottom));
-    max-height: min(200px, 30vh);
+    bottom: var(--party-clearance, calc(70px + 58px + env(safe-area-inset-bottom)));
+    max-height: min(200px, 28vh);
   }
+  .cc-party-bar { flex-wrap: nowrap; gap: 6px; padding: 6px 10px; overflow-x: auto; }
+  .pb-members { flex-wrap: nowrap; overflow-x: auto; }
+  .pb-mem b { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-chat-btn { bottom: calc(var(--party-clearance, 140px) + 8px); }
   .arena .cl-hand .el { width: 96px; height: 92px; }
 }
 

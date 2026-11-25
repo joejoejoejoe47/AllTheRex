@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=13';
+import { rarityClass } from './features.js?v=14';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -988,6 +988,21 @@ function promptPartyName() {
   };
 }
 
+function syncPartyClearance() {
+  const bar = document.getElementById('ccPartyBar');
+  if (!bar) {
+    document.documentElement.style.removeProperty('--party-clearance');
+    return;
+  }
+  const top = bar.getBoundingClientRect().top;
+  const px = Math.max(0, Math.round(window.innerHeight - top));
+  document.documentElement.style.setProperty('--party-clearance', px + 'px');
+}
+if (!window.__ccPartyClearance) {
+  window.__ccPartyClearance = true;
+  window.addEventListener('resize', syncPartyClearance);
+}
+
 function ensurePartyBar(party) {
   let bar = document.getElementById('ccPartyBar');
   if (!party) {
@@ -997,6 +1012,7 @@ function ensurePartyBar(party) {
     const cb = document.getElementById('ccChatBtn');
     if (cb) cb.hidden = true;
     document.body.classList.remove('has-party-bar');
+    document.documentElement.style.removeProperty('--party-clearance');
     return;
   }
   const { esc, ico, api, toast } = ctx;
@@ -1016,6 +1032,8 @@ function ensurePartyBar(party) {
   }
   bar.innerHTML = html;
   document.body.classList.add('has-party-bar');
+  syncPartyClearance();
+  requestAnimationFrame(syncPartyClearance);
   bar.querySelector('#pbLeave').onclick = async () => {
     try { await api('clash/party/leave', {}); ensurePartyBar(null); toast('You left the party.'); } catch (e) { toast(e.message); }
   };
@@ -1360,7 +1378,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=13');
+  const { createVoice } = await import('./voice.js?v=14');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
