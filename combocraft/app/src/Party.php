@@ -29,22 +29,43 @@ final class Party
     /** @param array<string,mixed> $p @return array<string,mixed> */
     public static function decorateInbox(array $p): array
     {
-        self::expireInvites();
-        self::touchMember($p);
-        $party = self::currentParty($p);
-        if ($party) {
-            $pm = self::tickPartyMatch($party, $p);
-            if ($pm) {
-                // keep snapshot after tick
-            }
+        $out = ['party' => null, 'partyInvites' => [], 'recentPeople' => [], 'lastScore' => null, 'partyMatch' => null];
+        try {
+            self::expireInvites();
+            self::touchMember($p);
+        } catch (Throwable $e) {
+            error_log('[combocraft party touch] ' . $e->getMessage());
         }
-        return [
-            'party' => $party ? self::partyView($party, $p) : null,
-            'partyInvites' => array_map(fn ($c) => self::inviteView($c, $p), self::incomingInvites($p)),
-            'recentPeople' => self::recentPeople($p),
-            'lastScore' => self::lastScore($p),
-            'partyMatch' => ($party && ($pm = self::livePartyMatch($party))) ? self::matchView($pm, $p) : null,
-        ];
+        $party = null;
+        try {
+            $party = self::currentParty($p);
+            if ($party) {
+                self::tickPartyMatch($party, $p);
+                $out['party'] = self::partyView(self::getParty($party['id']), $p);
+                $live = self::livePartyMatch($party);
+                if ($live) {
+                    $out['partyMatch'] = self::matchView($live, $p);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[combocraft party current] ' . $e->getMessage());
+        }
+        try {
+            $out['partyInvites'] = array_map(fn ($c) => self::inviteView($c, $p), self::incomingInvites($p));
+        } catch (Throwable $e) {
+            error_log('[combocraft party invites] ' . $e->getMessage());
+        }
+        try {
+            $out['recentPeople'] = self::recentPeople($p);
+        } catch (Throwable $e) {
+            error_log('[combocraft party recent] ' . $e->getMessage());
+        }
+        try {
+            $out['lastScore'] = self::lastScore($p);
+        } catch (Throwable $e) {
+            error_log('[combocraft party score] ' . $e->getMessage());
+        }
+        return $out;
     }
 
     /** @return list<array<string,mixed>> */
@@ -892,7 +913,7 @@ final class Party
             $ids[(string) $r['oid']] = true;
         }
         $mates = Db::all(
-            'SELECT DISTINCT m2.player_id AS oid FROM cc_clash_party_members m1 JOIN cc_clash_party_members m2 ON m2.party_id = m1.party_id AND m2.player_id <> m1.player_id WHERE m1.player_id = ? ORDER BY m2.joined_at DESC LIMIT 20',
+            'SELECT m2.player_id AS oid, MAX(m2.joined_at) AS j FROM cc_clash_party_members m1 JOIN cc_clash_party_members m2 ON m2.party_id = m1.party_id AND m2.player_id <> m1.player_id WHERE m1.player_id = ? GROUP BY m2.player_id ORDER BY j DESC LIMIT 20',
             [$p['id']]
         );
         foreach ($mates as $r) {
