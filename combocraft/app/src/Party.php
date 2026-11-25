@@ -720,14 +720,14 @@ final class Party
             $m = self::getMatch($m['id']);
             $aA = (int) $m['a_alive'];
             $bA = (int) $m['b_alive'];
-            if ((int) $m['a_session'] >= 3 || (int) $m['b_session'] >= 3) {
-                $winner = ((int) $m['a_session'] >= (int) $m['b_session']) ? $m['a_party'] : $m['b_party'];
-                self::finishMatch($m, (string) $winner);
-                return self::getMatch($m['id']);
-            }
-            if ($aA === 0 && $bA === 0) {
-                $winner = ((int) $m['a_session'] >= (int) $m['b_session']) ? $m['a_party'] : $m['b_party'];
-                self::finishMatch($m, (string) $winner);
+            if ((int) $m['a_session'] >= 3 || (int) $m['b_session'] >= 3 || ($aA === 0 && $bA === 0)) {
+                $as = (int) $m['a_session'];
+                $bs = (int) $m['b_session'];
+                if ($as === $bs) {
+                    self::finishMatch($m, '');
+                } else {
+                    self::finishMatch($m, (string) ($as > $bs ? $m['a_party'] : $m['b_party']));
+                }
                 return self::getMatch($m['id']);
             }
             // One team out: the other keeps playing so the defeated side can spectate.
@@ -784,11 +784,20 @@ final class Party
     /** @param array<string,mixed> $m */
     private static function finishMatch(array $m, string $winnerParty): void
     {
-        Db::run(
+        $win = $winnerParty !== '' ? $winnerParty : null;
+        $n = Db::run(
             "UPDATE cc_clash_party_matches SET status = 'finished', winner_party = ?, updated_at = ? WHERE id = ? AND status <> 'finished'",
-            [$winnerParty, Db::now(), $m['id']]
+            [$win, Db::now(), $m['id']]
         );
+        if ($n < 1) {
+            return;
+        }
         Db::run("UPDATE cc_clash_parties SET status = 'open', updated_at = ? WHERE id IN (?,?)", [Db::now(), $m['a_party'], $m['b_party']]);
+        try {
+            ClashRank::applyPartyMatch($m, $win);
+        } catch (Throwable $e) {
+            error_log('[combocraft party rank] ' . $e->getMessage());
+        }
         try {
             $payload = [
                 'matchId' => $m['id'],
@@ -1231,6 +1240,14 @@ final class Party
             }
         }
         $headline = '@' . ($m[$side . '_name'] ?: 'Party') . ' VS @' . ($m[$other . '_name'] ?: 'Party');
+        $stats = [];
+        if ($m['status'] === 'finished') {
+            $stats = ClashRank::partyMatchStats((string) $m['id'], $m);
+            foreach ($stats as &$row) {
+                $row['you'] = $row['playerId'] === $p['id'];
+            }
+            unset($row);
+        }
         return [
             'id' => $m['id'],
             'kind' => 'party',
@@ -1255,16 +1272,61 @@ final class Party
             'oppPlays' => $oppPlays,
             'hand' => $hand,
             'winnerParty' => $m['winner_party'],
-            'youWon' => $m['winner_party'] === $partyId,
+            'youWon' => $m['winner_party'] !== null && $m['winner_party'] !== '' && $m['winner_party'] === $partyId,
+            'draw' => $m['status'] === 'finished' && ($m['winner_party'] === null || $m['winner_party'] === ''),
             'voiceRoom' => 'party-' . $partyId,
             'partyId' => $partyId,
             'vsAi' => self::aiLevelOfMatch($m) !== null,
             'aiLevel' => self::aiLevelOfMatch($m),
             'now' => Db::nowMs(),
+            'stats' => $stats,
+            'rankChange' => $m['status'] === 'finished' ? ClashRank::summaryFor((string) $m['id'], $p['id']) : null,
+            'share' => $m['status'] === 'finished' ? self::partyShare($m, $p, $side, $other, $partyId) : null,
             'rematch' => $m['status'] === 'finished'
                 ? ClashRematch::publicView(ClashRematch::tick($m['id']), $p['id'])
                 : ClashRematch::idle(),
         ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $m
+     * @param array<string,mixed> $p
+     * @return array<string,mixed>
+     */
+    private static function partyShare(array $m, array $p, string $side, string $other, string $partyId): array
+    {
+        $you = (string) ($m[$side . '_name'] ?? 'Party');
+        $opp = (string) ($m[$other . '_name'] ?? 'Party');
+        $best = null;
+        $rows = Db::all('SELECT * FROM cc_clash_party_plays WHERE match_id = ? ORDER BY is_hit DESC, id DESC', [$m['id']]);
+        foreach ($rows as $pl) {
+            if ((string) $pl['player_id'] === (string) $p['id'] || $best === null) {
+                $best = [
+                    'a' => $pl['a_name'],
+                    'b' => $pl['b_name'],
+                    'name' => $pl['result_name'],
+                    'emoji' => Text::safeEmoji((string) $pl['result_emoji']),
+                    'hit' => (int) $pl['is_hit'] === 1,
+                ];
+                if ((string) $pl['player_id'] === (string) $p['id'] && (int) $pl['is_hit'] === 1) {
+                    break;
+                }
+            }
+        }
+        $draw = $m['winner_party'] === null || $m['winner_party'] === '';
+        $won = !$draw && $m['winner_party'] === $partyId;
+        $score = ((int) $m[$side . '_session']) . '-' . ((int) $m[$other . '_session']);
+        if ($draw) {
+            $headline = '@' . $you . ' vs @' . $opp . ' · ' . $score . ' · Draw';
+        } elseif ($won) {
+            $with = $best ? (' with ' . $best['a'] . ' + ' . $best['b'] . ' = ' . $best['name']) : '';
+            $headline = $you . ' beats ' . $opp . ' · ' . $score . ' · I beat @' . $opp . $with;
+        } else {
+            $with = $best ? (' with ' . $best['a'] . ' + ' . $best['b'] . ' = ' . $best['name']) : '';
+            $headline = $opp . ' beats ' . $you . ' · ' . $score . ' · @' . $opp . ' won' . $with;
+        }
+        return ['headline' => $headline, 'best' => $best, 'you' => $you, 'opp' => $opp];
     }
 
     /** @param array{0:string,1:string} $target */

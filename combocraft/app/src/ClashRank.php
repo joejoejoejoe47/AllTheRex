@@ -247,4 +247,140 @@ final class ClashRank
         );
         return $row ? (string) $row['player_id'] : null;
     }
+
+    /**
+     * Scoreboard rows for a party match: every human and bot on both teams.
+     * @param array<string,mixed> $m  party match row (needs a_party, b_party, a_name, b_name)
+     * @return list<array<string,mixed>>
+     */
+    public static function partyMatchStats(string $matchId, array $m): array
+    {
+        $plays = Db::all(
+            'SELECT player_id, party_id, COUNT(*) AS combos, SUM(is_hit) AS hits
+             FROM cc_clash_party_plays WHERE match_id = ? GROUP BY player_id, party_id',
+            [$matchId]
+        );
+        $by = [];
+        foreach ($plays as $r) {
+            $by[(string) $r['player_id']] = $r;
+        }
+        $out = [];
+        $top = -1;
+        $mvp = null;
+        foreach (['a', 'b'] as $side) {
+            $pid = (string) ($m[$side . '_party'] ?? '');
+            $team = (string) ($m[$side . '_name'] ?? 'Party');
+            $members = $pid !== '' ? Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ? ORDER BY joined_at', [$pid]) : [];
+            if (!$members && $pid !== '') {
+                $members = [['player_id' => $pid]];
+            }
+            foreach ($members as $mem) {
+                $id = (string) $mem['player_id'];
+                $row = $by[$id] ?? ['combos' => 0, 'hits' => 0];
+                $combos = (int) $row['combos'];
+                $hits = (int) $row['hits'];
+                $score = $hits * 100 + $combos * 10;
+                $mini = Db::one('SELECT nickname, avatar FROM cc_players WHERE id = ?', [$id]);
+                $name = $mini['nickname'] ?? (str_starts_with($id, 'pai_') ? 'Bot' : 'Player');
+                $item = [
+                    'playerId' => $id,
+                    'name' => $name,
+                    'avatar' => Text::safeEmoji((string) (($mini['avatar'] ?? '') ?: '🐱')),
+                    'team' => $team,
+                    'side' => $side,
+                    'combos' => $combos,
+                    'chains' => $hits,
+                    'attacks' => 0,
+                    'score' => $score,
+                    'mvp' => false,
+                    'rank' => self::of($id),
+                ];
+                $out[] = $item;
+                if ($score > $top) {
+                    $top = $score;
+                    $mvp = $id;
+                }
+            }
+        }
+        foreach ($out as &$item) {
+            $item['mvp'] = $mvp !== null && $item['playerId'] === $mvp && $top > 0;
+        }
+        unset($item);
+        usort($out, static function ($a, $b) {
+            if ($a['side'] !== $b['side']) {
+                return $a['side'] <=> $b['side'];
+            }
+            return $b['score'] <=> $a['score'];
+        });
+        return $out;
+    }
+
+    /**
+     * Award XP / MMR to every human in a finished party match. Winner party
+     * may be null for a draw. Bots are skipped.
+     * @param array<string,mixed> $m
+     */
+    public static function applyPartyMatch(array $m, ?string $winnerParty): void
+    {
+        $ai = false;
+        foreach ([$m['a_party'] ?? '', $m['b_party'] ?? ''] as $pid) {
+            foreach (Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ?', [$pid]) as $r) {
+                if (Clash::isAiId((string) $r['player_id'])) {
+                    $ai = true;
+                    break 2;
+                }
+            }
+        }
+        $k = $ai ? 8 : 16;
+        $stats = self::partyMatchStats((string) $m['id'], $m);
+        $mvp = null;
+        foreach ($stats as $s) {
+            if (!empty($s['mvp'])) {
+                $mvp = $s['playerId'];
+                break;
+            }
+        }
+        $draw = $winnerParty === null || $winnerParty === '';
+        $summary = [];
+        foreach ($stats as $s) {
+            $pid = (string) $s['playerId'];
+            if (Clash::isAiId($pid)) {
+                continue;
+            }
+            $won = !$draw && $s['side'] && (($s['side'] === 'a' && ($m['a_party'] ?? '') === $winnerParty) || ($s['side'] === 'b' && ($m['b_party'] ?? '') === $winnerParty));
+            $before = self::ensure($pid);
+            $mmrDelta = $draw ? 0 : ($won ? $k : -$k);
+            $mmr = max(0, (int) $before['mmr'] + $mmrDelta);
+            $xpGain = self::XP_PLAY + ($draw ? 50 : ($won ? self::XP_WIN : self::XP_LOSS));
+            if ($mvp === $pid) {
+                $xpGain += self::XP_MVP;
+            }
+            $xp = (int) $before['xp'] + $xpGain;
+            $level = 1 + intdiv($xp, self::XP_PER_LEVEL);
+            $wins = (int) $before['wins'] + ($won ? 1 : 0);
+            $losses = (int) $before['losses'] + (!$won && !$draw ? 1 : 0);
+            Db::run(
+                'UPDATE cc_clash_ranks SET mmr = ?, xp = ?, level = ?, wins = ?, losses = ?, updated_at = ? WHERE player_id = ?',
+                [$mmr, $xp, $level, $wins, $losses, Db::now(), $pid]
+            );
+            $after = array_merge($before, compact('mmr', 'xp', 'level', 'wins', 'losses'));
+            $summary[$pid] = [
+                'before' => self::view($before, $pid),
+                'after' => self::view($after, $pid),
+                'mmrDelta' => $mmrDelta,
+                'xpGained' => $xpGain,
+                'levelUp' => $level > (int) $before['level'],
+                'levelDown' => false,
+                'mvp' => $mvp === $pid,
+                'won' => $won,
+                'draw' => $draw,
+            ];
+        }
+        try {
+            Store::set('rk:' . $m['id'], json_encode($summary, JSON_UNESCAPED_UNICODE) ?: '{}');
+        } catch (\Throwable $e) {
+            error_log('[combocraft party rank store] ' . $e->getMessage());
+        }
+    }
+
 }

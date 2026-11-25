@@ -341,6 +341,11 @@ body {
   transform: skewX(-8deg); display: inline-block;
 }
 .rl-vic.defeat .word { -webkit-text-stroke-color: #5a6478; text-shadow: 0 8px 0 #2a3140, 0 16px 30px rgba(0,0,0,.3); }
+.rl-vic.draw .word { -webkit-text-stroke-color: #3d6aa8; text-shadow: 0 8px 0 #1c3a66, 0 16px 30px rgba(0,0,0,.28); }
+.rl-team { margin-left: 8px; font-size: 12px; font-weight: 700; color: var(--rl-muted, #4a6080); }
+tr.side-a { background: linear-gradient(90deg, rgba(40,110,230,.10), transparent); }
+tr.side-b { background: linear-gradient(90deg, rgba(230,120,40,.10), transparent); }
+
 .rl-subh { font-weight: 800; font-size: clamp(15px, 2vw, 20px); margin-top: 6px; color: #0d2a5c; }
 [data-theme="dark"] .rl-subh { color: #d7e6ff; }
 .rl-res-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; margin-top: 16px; }
