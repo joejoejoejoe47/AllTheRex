@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=22';
+import { rarityClass, nameClass, nameVars } from './features.js?v=23';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -609,48 +609,71 @@ async function voteRematch(matchId) {
 
 function paintResults(m, soft = false) {
   pick = [null, null];
-  const { view, esc, ico, BASE, toast, go, api, state } = ctx;
+  const { view, esc, ico, BASE, toast, go, api } = ctx;
   const rm = m.rematch || {};
   if (rm.newMatchId) { go('clash/' + rm.newMatchId); return; }
-  const won = m.winnerId === m.you.id;
+  const party = m.kind === 'party';
+  const draw = !!(m.draw || (!party && !m.winnerId && m.status === 'finished'));
+  const won = !draw && (party ? !!m.youWon : m.winnerId === m.you.id);
   const share = m.share || {};
-  const best = share.best || m.youLatest;
-  const headline = won
-    ? (share.headline || `I beat @${m.opp.name} with ${best?.a || '?'} + ${best?.b || '?'} = ${best?.name || 'this'}`)
-    : `${m.opp.name} beats ${m.you.name}`;
+  const best = share.best || m.youLatest || null;
+  const youName = party ? (m.youName || 'Party') : (m.you?.name || 'You');
+  const oppName = party ? (m.oppName || 'Party') : (m.opp?.name || 'Rival');
+  const scoreLine = party ? `${m.youSession || 0}-${m.oppSession || 0}` : `${m.youWins ?? 0}-${m.oppWins ?? 0}`;
+  let headline = share.headline || '';
+  if (!headline) {
+    const withLine = best?.name ? `${best.a || '?'} + ${best.b || '?'} = ${best.name}` : '';
+    if (draw) headline = `${youName} vs ${oppName} · ${scoreLine} · Draw`;
+    else if (won) headline = `${youName} beats ${oppName} · ${scoreLine} · I beat @${oppName}${withLine ? ' with ' + withLine : ''}`;
+    else headline = `${oppName} beats ${youName} · ${scoreLine}${withLine ? ' · ' + withLine : ''}`;
+  }
   const url = (typeof location !== 'undefined' ? location.origin : '') + (BASE || '/combocraft/') + 'clash';
-  const stats = (m.stats || []).slice().sort((a, b) => b.score - a.score);
+  const stats = (m.stats || []).slice();
+  if (!stats.length && !party && m.you && m.opp) {
+    stats.push(
+      { playerId: m.you.id, name: m.you.name, avatar: m.you.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: won },
+      { playerId: m.opp.id, name: m.opp.name, avatar: m.opp.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: false },
+    );
+  }
+  stats.sort((a, b) => {
+    if (party && a.side && b.side && a.side !== b.side) return a.side < b.side ? -1 : 1;
+    return (b.score || 0) - (a.score || 0);
+  });
   const mvp = stats.find((s) => s.mvp) || stats[0];
   const rc = m.rankChange;
   const after = rc?.after || (m.you && m.you.rank) || {};
   const before = rc?.before || after;
   const xpGain = rc?.xpGained || 0;
+  const word = draw ? 'DRAW' : (won ? 'VICTORY' : 'DEFEAT');
+  const vicClass = draw ? ' draw' : (won ? '' : ' defeat');
 
-  if (soft && document.getElementById('rlResults') && document.getElementById('rlVote')) {
-    document.getElementById('rlVote').outerHTML = rematchBox(rm) || '<div id="rlVote" hidden></div>';
+  if (soft && document.getElementById('rlResults') && document.getElementById('clRematch')) {
     const btn = document.getElementById('clRematch');
     if (btn) {
       btn.disabled = !!rm.youVoted && rm.status === 'open';
       const lab = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
-      btn.querySelector('span').textContent = lab;
+      const span = btn.querySelector('span');
+      if (span) span.textContent = lab;
     }
+    const box = document.getElementById('rlVote');
+    const fresh = rematchBox(rm) || '<div id="rlVote" hidden></div>';
+    if (box) box.outerHTML = fresh;
+    else document.getElementById('rlResults')?.insertAdjacentHTML('beforeend', fresh);
     return;
   }
 
-  const rows = (stats.length ? stats : [
-    { playerId: m.you.id, name: m.you.name, avatar: m.you.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: won },
-    { playerId: m.opp.id, name: m.opp.name, avatar: m.opp.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: false },
-  ]).map((s) => `<tr class="${s.playerId === m.you.id ? 'me' : ''}">
-    <td><div class="rl-p"><span class="av">${ico(s.avatar)}</span> ${esc(s.name)}</div></td>
-    <td class="n">${s.score}</td><td class="n">${s.combos || 0}</td><td class="n">${s.chains || 0}</td><td class="n">${s.attacks || 0}</td>
+  const rows = stats.map((s) => `<tr class="${(s.playerId && m.you && s.playerId === m.you.id) || s.you ? 'me' : ''} ${s.side ? 'side-' + s.side : ''}">
+    <td><div class="rl-p"><span class="av">${ico(s.avatar)}</span> ${esc(s.name)}${s.team ? `<span class="rl-team">@${esc(s.team)}</span>` : ''}</div></td>
+    <td class="n">${s.score || 0}</td><td class="n">${s.combos || 0}</td><td class="n">${s.chains || 0}</td><td class="n">${s.attacks || 0}</td>
     <td class="rl-mvp">${s.mvp ? '★ MVP' : ''}</td>
-  </tr>`).join('');
+  </tr>`).join('') || `<tr><td colspan="6" class="muted">No plays this match.</td></tr>`;
 
   const voteLabel = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
   view.innerHTML = `
     <div class="rl-results" id="rlResults">
-      <div class="rl-vic${won ? '' : ' defeat'}"><div class="word">${won ? 'VICTORY' : 'DEFEAT'}</div>
-        <div class="rl-subh">${esc(m.you.name)} ${won ? 'beats' : 'vs'} ${esc(m.opp.name)} · ${m.youWins}–${m.oppWins} · ${esc(headline)}</div>
+      <div class="rl-kicker" style="text-align:center">COMBO CLASH</div>
+      <div class="rl-vic${vicClass}"><div class="word">${word}</div>
+        <div class="rl-subh">${esc(headline)}</div>
       </div>
       <div class="rl-res-grid">
         <div class="rl-panel rl-table">
@@ -660,12 +683,12 @@ function paintResults(m, soft = false) {
         </div>
         <div class="rl-side">
           <div class="rl-panel rl-mvp-card">
-            <div class="big">${ico((mvp && mvp.avatar) || m.you.avatar)}</div>
-            <h3>${esc((mvp && mvp.name) || m.you.name)}</h3>
+            <div class="big">${ico((mvp && mvp.avatar) || (party ? '⭐' : m.you?.avatar))}</div>
+            <h3>${esc((mvp && mvp.name) || youName)}</h3>
             <p>Match MVP${best?.name ? ' · ' + esc(best.name) : ''}</p>
           </div>
           <div class="rl-panel rl-xp-card">
-            <h3>XP gained</h3>
+            <h3>XP Gained</h3>
             <div class="rl-xp"><i style="width:${Math.round(((after.xpInto || 0) / (after.xpNext || 100)) * 100)}%"></i></div>
             <div class="rl-gain">+${xpGain} XP</div>
             <div style="font-size:13px;font-weight:700;color:var(--rl-muted);margin-top:2px">Level ${after.level || 1} · ${after.xpInto || 0} / ${after.xpNext || 100} to Level ${(after.level || 1) + 1}</div>
@@ -676,7 +699,7 @@ function paintResults(m, soft = false) {
               <div class="rl-badge" style="width:58px;height:58px;font-size:18px">${esc(after.tierShort || 'B')}</div>
               <div>
                 <div style="font-weight:800;font-size:18px">${esc(after.tier || 'Bronze')}</div>
-                <div style="font-weight:700;color:var(--rl-muted)">${before.mmr ?? after.mmr ?? 600} → ${after.mmr ?? 600} MMR · ${rc ? ((rc.mmrDelta||0) >= 0 ? '+' : '') + (rc.mmrDelta || 0) : ''}</div>
+                <div style="font-weight:700;color:var(--rl-muted)">${before.mmr ?? after.mmr ?? 600} → ${after.mmr ?? 600} MMR · ${rc ? ((rc.mmrDelta||0) >= 0 ? '+' : '') + (rc.mmrDelta || 0) : '+0'}</div>
               </div>
             </div>
           </div>
@@ -689,16 +712,20 @@ function paintResults(m, soft = false) {
       </div>
       ${rematchBox(rm)}
     </div>`;
-  $('#clRematch').onclick = () => voteRematch(m.id);
-  $('#clShare').onclick = async () => {
+  const rmBtn = document.getElementById('clRematch');
+  if (rmBtn) rmBtn.onclick = () => voteRematch(m.id);
+  const sh = document.getElementById('clShare');
+  if (sh) sh.onclick = async () => {
     const text = headline + ' ' + url;
     try {
       if (navigator.share) await navigator.share({ title: 'Combo Clash', text: headline, url });
       else { await navigator.clipboard.writeText(text); toast('Copied!'); }
     } catch {}
   };
-  $('#clLobby').onclick = async () => {
+  const lobby = document.getElementById('clLobby');
+  if (lobby) lobby.onclick = async () => {
     if (rm.status === 'open') { try { await api('clash/rematch', { matchId: m.id, cancel: true }); } catch {} }
+    if (party) { try { await api('clash/party/exit', { matchId: m.id }); } catch {} }
     go('clash');
   };
   ensurePartyBar(ctx.state.clashInbox?.party);
@@ -1366,26 +1393,7 @@ function paintPartyMatch(m) {
     return;
   }
   if (m.status === 'finished') {
-    const rm = m.rematch || {};
-    if (rm.newMatchId) { go('clash/' + rm.newMatchId); return; }
-    const won = m.youWon;
-    const voteLabel = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
-    view.innerHTML = `<div class="rl-results" id="rlResults">
-      <div class="rl-vic${won ? '' : ' defeat'}"><div class="word">${won ? 'VICTORY' : 'DEFEAT'}</div>
-        <div class="rl-subh">${esc(m.headline)} · Sessions ${m.youSession}–${m.oppSession}</div>
-      </div>
-      <div class="rl-res-acts">
-        <button class="btn-rl rl-rev" id="clRematch" ${rm.youVoted && rm.status==='open' ? 'disabled' : ''}><span>${voteLabel}</span></button>
-        <button class="btn-rl rl-share" id="pmReady"><span>Ready</span></button>
-        <button class="btn-rl rl-back" id="pmLobby"><span>Back to Clash</span></button>
-      </div>
-      ${typeof rematchBox === 'function' ? rematchBox(rm) : ''}
-    </div>`;
-    const rmBtn = document.getElementById('clRematch');
-    if (rmBtn) rmBtn.onclick = () => voteRematch(m.id);
-    $('#pmReady').onclick = () => clickReady();
-    $('#pmLobby').onclick = async () => { try { await api('clash/party/exit', { matchId: m.id }); if (rm.status === 'open') { try { await api('clash/rematch', { matchId: m.id, cancel: true }); } catch {} } } catch {} go('clash'); };
-    ensurePartyBar(ctx.state.clashInbox?.party);
+    paintResults(m, !!document.getElementById('rlResults'));
     return;
   }
   const leftMs = Math.max(0, (m.endsAt || 0) - Date.now());
@@ -1558,7 +1566,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=22');
+  const { createVoice } = await import('./voice.js?v=23');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
