@@ -1368,3 +1368,43 @@ button.eq-make:hover .eq-card { filter: brightness(1.06); }
 @media (max-width: 1199px) {
   /* Rail stays hidden; the timed video popup may still appear, but never during a match. */
 }
+
+/* Family tree in the recipe book + Deepest Tree board */
+.ft-mini{display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.72);border:1px solid rgba(80,50,20,.08);box-shadow:0 6px 18px rgba(40,20,0,.06);color:inherit;text-decoration:none;font:600 13px "Exo 2",sans-serif;max-width:100%}
+.ft-mini b{font-family:"Russo One",sans-serif;font-weight:400}
+.ft-mini-ico{font-size:16px;filter:drop-shadow(0 0 6px rgba(255,196,0,.8))}
+.eq-book.ft-open{max-width:min(920px,96vw)}
+.ft-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:16px 0 8px}
+.ft-head h4{margin:0;margin-right:auto}
+.ft-stats{display:flex;flex-wrap:wrap;gap:6px}
+.ft-pill{background:rgba(255,255,255,.7);border:1px solid rgba(80,50,20,.08);border-radius:999px;padding:4px 10px;font-size:12px}
+.ft-pill b{font-family:"Russo One",sans-serif;font-weight:400;margin-left:4px}
+.ft-tools{display:flex;gap:6px}
+.ft-stage{position:relative;max-height:min(52vh,520px);overflow:auto;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.28));border:1px solid rgba(80,50,20,.08);cursor:grab;padding:18px 12px 28px}
+.ft-stage.grabbing{cursor:grabbing}
+.ft-inner{display:flex;justify-content:center;min-width:100%;width:max-content;margin:0 auto}
+.ft-unit{display:flex;flex-direction:column;align-items:center;min-width:0}
+.ft-card-wrap{display:flex;align-items:center;gap:4px;position:relative;z-index:1}
+.ft-tog{width:22px;height:22px;border:0;border-radius:8px;background:rgba(255,255,255,.85);box-shadow:0 1px 0 rgba(80,50,20,.08);cursor:pointer;font-size:12px;line-height:22px;padding:0;color:#5a3a16}
+.ft-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:76px;max-width:120px;padding:8px 8px 6px;border:0;border-radius:14px;background:#fff;box-shadow:0 6px 16px rgba(40,20,0,.08);cursor:pointer;font:inherit;color:inherit}
+.ft-card .n{font:600 11px/1.2 "Exo 2",sans-serif;text-align:center;max-width:104px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ft-card .i{font-size:22px;line-height:1}
+.ft-tag,.ft-src{font-size:9px;letter-spacing:.02em;text-transform:uppercase;opacity:.7}
+.ft-kids{display:flex;flex-direction:column;align-items:center;position:relative;padding-top:14px}
+.ft-stem{position:absolute;top:0;left:50%;width:2px;height:14px;background:rgba(90,58,22,.28);transform:translateX(-1px)}
+.ft-bar{position:absolute;top:14px;height:2px;background:rgba(90,58,22,.28);left:25%;right:25%}
+.ft-pair{display:flex;gap:16px;align-items:flex-start;justify-content:center}
+.ft-col{display:flex;justify-content:center}
+.ft-col .ft-unit.has-kids > .ft-kids > .ft-bar{left:0;right:0}
+.lb-trees{margin-bottom:28px}
+.lb-trees h2{font-family:"Russo One",sans-serif;font-weight:400;font-size:22px;margin:0 0 6px}
+.lb-trees .lead{margin:0 0 14px;opacity:.8}
+.tree-row{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.7);border:1px solid rgba(80,50,20,.08);margin:0 0 8px}
+.tree-row.r1{background:linear-gradient(100deg,rgba(255,220,80,.55),rgba(255,255,255,.82));box-shadow:0 0 0 1px rgba(255,196,0,.45),0 0 24px rgba(255,196,0,.45);animation:ftGlow 2.8s ease-in-out infinite}
+.tree-row .rk{font-family:"Russo One",sans-serif}
+.tree-row .who{display:flex;flex-direction:column;gap:2px}
+.tree-row .who b{font-family:"Russo One",sans-serif;font-weight:400}
+.tree-row .meta{font-size:13px;opacity:.8}
+.tree-row .glow-trophy{font-size:22px;filter:drop-shadow(0 0 8px rgba(255,196,0,.95)) drop-shadow(0 0 16px rgba(255,160,0,.6));text-align:center}
+@keyframes ftGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,196,0,.4),0 0 18px rgba(255,196,0,.35)}50%{box-shadow:0 0 0 1px rgba(255,210,40,.7),0 0 28px rgba(255,180,0,.6)}}
+@media (max-width:640px){.ft-stage{max-height:42vh}.ft-pair{gap:8px}}

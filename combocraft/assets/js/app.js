@@ -1,9 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=34';
-import { storyHtml, storyPng } from './share.js?v=34';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=34';
-import { initBg, syncPrefs } from './bg.js?v=34';
-import { initAds, renderAdRail } from './ads.js?v=34';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=35';
+import { storyHtml, storyPng } from './share.js?v=35';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=35';
+import { initBg, syncPrefs } from './bg.js?v=35';
+import { initAds, renderAdRail } from './ads.js?v=35';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -892,7 +892,24 @@ async function pageLeaderboard() {
       <div class="best"><div class="lbl">best combo:</div><div class="cb">${combo}</div></div>
     </div>`;
   }).join('');
+  const trees = d.trees || { rows: [] };
+  const treeRows = (trees.rows || []).map((r, i) => {
+    const trophy = i === 0 ? '<span class="glow-trophy" title="Deepest Tree">🏆</span>' : `<span class="rk">${r.rank || i + 1}.</span>`;
+    const name = r.element?.name || r.element_name || 'Unknown';
+    return `<div class="tree-row${i === 0 ? ' r1' : ''}${r.id === d.me ? ' me' : ''}">
+      ${trophy}
+      <div class="who"><b>${esc(r.nickname || 'Anonymous')}</b><span class="meta">${esc(name)} · ${r.size} combo${r.size === 1 ? '' : 's'} · depth ${r.depth}</span></div>
+      <div class="meta">${r.id === d.me ? 'You' : ''}</div>
+    </div>`;
+  }).join('');
   view.innerHTML = `<div class="wrap lb">
+    <section class="lb-trees" id="deepestTree">
+      <h2>Deepest Tree</h2>
+      <p class="lead">The biggest family tree from a world-first discovery. First place gets a glowing trophy.</p>
+      ${treeRows || `<div class="lb-empty"><b>No trees yet</b>Discover something new and grow a deep family tree.</div>`}
+      ${trees.mine && !(trees.rows || []).some((r) => r.id === d.me && r.rank && r.rank <= 6) ? `<div class="lb-mine">Your best tree: <b>${esc(trees.mine.element?.name || trees.mine.element_name || '')}</b> · ${trees.mine.size} combos · depth ${trees.mine.depth}${trees.mine.rank ? ' · #' + trees.mine.rank : ''}</div>` : ''}
+    </section>
+    <h2>First Discoveries</h2>
     ${d.mine ? `<div class="lb-mine">You're <b>#${d.mine.rank}</b> with ${d.mine.firsts} first discoveries.</div>` : ''}
     ${rows || `<div class="lb-empty"><b>No First Discoveries yet</b>Be the first name on the board — find a combo nobody has made.<br><br><a class="btn-primary" style="height:52px;font-size:17px" href="play" data-link>Start Combining</a></div>`}
   </div>`;
@@ -1118,7 +1135,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=34').then((m) => {
+import('./clash.js?v=35').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1145,7 +1162,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=34');
+    const m = window.__ccClashMod || await import('./clash.js?v=35');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

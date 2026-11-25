@@ -52,12 +52,19 @@ final class Book
                 'owned' => $has,
             ];
         }
+        $tree = null;
+        try {
+            $tree = Tree::of($id, $player);
+        } catch (\Throwable $ex) {
+            error_log('[combocraft tree] ' . $ex->getMessage());
+        }
         return [
             'element' => $view,
             'madeFrom' => $madeFrom,
             'yours' => $yours,
             'makes' => $makes,
             'owned' => isset($owned[$id]) || (int) $e['is_base'] === 1,
+            'tree' => $tree,
         ];
     }
 }

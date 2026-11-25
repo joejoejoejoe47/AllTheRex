@@ -194,6 +194,8 @@ final class Api
             'elements' => Game::collection($p),
             'recent' => self::recent($p),
             'daily' => Daily::status($p),
+            'deepestTree' => Tree::headline(),
+            'mineTree' => Tree::mine($p),
             'hints' => Hint::remaining($p),
             'progress' => Goals::progress($p),
             'badges' => Goals::all($p),
@@ -260,7 +262,8 @@ final class Api
             $better = (int) Db::value('SELECT COUNT(*) FROM cc_players WHERE firsts > ?', [(int) $me['firsts']]);
             $mine = ['rank' => $better + 1, 'firsts' => (int) $me['firsts']];
         }
-        Http::json(['ok' => true, 'rows' => $rows, 'me' => $me ? $me['id'] : null, 'mine' => $mine]);
+        $trees = Tree::board($me);
+        Http::json(['ok' => true, 'rows' => $rows, 'me' => $me ? $me['id'] : null, 'mine' => $mine, 'trees' => $trees]);
     }
 
     private static function galleryRoute(): never
