@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=18';
+import { rarityClass } from './features.js?v=19';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -591,7 +591,7 @@ function paintResults(m, soft = false) {
   const best = share.best || m.youLatest;
   const headline = won
     ? (share.headline || `I beat @${m.opp.name} with ${best?.a || '?'} + ${best?.b || '?'} = ${best?.name || 'this'}`)
-    : (share.headline || `${m.opp.name} beats ${m.you.name}`);
+    : `${m.opp.name} beats ${m.you.name}`;
   const url = (typeof location !== 'undefined' ? location.origin : '') + (BASE || '/combocraft/') + 'clash';
   const stats = (m.stats || []).slice().sort((a, b) => b.score - a.score);
   const mvp = stats.find((s) => s.mvp) || stats[0];
@@ -1529,7 +1529,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=18');
+  const { createVoice } = await import('./voice.js?v=19');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

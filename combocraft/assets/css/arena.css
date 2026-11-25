@@ -371,6 +371,7 @@ body {
 .rl-rev { background: linear-gradient(180deg,#ffb347,#e26600); box-shadow: 0 6px 0 #c45500; }
 .rl-share { background: linear-gradient(180deg,#4aa4ff,#1567d6); box-shadow: 0 6px 0 #0a4c9c; }
 .rl-back { background: #fff; color: var(--rl-ink); box-shadow: 0 6px 0 #c5d0de; border: 1px solid var(--rl-line); }
+.rl-res-acts .rl-back, .rl-res-acts .rl-back span { color: var(--rl-ink); }
 .rl-rev:disabled { opacity: .6; cursor: default; }
 
 .rl-vote { margin-top: 16px; padding: 14px 16px; text-align: left; }
