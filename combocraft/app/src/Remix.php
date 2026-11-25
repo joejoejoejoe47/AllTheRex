@@ -78,7 +78,7 @@ final class Remix
             'cat' => '🐱', 'kitty' => '😺', 'dog' => '🐶', 'pizza' => '🍕', 'fire' => '🔥', 'flame' => '🔥', 'water' => '💧', 'ocean' => '🌊',
             'money' => '💰', 'cash' => '💸', 'gold' => '🪙', 'love' => '💖', 'heart' => '💗', 'robot' => '🤖', 'ai' => '🤖', 'bot' => '🤖',
             'meme' => '😂', 'chaos' => '🌀', 'storm' => '⛈️', 'cloud' => '☁️', 'wind' => '🌬️', 'earth' => '🌍', 'planet' => '🪐',
-            'moon' => '🌙', 'star' => '⭐', 'sun' => '☀️', 'dragon' => '🐉', 'ghost' => '👻', 'king' => '👑', 'queen' => '👑', 'crown' => '👑',
+            'moon' => '🌙', 'star' => '⭐', 'sun' => '☀️', 'dragon' => '🐉', 'ghost' => '👻', 'king' => '🏰', 'queen' => '🏰', 'crown' => '⭐',
             'rocket' => '🚀', 'space' => '🌌', 'time' => '⏳', 'music' => '🎵', 'party' => '🎉', 'phone' => '📱', 'video' => '📺', 'tv' => '📺',
             'coffee' => '☕', 'cake' => '🎂', 'ice' => '🧊', 'snow' => '❄️', 'magic' => '✨', 'wizard' => '🧙', 'zombie' => '🧟', 'alien' => '👽',
             'volcano' => '🌋', 'tornado' => '🌪️', 'tree' => '🌳', 'plant' => '🌱', 'flower' => '🌸', 'book' => '📖', 'school' => '🏫',
