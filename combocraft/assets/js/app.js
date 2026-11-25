@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=9';
-import { storyHtml, storyPng } from './share.js?v=9';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=9';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=10';
+import { storyHtml, storyPng } from './share.js?v=10';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=10';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -101,6 +101,7 @@ const routes = {
   leaderboard: pageLeaderboard,
   chat: pageChat,
   pricing: pagePricing,
+  premium: pagePricing,
   achievements: () => pageAchievements({ api, state, view, toast }),
   speedrun: () => pageSpeedrun({ api, state, view, toast, sfx, shake, burst, onExtras: (r) => onCombineExtras(r, { state, toast, shake, burst }), go }),
   clash: pageClash,
@@ -124,7 +125,7 @@ async function render() {
   const r = currentRoute();
   const [head, arg] = r.split('/');
   document.body.classList.toggle('hero-mode', head === '');
-  $$('[data-r]').forEach((a) => a.classList.toggle('on', a.dataset.r === head));
+  $$('[data-r]').forEach((a) => a.classList.toggle('on', a.dataset.r === head || (head === 'premium' && a.dataset.r === 'pricing')));
   setPageTitle('');
   if (head === 'e' && arg) return pageElement(parseInt(arg, 10));
   const fn = routes[head] || pageHero;
@@ -1056,7 +1057,7 @@ async function pageElement(id) {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=9').then((m) => {
+import('./clash.js?v=10').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1083,7 +1084,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=9');
+    const m = window.__ccClashMod || await import('./clash.js?v=10');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
