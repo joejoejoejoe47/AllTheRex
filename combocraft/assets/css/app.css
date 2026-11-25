@@ -1139,3 +1139,40 @@ body.hero-mode .topbar { background: transparent; }
 [data-theme="dark"] .gal-head p, [data-theme="dark"] .pricing .pr-sub, [data-theme="dark"] .lb-mine {
   text-shadow: 0 1px 0 rgba(0,0,0,.4);
 }
+
+/* Frosted panels for leftover text sitting on the arena */
+.combine {
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, #fff 50%, var(--line));
+  border-radius: 16px;
+  padding: 18px 22px 24px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.recent {
+  background: color-mix(in srgb, var(--panel) 84%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, #fff 50%, var(--line));
+  border-radius: 14px;
+  padding: 12px 16px 14px;
+}
+.gal-head p, .pr-note, .limit-bar {
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  text-shadow: none;
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.pr-note { border-radius: 10px; }
+.chat-main, .op {
+  background: color-mix(in srgb, var(--panel) 58%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
