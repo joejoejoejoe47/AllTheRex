@@ -713,11 +713,15 @@ final class Clash
         $bRoundWins = (int) $m['b_wins'];
         $wRounds = $m['a_id'] === $winnerId ? $aRoundWins : $bRoundWins;
         $lRounds = $m['a_id'] === $winnerId ? $bRoundWins : $aRoundWins;
-        if (!self::isAiId($winnerId)) {
+        $winnerName = (string) (Db::value('SELECT nickname FROM cc_players WHERE id = ?', [$winnerId]) ?: '');
+        if (!self::isHiddenFromBoards($winnerId, $winnerName)) {
             self::bumpDaily($winnerId, $day, 1, 3 + $wRounds);
         }
-        if ($loser && !self::isAiId($loser)) {
-            self::bumpDaily($loser, $day, 0, $lRounds);
+        if ($loser) {
+            $loserName = (string) (Db::value('SELECT nickname FROM cc_players WHERE id = ?', [$loser]) ?: '');
+            if (!self::isHiddenFromBoards($loser, $loserName)) {
+                self::bumpDaily($loser, $day, 0, $lRounds);
+            }
         }
     }
 
@@ -1311,7 +1315,7 @@ final class Clash
     public static function isHiddenName(?string $name): bool
     {
         $n = trim((string) $name);
-        return $n !== '' && (bool) preg_match('/^(CcBot|CcFin|CcQA|CcTest)/i', $n);
+        return $n !== '' && (bool) preg_match('/^(CcBot|CcFin|CcQA|CcTest|CcAi|CcAud)/i', $n);
     }
 
     public static function isHiddenFromBoards(?string $id, ?string $name): bool
