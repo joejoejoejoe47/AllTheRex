@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=7';
-import { storyHtml, storyPng } from './share.js?v=7';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=7';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=8';
+import { storyHtml, storyPng } from './share.js?v=8';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=8';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -192,30 +192,42 @@ async function pagePlay() {
   }
   view.innerHTML = `
   <div class="wrap play">
-    ${playChrome(state)}
-    <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
-      <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
-      <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
-    <div class="strip-wrap">
-      <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
-      <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
-      <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
-    </div>
-    <section class="combine" id="combine">
-      <h2>Combine</h2>
-      <div class="sub">Drag elements here to discover new combinations</div>
-      <div class="slots" id="slots">
-        <div class="slot" data-slot="0"></div>
-        <div class="plus" id="plus">+</div>
-        <div class="slot" data-slot="1"></div>
+    <div class="play-grid">
+      <aside class="play-activity" id="playActivity" aria-label="Activity">
+        <div class="act-head">
+          <h2>Activity</h2>
+          <a href="clash" data-link class="act-clash">Combo Clash</a>
+        </div>
+        <div class="act-live" id="actLive"></div>
+        <div class="act-feed" id="actFeed"></div>
+      </aside>
+      <div class="play-main">
+        ${playChrome(state)}
+        <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
+          <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
+          <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
+        <div class="strip-wrap">
+          <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
+          <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
+          <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
+        </div>
+        <section class="combine" id="combine">
+          <h2>Combine</h2>
+          <div class="sub">Drag elements here to discover new combinations</div>
+          <div class="slots" id="slots">
+            <div class="slot" data-slot="0"></div>
+            <div class="plus" id="plus">+</div>
+            <div class="slot" data-slot="1"></div>
+          </div>
+          <div class="result-zone" id="resultZone"></div>
+        </section>
+        <section class="recent">
+          <div class="sec-h"><h2>Recent Discoveries</h2><span class="grow"></span><a href="#" id="viewAll">View all ›</a></div>
+          <div class="recent-row" id="recentRow"></div>
+        </section>
+        <div class="limit-bar" id="limitBar"></div>
       </div>
-      <div class="result-zone" id="resultZone"></div>
-    </section>
-    <section class="recent">
-      <div class="sec-h"><h2>Recent Discoveries</h2><span class="grow"></span><a href="#" id="viewAll">View all ›</a></div>
-      <div class="recent-row" id="recentRow"></div>
-    </section>
-    <div class="limit-bar" id="limitBar"></div>
+    </div>
   </div>
   <div class="sheet" id="sheet"></div>`;
   renderStrip();
@@ -223,6 +235,7 @@ async function pagePlay() {
   renderRecent();
   renderLimit();
   bindPlayChrome({ api, toast, state, go, openRecipe });
+  window.__ccClashMod?.mountPlayActivity?.();
   if (state.lastResult && state.slots[0] && state.slots[1]) showResult(state.lastResult, false);
 
   const strip = $('#strip');
@@ -1043,7 +1056,7 @@ async function pageElement(id) {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=7').then((m) => {
+import('./clash.js?v=8').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1070,7 +1083,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=7');
+    const m = window.__ccClashMod || await import('./clash.js?v=8');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

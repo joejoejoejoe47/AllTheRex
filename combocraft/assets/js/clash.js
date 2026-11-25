@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=7';
+import { rarityClass } from './features.js?v=8';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -169,34 +169,42 @@ function icoBox() {
   return icoSvg('<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.5 8.5 12 13l8.5-4.5"/><path d="M12 13v8"/>', 'cl-ico-box');
 }
 
+function clashOverlay(inner, extraClass = '') {
+  document.querySelectorAll('.overlay.cc-overlay').forEach((el) => el.remove());
+  const o = document.createElement('div');
+  o.className = 'overlay cc-overlay';
+  o.innerHTML = `<div class="modal ${extraClass}" role="dialog">${inner}</div>`;
+  document.body.appendChild(o);
+  const box = o.querySelector('.modal');
+  const close = () => o.remove();
+  o.addEventListener('click', (e) => { if (e.target === o || e.target.closest('button.x')) close(); });
+  return { o, box, close };
+}
+
 async function openAiPicker() {
-  const { api, toast, go, esc } = ctx;
-  document.querySelector('.cc-ai-modal')?.remove();
-  const modal = document.createElement('div');
-  modal.className = 'modal on cc-ai-modal';
-  modal.innerHTML = `<button class="x" type="button" aria-label="Close">×</button>
+  const { api, toast, go } = ctx;
+  const { box, close } = clashOverlay(`<button class="x" type="button" aria-label="Close">×</button>
     <h3>Challenge AI</h3>
     <p>Play a best-of-3 against a bot. It builds a loadout and makes timed combos — Easy is slower, Hard chains and attacks.</p>
     <div class="ai-diffs">
       <button type="button" data-lvl="easy"><b>Easy</b><span>Slower mixes, a gentle start</span></button>
       <button type="button" data-lvl="medium"><b>Medium</b><span>A fair, timed fight</span></button>
       <button type="button" data-lvl="hard"><b>Hard</b><span>Fast chains and counter-attacks</span></button>
-    </div>`;
-  const veil = document.createElement('div');
-  veil.className = 'veil on';
-  const close = () => { modal.remove(); veil.remove(); };
-  modal.querySelector('.x').onclick = close;
-  veil.onclick = close;
-  modal.querySelectorAll('[data-lvl]').forEach((btn) => {
+    </div>`, 'cc-ai-modal');
+  box.querySelectorAll('[data-lvl]').forEach((btn) => {
     btn.onclick = async () => {
+      box.querySelectorAll('[data-lvl]').forEach((b) => { b.disabled = true; });
       try {
         const d = await api('clash/ai', { level: btn.dataset.lvl });
         close();
         if (d.match) go('clash/' + d.match.id);
-      } catch (e) { toast(e.message); }
+        else toast('Could not start the bot match. Try again.');
+      } catch (e) {
+        box.querySelectorAll('[data-lvl]').forEach((b) => { b.disabled = false; });
+        toast(e.message);
+      }
     };
   });
-  document.body.append(veil, modal);
 }
 
 async function joinQueue() {
@@ -573,11 +581,13 @@ async function pollInbox() {
       ctx.go('clash/' + d.partyMatch.id);
       return;
     }
+    mountPlayActivity(d);
+    const onPlay = !!document.getElementById('playActivity');
     for (const ch of d.incoming || []) {
-      if (ch.status === 'pending' && ch.expiresAt > Date.now()) showInvitePopup(ch);
+      if (ch.status === 'pending' && ch.expiresAt > Date.now() && !onPlay) showInvitePopup(ch);
     }
     for (const ch of d.partyInvites || []) {
-      if (ch.status === 'pending' && ch.expiresAt > Date.now()) showPartyInvite(ch);
+      if (ch.status === 'pending' && ch.expiresAt > Date.now() && !onPlay) showPartyInvite(ch);
     }
     const live = new Set([
       ...(d.incoming || []).filter((c) => c.status === 'pending' && c.expiresAt > Date.now()).map((c) => c.id),
@@ -596,6 +606,7 @@ function shouldFollowMatch(m) {
 
 function showInvitePopup(ch, fromLink = false) {
   if (!ch?.id) return;
+  if (document.getElementById('playActivity')) { mountPlayActivity(); return; }
   if (document.querySelector('.cc-invite[data-id="' + ch.id + '"]')) return;
   shownInvite.add(ch.id);
   const host = inviteHost();
@@ -672,6 +683,216 @@ function inviteHost() {
   return h;
 }
 
+let actTick = 0;
+let actFeedKey = '';
+
+export function mountPlayActivity(inbox) {
+  const root = document.getElementById('playActivity');
+  if (!root || !ctx) return;
+  const d = inbox || ctx.state?.clashInbox || {};
+  paintActivityLive(d);
+  paintActivityFeed(d);
+  if (!actTick) {
+    actTick = setInterval(() => {
+      if (!document.getElementById('playActivity')) { clearInterval(actTick); actTick = 0; return; }
+      tickActivityClocks();
+    }, 100);
+  }
+}
+
+function liveInvites(d) {
+  const now = Date.now();
+  const incoming = (d.incoming || []).filter((c) => c.status === 'pending' && c.expiresAt > now).map((c) => ({ ...c, kind: c.kind || 'duel' }));
+  const party = (d.partyInvites || []).filter((c) => c.status === 'pending' && c.expiresAt > now).map((c) => ({ ...c, kind: 'party' }));
+  const outgoing = (d.outgoing || []).filter((c) => ['pending', 'waiting'].includes(c.status) && (!c.expiresAt || c.expiresAt > now));
+  return { incoming, party, outgoing };
+}
+
+function paintActivityLive(d) {
+  const box = document.getElementById('actLive');
+  if (!box) return;
+  const { esc, ico } = ctx;
+  const { incoming, party, outgoing } = liveInvites(d);
+  const bits = [];
+  if (d.party?.queued) {
+    bits.push(`<div class="act-card act-search" data-kind="search"><div class="act-kicker">Matchmaking</div><div class="act-title">Searching for a party…</div><div class="act-sub">Ready is on. We’ll sit you against another partied-up team.</div><button class="mini-btn" data-act="cancel-party">Cancel</button></div>`);
+  }
+  for (const ch of incoming) {
+    const name = ch.from?.name || 'Someone';
+    bits.push(inviteCardHtml({
+      id: ch.id, kind: 'duel', kicker: 'Combo Clash',
+      title: `${ico(ch.from?.avatar || '⚡')} ${esc(name)} challenges you!`,
+      sub: 'Best of 3 · 75-second rounds. Accept before the timer runs out.',
+      expiresAt: ch.expiresAt, total: 5000, incoming: true,
+    }));
+  }
+  for (const ch of party) {
+    const name = ch.from?.name || 'Someone';
+    bits.push(inviteCardHtml({
+      id: ch.id, kind: 'party', kicker: 'Party Up',
+      title: `${ico(ch.from?.avatar || '⚡')} ${esc(name)} invited you to a party!`,
+      sub: (ch.partyName ? 'Party @' + esc(ch.partyName) + '. ' : '') + 'Accept before the timer runs out.',
+      expiresAt: ch.expiresAt, total: 12000, incoming: true,
+    }));
+  }
+  for (const ch of outgoing) {
+    const name = ch.to?.name || 'them';
+    const wait = ch.status === 'waiting' ? 'Your challenge link is open. Share it with a friend!' : `Waiting for ${esc(name)} to accept…`;
+    bits.push(inviteCardHtml({
+      id: ch.id, kind: 'out', kicker: 'Challenge sent',
+      title: wait,
+      sub: ch.status === 'waiting' ? 'They’ll get a countdown to accept when they open it.' : 'They have a few seconds to accept.',
+      expiresAt: ch.expiresAt, total: ch.status === 'waiting' ? 600000 : 5000, incoming: false,
+    }));
+  }
+  if (d.party && !d.party.queued && (d.party.members || []).length) {
+    const names = (d.party.members || []).map((m) => esc(m.name || 'Player')).join(', ');
+    bits.push(`<div class="act-card act-party" data-kind="party-status"><div class="act-kicker">Your party</div><div class="act-title">@${esc(d.party.name || 'unnamed')}</div><div class="act-sub">${names || 'Just you so far.'}</div><button class="btn act-mini" data-act="ready">Ready</button></div>`);
+  }
+  const next = bits.join('') || '';
+  const prevIds = [...box.querySelectorAll('[data-id], [data-kind]')].map((el) => el.dataset.id || el.dataset.kind).join('|');
+  const nextIds = (incoming.map((c) => c.id).concat(party.map((c) => c.id), outgoing.map((c) => c.id), d.party?.queued ? ['search'] : [], (d.party && !d.party.queued && d.party.members) ? ['party-status'] : [])).join('|');
+  if (prevIds !== nextIds) {
+    const had = prevIds.length > 0;
+    box.innerHTML = next;
+    if (next && (!had || incoming.length || party.length)) {
+      box.querySelectorAll('.act-card').forEach((el) => el.classList.add('land'));
+      if (ctx.sfx && (incoming.length || party.length)) try { ctx.sfx('pop'); } catch {}
+    }
+    bindActivityLive(box, d);
+  }
+  tickActivityClocks();
+}
+
+function inviteCardHtml({ id, kind, kicker, title, sub, expiresAt, total, incoming }) {
+  const left = Math.max(0, expiresAt - Date.now());
+  const secs = Math.ceil(left / 1000);
+  const acts = incoming
+    ? `<div class="act-acts"><button class="btn" data-a="yes">Accept</button><button class="pill-btn" data-a="no">Decline</button></div>`
+    : '';
+  return `<div class="act-card act-invite" data-id="${id}" data-kind="${kind}" data-exp="${expiresAt}" data-total="${total}">
+    <div class="act-top">
+      <div class="cci-ring sm" aria-hidden="true"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" class="bg"/><circle cx="18" cy="18" r="16" class="fg"/></svg><b class="cci-num">${secs}</b></div>
+      <div>
+        <div class="act-kicker">${kicker}</div>
+        <div class="act-title">${title}</div>
+        <div class="act-sub">${sub}</div>
+      </div>
+    </div>
+    ${acts}
+  </div>`;
+}
+
+function tickActivityClocks() {
+  document.querySelectorAll('#actLive .act-invite').forEach((el) => {
+    const exp = +el.dataset.exp || 0;
+    const total = +el.dataset.total || 5000;
+    const left = Math.max(0, exp - Date.now());
+    const num = el.querySelector('.cci-num');
+    if (num) num.textContent = String(Math.ceil(left / 1000));
+    const fg = el.querySelector('.cci-ring .fg');
+    if (fg) {
+      const c = 2 * Math.PI * 16;
+      fg.style.strokeDasharray = String(c);
+      fg.style.strokeDashoffset = String(c * (1 - (total ? left / total : 0)));
+    }
+    if (left <= 0) el.classList.add('expired');
+  });
+}
+
+function bindActivityLive(box, d) {
+  box.querySelectorAll('.act-invite[data-kind="duel"] [data-a]').forEach((btn) => {
+    btn.onclick = async () => {
+      const card = btn.closest('[data-id]');
+      const yes = btn.dataset.a === 'yes';
+      try {
+        const r = await ctx.api('clash/respond', { id: card.dataset.id, accept: yes });
+        if (yes && r.match) ctx.go('clash/' + r.match.id);
+        else mountPlayActivity();
+      } catch (e) { ctx.toast(e.message); }
+    };
+  });
+  box.querySelectorAll('.act-invite[data-kind="party"] [data-a]').forEach((btn) => {
+    btn.onclick = async () => {
+      const card = btn.closest('[data-id]');
+      const yes = btn.dataset.a === 'yes';
+      try {
+        const r = await ctx.api('clash/party/respond', { id: card.dataset.id, accept: yes });
+        if (yes) {
+          ctx.toast(r.needsName ? 'You’re in! The host will name the party.' : 'You’re in the party.');
+          ctx.go('clash');
+        } else mountPlayActivity();
+      } catch (e) { ctx.toast(e.message); }
+    };
+  });
+  const cancel = box.querySelector('[data-act="cancel-party"]');
+  if (cancel) cancel.onclick = async () => {
+    try { await ctx.api('clash/party/cancel', {}); mountPlayActivity(); } catch (e) { ctx.toast(e.message); }
+  };
+  const ready = box.querySelector('[data-act="ready"]');
+  if (ready) ready.onclick = async () => {
+    try {
+      const r = await ctx.api('clash/party/ready', {});
+      if (r.match) ctx.go('clash/' + r.match.id);
+      else mountPlayActivity();
+    } catch (e) { ctx.toast(e.message); }
+  };
+}
+
+function paintActivityFeed(d) {
+  const box = document.getElementById('actFeed');
+  if (!box) return;
+  const { esc, ico, go } = ctx;
+  const last = d.lastScore;
+  const people = d.recentPeople || [];
+  const key = JSON.stringify({
+    last: last && [last.kind, last.you?.name, last.you?.score, last.opp?.name, last.opp?.score, last.youWon],
+    people: people.map((p) => p.id || p.name),
+    need: d.needName,
+  });
+  if (key === actFeedKey && box.childElementCount) return;
+  actFeedKey = key;
+  const bits = [];
+  if (last) {
+    const verb = last.youWon ? 'You won' : 'You finished';
+    bits.push(`<div class="act-card act-result land"><div class="act-kicker">${last.kind === 'party' ? 'Party match' : 'Last match'}</div>
+      <div class="act-score"><span>${ico(last.you?.avatar)} <b>${esc(last.you?.name || 'You')}</b> <em>${last.you?.score ?? 0}</em></span>
+      <i>VS</i>
+      <span><em>${last.opp?.score ?? 0}</em> <b>${esc(last.opp?.name || 'Rival')}</b> ${ico(last.opp?.avatar)}</span></div>
+      <div class="act-sub">${verb}${last.kind === 'party' ? ' · sessions' : ''}.</div>
+      <button class="pill-btn act-mini" data-act="open-clash">Open Combo Clash</button></div>`);
+  }
+  if (people.length) {
+    bits.push(`<div class="act-card act-people"><div class="act-kicker">Played with you</div>
+      <ul class="act-list">${people.slice(0, 8).map((p) => `<li>
+        <span class="av">${ico(p.avatar)}</span><b>${esc(p.name)}</b>
+        <span class="grow"></span>
+        <button class="mini-btn" data-chal="${esc(p.name)}">Challenge</button>
+        <button class="mini-btn" data-party="${esc(p.name)}">Party Up</button>
+      </li>`).join('')}</ul></div>`);
+  }
+  if (!bits.length) {
+    bits.push(`<div class="act-empty">Party invites, challenges and match results will land here — nicely, with a countdown to accept.</div>`);
+  }
+  box.innerHTML = bits.join('');
+  const open = box.querySelector('[data-act="open-clash"]');
+  if (open) open.onclick = () => go('clash');
+  box.querySelectorAll('[data-chal]').forEach((b) => b.onclick = async () => {
+    try {
+      const r = await ctx.api('clash/challenge', { nickname: b.dataset.chal });
+      ctx.toast('Challenge sent — they have 5 seconds to accept.');
+      if (r.match) go('clash/' + r.match.id);
+      else mountPlayActivity();
+    } catch (e) { ctx.toast(e.message); }
+  });
+  box.querySelectorAll('[data-party]').forEach((b) => b.onclick = async () => {
+    try {
+      await ctx.api('clash/party/invite', { nickname: b.dataset.party });
+      ctx.toast('Party invite sent to ' + b.dataset.party + '.');
+    } catch (e) { ctx.toast(e.message); }
+  });
+}
+
 function formatTime(s) {
   const n = Math.max(0, s | 0);
   return String(Math.floor(n / 60)) + ':' + String(n % 60).padStart(2, '0');
@@ -720,19 +941,13 @@ function watchPartyQueue() {
 async function openPartyUp(inbox) {
   const { esc, ico, api, toast } = ctx;
   const people = inbox?.recentPeople || [];
-  const modal = document.createElement('div');
-  modal.className = 'modal on cc-party-modal';
-  modal.innerHTML = `<div class="card" style="max-width:420px">
+  const { box: modal, close } = clashOverlay(`
     <button class="x" type="button" aria-label="Close">×</button>
     <h2>Party Up</h2>
     <p class="muted">Invite people who played with you. When someone accepts, the host names the party.</p>
     <form class="clash-chal" id="puForm"><input id="puNick" maxlength="20" placeholder="Username" autocomplete="off" /><button class="btn" type="submit">Invite</button></form>
     <div class="pu-list">${people.length ? people.map((p) => `<button type="button" class="pu-row" data-nick="${esc(p.name)}"><span class="av">${ico(p.avatar)}</span><b>${esc(p.name)}</b><span>Invite</span></button>`).join('') : '<div class="lb-empty">Play a 1v1 or a party match first — then your recent opponents and teammates will show up here.</div>'}</div>
-  </div>`;
-  document.body.appendChild(modal);
-  const close = () => modal.remove();
-  modal.querySelector('.x').onclick = close;
-  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+  `, 'cc-party-modal');
   const send = async (nick) => {
     try {
       const d = await api('clash/party/invite', { nickname: nick });
@@ -749,15 +964,12 @@ function promptPartyName() {
   if (namePrompted || document.getElementById('ccPartyName')) return;
   namePrompted = true;
   const { esc, api, toast } = ctx;
-  const modal = document.createElement('div');
-  modal.className = 'modal on';
-  modal.id = 'ccPartyName';
-  modal.innerHTML = `<div class="card" style="max-width:420px">
+  const { box: modal } = clashOverlay(`
     <h2>Name your party</h2>
     <p class="muted">Someone accepted! This name shows up as @partyname VS @partyname at the start of a match.</p>
     <form class="clash-chal" id="pnForm"><input id="pnName" maxlength="20" placeholder="Party name" autocomplete="off" /><button class="btn" type="submit">Save</button></form>
-  </div>`;
-  document.body.appendChild(modal);
+  `);
+  modal.id = 'ccPartyName';
   setTimeout(() => modal.querySelector('#pnName')?.focus(), 50);
   modal.querySelector('#pnForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -813,7 +1025,9 @@ function ensurePartyBar(party) {
 }
 
 function showPartyInvite(ch) {
-  if (!ch?.id || document.querySelector('.cc-invite[data-id="' + ch.id + '"]')) return;
+  if (!ch?.id) return;
+  if (document.getElementById('playActivity')) { mountPlayActivity(); return; }
+  if (document.querySelector('.cc-invite[data-id="' + ch.id + '"]')) return;
   const { esc, ico } = ctx;
   const el = document.createElement('div');
   el.className = 'cc-invite';
@@ -1117,7 +1331,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=7');
+  const { createVoice } = await import('./voice.js?v=8');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
