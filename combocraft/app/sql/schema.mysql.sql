@@ -434,3 +434,14 @@ CREATE TABLE IF NOT EXISTS cc_clash_party_play_scores (
   created_at DATETIME NOT NULL,
   KEY cc_clash_pps_match (match_id, player_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_daily_coin_grants (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  level INT NOT NULL,
+  amount INT NOT NULL,
+  morse_user_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day, level),
+  KEY cc_daily_coins_morse (morse_user_id, day, level)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

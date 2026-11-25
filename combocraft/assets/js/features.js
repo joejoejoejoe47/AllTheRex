@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=31';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=32';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -96,8 +96,16 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
   announceAutoDaily(state, toast);
 }
 
+function toastDailyCoins(d, toast) {
+  const n = d?.justCoins || 0;
+  if (!n || !toast) return;
+  d.justCoins = 0;
+  toast('+' + n + ' Morse coins', 3200);
+}
+
 function announceAutoDaily(state, toast) {
   const d = state.daily;
+  toastDailyCoins(d, toast);
   const skipped = d?.autoSolved || [];
   if (!skipped.length) return;
   d.autoSolved = [];
@@ -140,6 +148,9 @@ export function onCombineExtras(res, { state, toast, shake, burst }) {
   }
   if (res.coins?.justGranted) {
     toast(`+${res.coins.justGranted} Morse coins for your First Discovery!`);
+  }
+  if (res.daily?.justCoins) {
+    toastDailyCoins(res.daily, toast);
   }
   if (res.daily) cacheDaily(res.daily);
   if (res.daily) paintDailyBar(state);
