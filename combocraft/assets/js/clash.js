@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=10';
+import { rarityClass } from './features.js?v=11';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -495,9 +495,11 @@ function paintResults(m) {
   const won = m.winnerId === m.you.id;
   const share = m.share || {};
   const best = share.best || m.youLatest;
-  const headline = share.headline || (won
-    ? `I beat @${m.opp.name} with ${best?.a || '?'} + ${best?.b || '?'} = ${best?.name || 'this'}`
-    : `${m.opp.name} beat me in Combo Clash`);
+  const headline = won
+    ? (share.headline || `I beat @${m.opp.name} with ${best?.a || '?'} + ${best?.b || '?'} = ${best?.name || 'this'}`)
+    : (best?.name
+      ? `${m.opp.name} beat me with ${best.a || '?'} + ${best.b || '?'} = ${best.name}`
+      : `${m.opp.name} beat me in Combo Clash`);
   const og = location.origin + BASE + 'og/clash/' + m.id + '.png';
   const url = location.origin + BASE + 'clash/' + m.id;
   view.innerHTML = `
@@ -1336,7 +1338,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=10');
+  const { createVoice } = await import('./voice.js?v=11');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
