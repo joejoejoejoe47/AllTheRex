@@ -690,15 +690,18 @@ final class Daily
         if ($el === null) {
             return false;
         }
+        // Compare the catalog row to the daily TARGET, never to the result
+        // itself. A previous fold check compared $el to $fold (the result),
+        // which made every owned element look like a hit and auto-advanced
+        // the daily chain on every page load.
         $ek = (string) $el['name_key'];
         $en = Text::key((string) $el['name']);
-        if ($targetKey !== '' && ($ek === $targetKey || $en === $targetKey)) {
+        $elFold = self::foldName((string) $el['name'] !== '' ? (string) $el['name'] : $ek);
+        $targetFold = self::foldName($targetName !== '' ? $targetName : $targetKey);
+        if ($targetKey !== '' && ($ek === $targetKey || $en === $targetKey || ($elFold !== '' && $elFold === self::foldName($targetKey)))) {
             return true;
         }
-        if ($targetName !== '' && ($en === Text::key($targetName) || $ek === Text::key($targetName))) {
-            return true;
-        }
-        if ($fold !== '' && (self::foldName($ek) === $fold || self::foldName((string) $el['name']) === $fold)) {
+        if ($targetName !== '' && ($en === Text::key($targetName) || $ek === Text::key($targetName) || ($targetFold !== '' && $elFold === $targetFold))) {
             return true;
         }
         if ($id > 0 && $targetKey !== '') {
