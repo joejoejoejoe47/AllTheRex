@@ -69,6 +69,22 @@ final class Api
                 self::get();
                 Http::json(['ok' => true] + Book::about((int) $m[1], Player::current()));
             }
+            if (preg_match('#^/api/discovery/(\d+)$#', $path, $m)) {
+                self::get();
+                Http::json(['ok' => true] + Discover::about((int) $m[1], Player::current(), true));
+            }
+            if (preg_match('#^/api/discovery/(\d+)/(like|comment|post)$#', $path, $m)) {
+                self::mutating(function () use ($m) {
+                    $id = (int) $m[1];
+                    $p = Player::require();
+                    $out = match ($m[2]) {
+                        'like' => Discover::like($id, $p),
+                        'comment' => Discover::comment($id, $p, (string) (Http::jsonBody()['body'] ?? '')),
+                        default => Discover::post($id, $p),
+                    };
+                    Http::json(['ok' => true] + $out);
+                });
+            }
 
             match ($path) {
                 '/api/me' => self::me(),
@@ -270,7 +286,16 @@ final class Api
     {
         self::get();
         $sort = (string) ($_GET['sort'] ?? 'latest');
-        Http::json(['ok' => true, 'items' => Game::gallery(in_array($sort, ['latest', 'popular', 'featured'], true) ? $sort : 'latest')]);
+        if ($sort === 'posted') {
+            $items = Discover::posted();
+        } else {
+            $allowed = ['latest', 'popular', 'featured', 'loved'];
+            $items = Discover::decorate(Game::gallery(in_array($sort, $allowed, true) ? ($sort === 'loved' ? 'latest' : $sort) : 'latest'));
+            if ($sort === 'loved') {
+                usort($items, static fn ($a, $b) => ($b['likes'] ?? 0) <=> ($a['likes'] ?? 0));
+            }
+        }
+        Http::json(['ok' => true, 'items' => $items]);
     }
 
     private static function chatList(): never
