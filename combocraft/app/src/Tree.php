@@ -11,7 +11,6 @@ namespace ComboCraft;
 final class Tree
 {
     private const MAX_DEPTH = 24;
-    private const HIDDEN = '/^(CcBot|CcFin|CcQA|CcTest|CcAi|CcAud|CcHide|CcPty|CcDay)/i';
 
     public static function boot(): void
     {
@@ -38,8 +37,7 @@ final class Tree
 
     public static function isHiddenName(?string $name): bool
     {
-        $n = trim((string) $name);
-        return $n !== '' && (bool) preg_match(self::HIDDEN, $n);
+        return TestNicks::isHidden($name);
     }
 
     /**

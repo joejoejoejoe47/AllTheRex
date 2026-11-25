@@ -397,10 +397,13 @@ final class Game
     /** @return list<array<string,mixed>> */
     public static function leaderboard(): array
     {
-        $rows = Db::all('SELECT id, nickname, avatar, firsts FROM cc_players WHERE firsts > 0 ORDER BY firsts DESC, created_at ASC LIMIT 50');
+        $rows = Db::all('SELECT id, nickname, avatar, firsts FROM cc_players WHERE firsts > 0 ORDER BY firsts DESC, created_at ASC LIMIT 80');
         $out = [];
         $rank = 0;
         foreach ($rows as $r) {
+            if (TestNicks::isHidden($r['nickname'] ?? null)) {
+                continue;
+            }
             $rank++;
             $best = Db::one('SELECT * FROM cc_elements WHERE discovered_by = ? ORDER BY uses DESC, depth DESC, discovered_at DESC LIMIT 1', [$r['id']]);
             $out[] = [
@@ -411,6 +414,9 @@ final class Game
                 'firsts' => (int) $r['firsts'],
                 'best' => $best ? self::view($best, true) : null,
             ];
+            if (count($out) >= 50) {
+                break;
+            }
         }
         return $out;
     }
