@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=36';
+import { rarityClass, nameClass, nameVars } from './features.js?v=37';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -1237,11 +1237,13 @@ function ensurePartyBar(party) {
     `<button type="button" class="slotp empty pb-invite">+ Invite</button>`).join('');
   const html = `
     <div class="lab">Party${party.name ? ' · @' + esc(party.name) : ''}</div>
-    ${members}${empties}
-    <button type="button" class="mini-btn" id="pbChat">Chat</button>
-    <button type="button" class="pb-ai" id="pbAi" ${party.queued ? 'disabled' : ''}><span>Party vs AI</span></button>
-    <button type="button" class="pb-leave" id="pbLeave">Leave Party</button>
-    <button type="button" class="pb-ready" id="pbReady"><span>${party.queued ? 'Searching…' : 'Ready'}</span></button>`;
+    <div class="pb-members">${members}${empties}</div>
+    <div class="pb-acts">
+      <button type="button" class="mini-btn" id="pbChat">Chat</button>
+      <button type="button" class="pb-ai" id="pbAi" ${party.queued ? 'disabled' : ''}><span>Party vs AI</span></button>
+      <button type="button" class="pb-leave" id="pbLeave">Leave</button>
+      <button type="button" class="pb-ready" id="pbReady"><span>${party.queued ? 'Searching…' : 'Ready'}</span></button>
+    </div>`;
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'ccPartyBar';
@@ -1598,7 +1600,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=36');
+  const { createVoice } = await import('./voice.js?v=37');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

@@ -948,16 +948,10 @@ body.has-party-bar .cl-hand {
 .cs-empty { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 10px; line-height: 1.4; justify-content: flex-start; text-align: left; width: 100%; }
 
 
-.cc-party-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px calc(8px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
-body.has-party-bar { padding-bottom: 64px; }
-@media (max-width: 720px) {
-  .cc-party-bar { bottom: calc(70px + env(safe-area-inset-bottom)); }
-  body.has-party-bar { padding-bottom: 140px; }
-}
-.pb-members { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
-.pb-mem { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--chip); font-size: 13px; position: relative; }
+/* Party bar chrome lives in arena.css so the frosted floating bar is not overwritten. */
+body.has-party-bar { padding-bottom: 72px; }
 .pb-mem.host { box-shadow: 0 0 0 2px var(--purple); }
-.pb-boot { border: 0; background: #e11d48; color: #fff; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; line-height: 1; cursor: pointer; }
+.pb-boot { border: 0; background: #e11d48; color: #fff; width: 20px; height: 20px; border-radius: 50%; font-size: 13px; line-height: 1; cursor: pointer; flex: none; }
 .pb-name { font-weight: 800; color: var(--purple); }
 .pu-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .pu-row { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 8px 12px; height: 48px; font: inherit; cursor: pointer; }
@@ -997,9 +991,9 @@ body.has-party-bar { padding-bottom: 64px; }
     bottom: var(--party-clearance, calc(70px + 58px + env(safe-area-inset-bottom)));
     max-height: min(200px, 28vh);
   }
-  .cc-party-bar { flex-wrap: nowrap; gap: 6px; padding: 6px 10px; overflow-x: auto; }
-  .pb-members { flex-wrap: nowrap; overflow-x: auto; }
-  .pb-mem b { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cc-party-bar { gap: 6px; padding: 6px 8px 6px 10px; }
+  .pb-acts { gap: 6px; }
+  .pb-mem b, .slotp b { max-width: 6.5em; }
   .cc-chat-btn { bottom: calc(var(--party-clearance, 140px) + 8px); }
   body.has-party-bar .cc-chat-btn { display: none; }
   .arena .cl-hand .el { width: 96px; height: 92px; }
