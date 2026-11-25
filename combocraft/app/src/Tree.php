@@ -137,7 +137,16 @@ final class Tree
     {
         self::boot();
         if ($fill) {
-            self::backfill(80);
+            try {
+                $have = (int) (Db::value('SELECT COUNT(*) FROM cc_tree_best') ?? 0);
+            } catch (\Throwable $e) {
+                $have = 0;
+            }
+            // One cold fill is enough; new world-firsts call record() on the spot.
+            // Walking hundreds of trees on every leaderboard load took ~25s.
+            if ($have < 1) {
+                self::backfill(80);
+            }
         }
         $rows = [];
         try {
