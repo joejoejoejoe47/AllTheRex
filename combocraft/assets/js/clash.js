@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=14';
+import { rarityClass } from './features.js?v=15';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -995,7 +995,7 @@ function syncPartyClearance() {
     return;
   }
   const top = bar.getBoundingClientRect().top;
-  const px = Math.max(0, Math.round(window.innerHeight - top));
+  const px = Math.max(0, Math.round(window.innerHeight - top)) + 10;
   document.documentElement.style.setProperty('--party-clearance', px + 'px');
 }
 if (!window.__ccPartyClearance) {
@@ -1023,6 +1023,7 @@ function ensurePartyBar(party) {
         ${party.youHost && !m.you ? `<button type="button" class="pb-boot" data-id="${m.id}" title="Boot">×</button>` : ''}
       </span>`).join('')}</div>
     <div class="pb-name">${party.name ? '@' + esc(party.name) : 'Unnamed party'}${party.queued ? ' · searching' : ''}</div>
+    <button type="button" class="mini-btn" id="pbChat">Chat</button>
     <button type="button" class="mini-btn" id="pbLeave">Leave Party</button>`;
   if (!bar) {
     bar = document.createElement('div');
@@ -1034,6 +1035,8 @@ function ensurePartyBar(party) {
   document.body.classList.add('has-party-bar');
   syncPartyClearance();
   requestAnimationFrame(syncPartyClearance);
+  const chatBtn = bar.querySelector('#pbChat');
+  if (chatBtn) chatBtn.onclick = () => toggleChat();
   bar.querySelector('#pbLeave').onclick = async () => {
     try { await api('clash/party/leave', {}); ensurePartyBar(null); toast('You left the party.'); } catch (e) { toast(e.message); }
   };
@@ -1378,7 +1381,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=14');
+  const { createVoice } = await import('./voice.js?v=15');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

@@ -978,6 +978,7 @@ body.has-party-bar { padding-bottom: 64px; }
   .pb-members { flex-wrap: nowrap; overflow-x: auto; }
   .pb-mem b { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cc-chat-btn { bottom: calc(var(--party-clearance, 140px) + 8px); }
+  body.has-party-bar .cc-chat-btn { display: none; }
   .arena .cl-hand .el { width: 96px; height: 92px; }
 }
 
