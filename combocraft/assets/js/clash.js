@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=8';
+import { rarityClass } from './features.js?v=9';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -394,7 +394,7 @@ function paintArena(m, now, soft) {
     if (!c) return `<div class="cl-slot" data-s="${i}"><span>+</span></div>`;
     return `<div class="cl-slot filled ${rarityClass(c)}" data-s="${i}"><span class="i">${ico(c.emoji)}</span><span class="n">${esc(c.name)}</span></div>`;
   };
-  const playCard = (p, mine) => `<div class="cl-play ${rarityClass(p)}${p.attack ? ' atk' : ''}${p.breakdown?.attackWorks ? ' hit' : ''}">
+  const playCard = (p, mine, i) => `<div class="cl-play ${rarityClass(p)}${p.attack ? ' atk' : ''}${p.breakdown?.attackWorks ? ' hit' : ''}${i === 0 ? ' land' : ''}">
     <div class="cp-eq">${esc(p.a)} + ${esc(p.b)}</div>
     <div class="cp-name">${p.emoji ? ico(p.emoji) + ' ' : ''}<b>${esc(p.name)}</b></div>
     <div class="cp-pts">+${p.score}${p.attack ? (p.breakdown?.attackWorks ? ' · counter landed' : ' · counter missed') : ''}</div>
@@ -406,33 +406,33 @@ function paintArena(m, now, soft) {
         <div class="cl-score you"><span class="av">${ico(m.you.avatar)}</span><b>${esc(m.you.name)}</b><em>${m.youScore}</em></div>
         <div class="cl-timer">
           <div class="pips">${pip(1)}${pip(2)}${pip(3)}</div>
-          <div class="time ${secs <= 10 && m.status === 'playing' ? 'low' : ''}">${m.status === 'inter' ? 'Next' : ''}${formatTime(secs)}</div>
+          <div class="time ${secs <= 10 && m.status === 'playing' ? 'low' : ''}">${m.status === 'inter' ? 'Next ' : ''}${formatTime(secs)}</div>
           <div class="bo3">Best of 3 · ${m.youWins}–${m.oppWins}</div>
         </div>
-        <div class="cl-score opp"><span class="av">${ico(m.opp.avatar)}</span><b>${esc(m.opp.name)}</b><em>${m.oppScore}</em></div>
+        <div class="cl-score opp"><em>${m.oppScore}</em><b>${esc(m.opp.name)}</b><span class="av">${ico(m.opp.avatar)}</span></div>
       </div>
       <div class="cl-theme">${m.status === 'inter' && m.lastRound
         ? `<div class="inter-banner">Round ${m.lastRound.n} ${m.lastRound.winner ? (m.lastRound.winner.name === m.you.name ? 'you win' : m.lastRound.winner.name + ' wins') : 'is a tie'} · ${m.lastRound.you}–${m.lastRound.opp}</div>`
         : `Theme: <b>${esc(m.theme || '')}</b>`}</div>
-      <div class="cl-sides">
+      <div class="cl-stage">
         <div class="cl-col you">
           <h3>Your creations</h3>
-          <div class="cl-feed" id="youFeed">${(m.youPlays || []).slice().reverse().map((p) => playCard(p, true)).join('') || '<div class="muted">Combine two cards to score.</div>'}</div>
+          <div class="cl-feed" id="youFeed">${(m.youPlays || []).slice().reverse().map((p, i) => playCard(p, true, i)).join('') || '<div class="muted">Combine two cards to score.</div>'}</div>
+        </div>
+        <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
+          <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
+          <div class="cl-acts">
+            <button class="btn clash-lg" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'?'disabled':''}>Combine</button>
+            <button class="pill-btn clash-lg ${attackMode?'on':''}" id="clAtk" ${!m.oppLatest?'disabled':''}>Attack</button>
+            <button class="mini-btn" id="clClear">Clear</button>
+            <button class="mini-btn" id="loFF">Forfeit</button>
+          </div>
+          ${m.oppLatest ? `<div class="cl-target">Opponent’s latest: ${m.oppLatest.emoji ? ico(m.oppLatest.emoji)+' ' : ''}<b>${esc(m.oppLatest.name)}</b> — attack to try a counter</div>` : ''}
         </div>
         <div class="cl-col opp">
-          <h3>${esc(m.opp.name)}’s creations</h3>
-          <div class="cl-feed">${(m.oppPlays || []).slice().reverse().map((p) => playCard(p, false)).join('') || '<div class="muted">Waiting…</div>'}</div>
+          <h3><span class="live-dot" aria-hidden="true"></span> ${esc(m.opp.name)}’s creations <span class="live-lab">Live</span></h3>
+          <div class="cl-feed" id="oppFeed">${(m.oppPlays || []).slice().reverse().map((p, i) => playCard(p, false, i)).join('') || '<div class="muted">Waiting for their first combo…</div>'}</div>
         </div>
-      </div>
-      <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
-        <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
-        <div class="cl-acts">
-          <button class="btn" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'?'disabled':''}>Combine</button>
-          <button class="pill-btn ${attackMode?'on':''}" id="clAtk" ${!m.oppLatest?'disabled':''}>Attack</button>
-          <button class="mini-btn" id="clClear">Clear</button>
-          <button class="mini-btn" id="loFF">Forfeit</button>
-        </div>
-        ${m.oppLatest ? `<div class="cl-target">Opponent’s latest: ${m.oppLatest.emoji ? ico(m.oppLatest.emoji)+' ' : ''}<b>${esc(m.oppLatest.name)}</b> — attack to try a counter</div>` : ''}
       </div>
       <div class="cl-hand" id="clHand">
         ${hand.map((e) => `<button type="button" class="el lo-el ${rarityClass(e)}" data-tok="${esc(e.token)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
@@ -1184,22 +1184,27 @@ function paintPartyMatch(m) {
       <div class="cl-top">
         <div class="cl-score you"><b>@${esc(m.youName)}</b> <em>${m.youSession}</em></div>
         <div class="cl-timer"><div class="time ${secs <= 15 && !spectate ? 'low' : ''}">${formatTime(secs)}</div><div class="bo3">${esc(m.headline)}</div></div>
-        <div class="cl-score opp"><b>@${esc(m.oppName)}</b> <em>${m.oppSession}</em></div>
+        <div class="cl-score opp"><em>${m.oppSession}</em><b>@${esc(m.oppName)}</b></div>
       </div>
       ${spectate ? `<div class="inter-banner">Your team is defeated this session — spectating teammates and the other party. You can leave the party or exit to the menu.</div>` : ''}
-      <div class="cl-sides party-3">
+      <div class="cl-stage party-stage">
         <div class="cl-col"><h3>You</h3><div class="cl-feed">${(m.youPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Combine toward the thing.</div>'}</div></div>
+        ${spectate ? `
         <div class="cl-col"><h3>Teammates</h3><div class="cl-feed">${(m.matePlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting on your party…</div>'}</div></div>
-        <div class="cl-col"><h3>@${esc(m.oppName)}</h3><div class="cl-feed">${(m.oppPlays || []).slice().reverse().map(card).join('') || '<div class="muted">…</div>'}</div></div>
-      </div>
-      ${spectate ? `<div class="cl-acts"><button class="pill-btn" id="pmLeave">Leave Party</button><button class="mini-btn" id="pmExit">Exit to menu</button></div>` : `
-      <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
-        <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
-        <div class="cl-acts">
-          <button class="btn" id="pmGo" ${!partyPick[0]||!partyPick[1]?'disabled':''}>Combine</button>
-          <button class="mini-btn" id="pmClear">Clear</button>
+        <div class="cl-col"><h3><span class="live-dot"></span> @${esc(m.oppName)} <span class="live-lab">Live</span></h3><div class="cl-feed">${(m.oppPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting for the other party…</div>'}</div></div>` : `
+        <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
+          <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
+          <div class="cl-acts">
+            <button class="btn clash-lg" id="pmGo" ${!partyPick[0]||!partyPick[1]?'disabled':''}>Combine</button>
+            <button class="mini-btn" id="pmClear">Clear</button>
+          </div>
         </div>
+        <div class="cl-col"><h3>Teammates</h3><div class="cl-feed">${(m.matePlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting on your party…</div>'}</div></div>`}
       </div>
+      ${spectate ? '' : `<div class="cl-col opp-strip"><h3><span class="live-dot"></span> @${esc(m.oppName)} <span class="live-lab">Live</span></h3>
+        <div class="cl-feed horiz">${(m.oppPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting for the other party…</div>'}</div>
+      </div>`}
+      ${spectate ? `<div class="cl-acts"><button class="pill-btn clash-lg" id="pmLeave">Leave Party</button><button class="mini-btn" id="pmExit">Exit to menu</button></div>` : `
       <div class="cl-hand" id="pmHand">
         ${(m.hand || []).slice(-24).map((e) => `<button type="button" class="el lo-el ${rarityClass(e)}" data-tok="${esc(e.token)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
       </div>`}
@@ -1331,7 +1336,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=8');
+  const { createVoice } = await import('./voice.js?v=9');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

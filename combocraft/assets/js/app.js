@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=8';
-import { storyHtml, storyPng } from './share.js?v=8';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=8';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=9';
+import { storyHtml, storyPng } from './share.js?v=9';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=9';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -1056,7 +1056,7 @@ async function pageElement(id) {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=8').then((m) => {
+import('./clash.js?v=9').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1083,7 +1083,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=8');
+    const m = window.__ccClashMod || await import('./clash.js?v=9');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
