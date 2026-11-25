@@ -14,7 +14,7 @@ final class Party
     public const INVITE_SECS = 12;
     public const MAX_SIZE = 4;
     public const QUEUE_STALE = 20;
-    public const PLAY_GAP_MS = 400;
+    public const PLAY_GAP_MS = 750;
     public const DISCONNECT_SECS = 35;
 
     private const TARGETS = [
@@ -429,11 +429,28 @@ final class Party
         // a_session is completed sessions; current is a_session+1 while alive
         $cur = (int) $m[$side . '_session'] + 1;
         $want = self::sideTarget($m, $side);
-        $hit = Text::key($made['name']) === Text::key((string) ($want[0] ?? $m['target_name']));
+        $targetName = (string) ($want[0] ?? $m['target_name'] ?? '');
+        $hit = Text::key($made['name']) === Text::key($targetName);
+        $priorCold = self::priorCold($matchId, (string) $p['id'], $cur);
+        $eval = ClashScore::evaluate('Make ' . $targetName, $made, $targetName, $priorCold);
         Db::run(
             'INSERT INTO cc_clash_party_plays (match_id, session, party_id, player_id, a_name, b_name, result_name, result_emoji, result_tagline, rarity, is_hit, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             [$matchId, $cur, $partyId, $p['id'], $ea['name'], $eb['name'], $made['name'], $made['emoji'], $made['tagline'], $made['rarity'], $hit ? 1 : 0, Db::now()]
         );
+        $playId = (int) Db::value('SELECT MAX(id) FROM cc_clash_party_plays WHERE match_id = ? AND player_id = ?', [$matchId, $p['id']]);
+        try {
+            Game::insertPublic('cc_clash_party_play_scores', [
+                'play_id' => $playId,
+                'match_id' => $matchId,
+                'player_id' => $p['id'],
+                'score' => (int) $eval['score'],
+                'closeness' => $eval['closeness'],
+                'heat' => $eval['heat'],
+                'created_at' => Db::now(),
+            ]);
+        } catch (Throwable $e) {
+            error_log('[combocraft party heat] ' . $e->getMessage());
+        }
         try {
             Store::set('pp:' . $p['id'] . ':' . $matchId, (string) $nowMs);
         } catch (Throwable $e) {
@@ -444,13 +461,19 @@ final class Party
         $m = self::getMatch($matchId);
         return [
             'play' => [
-                'token' => 't:' . (int) Db::value('SELECT MAX(id) FROM cc_clash_party_plays WHERE match_id = ? AND player_id = ?', [$matchId, $p['id']]),
+                'token' => 't:' . $playId,
                 'name' => $made['name'],
                 'emoji' => $made['emoji'],
                 'tagline' => $made['tagline'],
                 'rarity' => $made['rarity'],
                 'hit' => $hit,
+                'score' => (int) $eval['score'],
+                'closeness' => $eval['closeness'],
+                'heat' => $eval['heat'],
+                'exact' => $eval['exact'],
                 'inputs' => [$ea['name'], $eb['name']],
+                'a' => $ea['name'],
+                'b' => $eb['name'],
             ],
             'match' => self::matchView($m, $p),
             'now' => Db::nowMs(),
@@ -1204,7 +1227,15 @@ final class Party
         $matePlays = [];
         $oppPlays = [];
         $sessForPlays = max(1, $cur);
+        $heat = [];
+        try {
+            foreach (Db::all('SELECT * FROM cc_clash_party_play_scores WHERE match_id = ?', [$m['id']]) as $s) {
+                $heat[(int) $s['play_id']] = $s;
+            }
+        } catch (Throwable $e) {
+        }
         foreach (Db::all('SELECT * FROM cc_clash_party_plays WHERE match_id = ? AND session = ? ORDER BY id', [$m['id'], $sessForPlays]) as $pl) {
+            $hs = $heat[(int) $pl['id']] ?? null;
             $item = [
                 'id' => (int) $pl['id'],
                 'token' => 't:' . (int) $pl['id'],
@@ -1215,6 +1246,9 @@ final class Party
                 'a' => $pl['a_name'],
                 'b' => $pl['b_name'],
                 'hit' => (int) $pl['is_hit'] === 1,
+                'score' => $hs ? (int) $hs['score'] : 0,
+                'closeness' => $hs ? (float) $hs['closeness'] : 0.0,
+                'heat' => $hs ? (string) $hs['heat'] : '',
                 'player' => self::mini((string) $pl['player_id']),
             ];
             if ($pl['party_id'] === $partyId) {
@@ -1628,6 +1662,22 @@ final class Party
             }
         }
         return $need;
+    }
+
+
+    private static function priorCold(string $matchId, string $playerId, int $session): int
+    {
+        try {
+            $n = (int) (Db::value(
+                'SELECT COUNT(*) FROM cc_clash_party_play_scores s
+                 JOIN cc_clash_party_plays p ON p.id = s.play_id
+                 WHERE s.match_id = ? AND s.player_id = ? AND p.session = ? AND s.closeness < ?',
+                [$matchId, $playerId, $session, ClashScore::COLD_MAX]
+            ) ?? 0);
+            return $n;
+        } catch (Throwable $e) {
+            return 0;
+        }
     }
 
     private static function id(string $p): string

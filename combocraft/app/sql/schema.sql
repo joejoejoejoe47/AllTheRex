@@ -390,3 +390,14 @@ CREATE TABLE IF NOT EXISTS cc_prefs (
   file VARCHAR(48) NULL,
   updated_at DATETIME NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_play_scores (
+  play_id INTEGER PRIMARY KEY,
+  match_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  score INT NOT NULL,
+  closeness REAL NOT NULL,
+  heat VARCHAR(16) NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_pps_match ON cc_clash_party_play_scores (match_id, player_id);

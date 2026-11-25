@@ -423,3 +423,14 @@ CREATE TABLE IF NOT EXISTS cc_prefs (
   file VARCHAR(48) NULL,
   updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_clash_party_play_scores (
+  play_id INT NOT NULL PRIMARY KEY,
+  match_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  score INT NOT NULL,
+  closeness DECIMAL(6,4) NOT NULL,
+  heat VARCHAR(16) NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY cc_clash_pps_match (match_id, player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

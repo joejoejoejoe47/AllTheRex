@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=29';
+import { rarityClass, nameClass, nameVars } from './features.js?v=30';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -10,6 +10,26 @@ let burstMode = false;
 let pick = [null, null];
 let selectedMode = 'duel';
 let boom = null;
+function heatMeter(src) {
+  const { esc } = ctx;
+  const c = src && (src.closeness != null ? src.closeness : src.breakdown?.closeness);
+  if (c == null) return '';
+  const heat = (src.heat || src.breakdown?.heat || (c >= 0.85 ? 'On Fire' : c >= 0.65 ? 'Hot' : c >= 0.4 ? 'Warm' : 'Cold'));
+  const pct = Math.max(0, Math.min(100, Math.round(Number(c) * 100)));
+  const cls = String(heat).toLowerCase().replace(/\s+/g, '-');
+  return `<div class="rl-heat ${cls}" title="How close that combo was to the target">
+    <span class="rl-heat-lab">${esc(heat)}</span>
+    <span class="rl-heat-track"><i style="width:${pct}%"></i></span>
+  </div>`;
+}
+function lastHeat(plays) {
+  const list = plays || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const p = list[i];
+    if (p && (p.closeness != null || p.breakdown?.closeness != null)) return p;
+  }
+  return null;
+}
 
 export function startInbox(c) {
   ctx = c;
@@ -476,7 +496,7 @@ function paintArena(m, now, soft) {
   const playCard = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}">
     <div class="eq">${esc(p.a)} + ${esc(p.b)}</div>
     <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}</div>
-    <div class="pts">+${p.score}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
+    <div class="pts">+${p.score}${p.breakdown?.heat ? ' · ' + p.breakdown.heat : ''}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
   </div>`;
   const boost = m.boost || 0;
   const boostMax = m.boostMax || 100;
@@ -497,6 +517,7 @@ function paintArena(m, now, soft) {
         <div class="rl-sb-orange"><span class="rl-sb-pts">${right.pts}</span><span class="rl-sb-name">${esc(right.name)}</span>${right.you ? '<span class="rl-you-tag">YOU</span>' : ''}</div>
       </div>
       <div class="rl-theme">${m.status === 'inter' ? themeText : `Theme: <b>${esc(themeText)}</b>`}</div>
+      ${heatMeter(lastHeat(m.youPlays))}
       <div class="rl-grid">
         <div class="rl-panel rl-col blue">
           <h3>Your creations</h3>
@@ -519,7 +540,7 @@ function paintArena(m, now, soft) {
           ${(m.oppPlays || []).slice().reverse().map((p) => playCard(p, true)).join('') || '<div class="muted">Waiting for their first combo…</div>'}
         </div>
       </div>
-      ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
+      ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
       ${inKick ? `<div class="rl-kick"><b>${kickWord}</b></div>` : ''}
       <div class="rl-panel rl-hand" id="clHand">
         ${hand.map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}${nameClass(e.name)}" data-tok="${esc(e.token)}" style="${nameVars(e.name)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
@@ -572,8 +593,9 @@ async function doPlay(m, attack) {
     if (ctx.sfx) sfx(d.play?.breakdown?.attackWorks ? 'fanfare' : 'success');
     const pl = d.play;
     if (pl) {
-      const kind = pl.breakdown?.attackWorks ? 'DEMOLISHED!' : (pl.breakdown?.chain ? 'CHAIN!' : 'COMBO!');
-      boom = { kind, sub: `${pl.a} + ${pl.b} = ${pl.name} · +${pl.score}` };
+      const heat = pl.breakdown?.heat || pl.heat;
+      const kind = pl.breakdown?.attackWorks ? 'DEMOLISHED!' : (pl.breakdown?.exact ? 'ON TARGET!' : (heat === 'On Fire' ? 'ON FIRE!' : (heat === 'Hot' ? 'HOT!' : (heat === 'Warm' ? 'WARM!' : 'COMBO!'))));
+      boom = { kind, heat, sub: `${pl.a || pl.inputs?.[0] || ''} + ${pl.b || pl.inputs?.[1] || ''} = ${pl.name} · +${pl.score}` };
       setTimeout(() => { if (boom && boom.sub.endsWith('+' + pl.score)) { boom = null; } }, 1800);
     }
     pick = [pl ? { token: pl.token, name: pl.name, emoji: pl.emoji, rarity: pl.rarity } : null, null];
@@ -1410,6 +1432,7 @@ function paintPartyMatch(m) {
   const card = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}${p.hit ? ' hit' : ''}">
     <div class="eq">${esc(p.player?.name || '')} · ${esc(p.a)} + ${esc(p.b)}</div>
     <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}${p.hit ? ' · MATCH!' : ''}</div>
+    <div class="pts">${p.score ? '+' + p.score : ''}${p.heat ? ' · ' + p.heat : ''}</div>
   </div>`;
   const sess = Math.min(3, m.session || (m.youAlive ? m.youSession + 1 : (m.oppSession + 1)) || 1);
   view.innerHTML = `
@@ -1420,6 +1443,8 @@ function paintPartyMatch(m) {
         <div class="rl-sb-orange"><span class="rl-sb-pts">${m.oppSession}</span><span class="rl-sb-name">@${esc(m.oppName)}</span></div>
       </div>
       <div class="rl-theme">the thing · Session ${sess} / 3<br><span class="tgt">${target.emoji ? ico(target.emoji) + ' ' : ''}${esc(target.name || '???')}</span></div>
+      ${heatMeter(lastHeat(m.youPlays))}
+      ${boom ? `<div class="rl-boom${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
       ${spectate ? `<div class="rl-theme" style="margin-top:8px;background:#5a1a1a">Your team is out — spectating. You can leave the party or exit to the menu.</div>` : ''}
       <div class="rl-grid">
         <div class="rl-panel rl-col blue"><h3>You</h3>${(m.youPlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Combine toward the thing.</div>'}</div>
@@ -1469,7 +1494,14 @@ async function doPartyPlay(m) {
   try {
     const d = await ctx.api('clash/party/play', { matchId: m.id, a: partyPick[0].token, b: partyPick[1].token });
     if (ctx.sfx) ctx.sfx(d.play?.hit ? 'fanfare' : 'success');
-    if (d.play?.hit) ctx.toast('Your team matched the thing! Next session…');
+    const pl = d.play;
+    if (pl) {
+      const heat = pl.heat;
+      const kind = pl.hit || pl.exact ? 'ON TARGET!' : (heat === 'On Fire' ? 'ON FIRE!' : (heat === 'Hot' ? 'HOT!' : (heat === 'Warm' ? 'WARM!' : 'COMBO!')));
+      boom = { kind, heat, sub: `${pl.a || ''} + ${pl.b || ''} = ${pl.name} · +${pl.score || 0}` };
+      setTimeout(() => { boom = null; }, 1800);
+      if (pl.hit) ctx.toast('Your team matched the thing! Next session…');
+    }
     partyPick = [d.play ? { token: d.play.token, name: d.play.name, emoji: d.play.emoji, rarity: d.play.rarity } : null, null];
     paintPartyMatch(d.match);
   } catch (e) { ctx.toast(e.message); }
@@ -1566,7 +1598,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=29');
+  const { createVoice } = await import('./voice.js?v=30');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
