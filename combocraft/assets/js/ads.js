@@ -2,7 +2,7 @@
 // Add more entries to HOUSE_ADS. A real network tag can be dropped into
 // the [data-ad-slot] placeholder in the right-hand panel.
 
-import { esc } from './fx.js?v=29';
+import { esc } from './fx.js?v=30';
 
 /** @typedef {{ id:string, title:string, kicker?:string, blurb:string, cta:string, href:string, external?:boolean, youtube?:string, start?:number, image?:string }} Ad */
 
@@ -91,7 +91,6 @@ function ytThumb(id) {
 }
 
 function ytEmbed(id, start = 0, { autoplay = false } = {}) {
-  const origin = encodeURIComponent(location.origin);
   const params = new URLSearchParams({
     autoplay: autoplay ? '1' : '0',
     mute: '1',
@@ -100,7 +99,7 @@ function ytEmbed(id, start = 0, { autoplay = false } = {}) {
     modestbranding: '1',
     playsinline: '1',
     enablejsapi: '1',
-    origin,
+    origin: location.origin,
   });
   return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id) + '?' + params.toString();
 }

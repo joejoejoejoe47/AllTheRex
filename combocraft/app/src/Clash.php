@@ -23,7 +23,7 @@ final class Clash
     public const ACCEPT_SECS = 5;
     public const INVITE_ACCEPT_SECS = 8;
     public const OPEN_INVITE_SECS = 600;
-    public const PLAY_GAP_MS = 400;
+    public const PLAY_GAP_MS = 750;
     public const DISCONNECT_PLAY_SECS = 25;
     public const DISCONNECT_LOADOUT_SECS = 45;
     public const INTER_SECS = 5;
@@ -388,7 +388,7 @@ final class Clash
             $boost -= self::BOOST_BURST;
         }
         $oppLatest = self::latestPlay($round, self::oppId($m, $p['id']));
-        $judge = self::judge((string) $round['theme'], $made, $ea, $eb, $chain, $double, $attack, $oppLatest, !$internal);
+        $judge = self::judge((string) $round['theme'], $made, $ea, $eb, $chain, $double, $attack, $oppLatest, !$internal, (string) $round['id'], (string) $p['id']);
         if ($burst) {
             $judge['score'] = (int) $judge['score'] * 2;
             $judge['burst'] = true;
@@ -871,9 +871,11 @@ final class Clash
      * @param array<string,mixed>|null $opp
      * @return array<string,mixed>
      */
-    private static function judge(string $theme, array $made, array $ea, array $eb, bool $chain, bool $double, bool $attack, ?array $opp, bool $remote = true): array
+    private static function judge(string $theme, array $made, array $ea, array $eb, bool $chain, bool $double, bool $attack, ?array $opp, bool $remote = true, ?string $roundId = null, ?string $playerId = null, ?string $targetName = null): array
     {
-        $cacheKey = 'clashj:' . sha1(strtolower($theme . '|' . $made['name'] . '|' . $ea['name'] . '|' . $eb['name'] . '|' . ($opp['name'] ?? '') . '|' . ($attack ? '1' : '0')));
+        $priorCold = ($roundId && $playerId) ? self::priorCold($roundId, $playerId) : 0;
+        $eval = ClashScore::evaluate($theme, $made, $targetName, $priorCold);
+        $cacheKey = 'clashj3:' . sha1(strtolower($theme . '|' . $made['name'] . '|' . $ea['name'] . '|' . $eb['name'] . '|' . ($opp['name'] ?? '') . '|' . ($attack ? '1' : '0')));
         $cached = Store::get($cacheKey);
         $ai = null;
         if ($cached) {
@@ -887,32 +889,47 @@ final class Clash
                 }
             }
         }
+        if (is_array($ai) && isset($ai['closeness'])) {
+            $eval = ClashScore::withAi((float) $ai['closeness'], $eval);
+        } elseif (is_array($ai) && isset($ai['theme'])) {
+            $eval = ClashScore::withAi(((int) $ai['theme']) * 2.0, $eval);
+        }
+        $eval = ClashScore::recountPoints($eval, $priorCold);
         $fallback = self::fallbackJudge($theme, $made, $chain, $double, $attack, $opp);
-        $themePts = isset($ai['theme']) ? max(0, min(50, (int) $ai['theme'])) : $fallback['theme'];
-        $creative = isset($ai['creative']) ? max(0, min(15, (int) $ai['creative'])) : $fallback['creative'];
-        $rarityPts = (int) round(10 * (self::MULT[$made['rarity']] ?? 1));
-        $chainPts = $double ? 18 : ($chain ? 12 : 0);
         $attackWorks = $attack && $opp && (isset($ai['attack']) ? (bool) $ai['attack'] : $fallback['attackWorks']);
         $cut = 0;
         $atkBonus = 0;
-        if ($attack && $opp) {
-            if ($attackWorks) {
-                $cut = max(8, (int) floor(((int) ($opp['score'] ?? 20)) * 0.35));
-                $atkBonus = 15;
-            }
+        if ($attack && $opp && $attackWorks) {
+            $cut = max(8, (int) floor(((int) ($opp['score'] ?? 20)) * 0.35));
+            $atkBonus = (int) round(10 + 20 * (float) $eval['closeness']);
         }
-        $score = $themePts + $rarityPts + $creative + $chainPts + $atkBonus;
+        $score = (int) $eval['score'] + $atkBonus;
         return [
             'score' => $score,
-            'theme' => $themePts,
-            'rarity' => $rarityPts,
-            'creative' => $creative,
-            'chain' => $chainPts,
+            'closeness' => $eval['closeness'],
+            'heat' => $eval['heat'],
+            'exact' => $eval['exact'],
+            'graph' => $eval['graph'],
+            'theme' => $eval['theme'],
+            'chain' => $double ? 1 : ($chain ? 1 : 0),
             'attackWorks' => $attackWorks,
             'cut' => $cut,
             'attackBonus' => $atkBonus,
             'ai' => $ai !== null,
         ];
+    }
+
+    private static function priorCold(string $roundId, string $playerId): int
+    {
+        $n = 0;
+        foreach (Db::all('SELECT breakdown FROM cc_clash_plays WHERE round_id = ? AND player_id = ?', [$roundId, $playerId]) as $row) {
+            $b = json_decode((string) ($row['breakdown'] ?? ''), true);
+            $c = is_array($b) ? (float) ($b['closeness'] ?? 0) : 0.0;
+            if ($c < ClashScore::COLD_MAX) {
+                $n++;
+            }
+        }
+        return $n;
     }
 
     /**
@@ -950,10 +967,16 @@ final class Clash
             if (preg_match('/\{.*\}/s', $text, $mm)) {
                 $j = json_decode($mm[0], true);
                 if (is_array($j)) {
+                    $closeness = $j['closeness'] ?? $j['close'] ?? null;
+                    if ($closeness === null && isset($j['theme'])) {
+                        $closeness = ((int) $j['theme']) * 2;
+                    }
                     return [
-                        'theme' => (int) ($j['theme'] ?? $j['fit'] ?? 20),
+                        'closeness' => max(0, min(100, (int) ($closeness ?? 0))),
+                        'theme' => (int) ($j['theme'] ?? $j['fit'] ?? 0),
                         'creative' => (int) ($j['creative'] ?? $j['creativity'] ?? 6),
                         'attack' => !empty($j['attack']) || !empty($j['works']),
+                        'exact' => !empty($j['exact']),
                     ];
                 }
             }
@@ -1643,18 +1666,15 @@ final class Clash
             }
         }
         $roll = (crc32($m['id'] . '|' . $round['id'] . '|' . $nowMs) % 1000) / 1000;
-        $a = $bases[0] ?? $toks[0];
-        $b = $bases[1] ?? $bases[0] ?? $toks[0];
-        if ($roll < (float) $cfg['chain'] && $temps) {
+        $pair = self::aiThemedPair($hand, (string) $round['theme'], $level, $m['id'] . '|' . $round['id'] . '|' . $nowMs, $roll);
+        $a = $pair[0];
+        $b = $pair[1];
+        if ($roll < (float) $cfg['chain'] && $temps && !$pair[2]) {
             $a = $temps[array_key_last($temps)];
             $b = $bases ? $bases[crc32((string) $nowMs) % count($bases)] : ($temps[0] ?? $a);
             if ($b === $a && count($temps) > 1) {
                 $b = $temps[0];
             }
-        } else {
-            $i = crc32($m['id'] . '|' . (string) $nowMs) % count($toks);
-            $a = $toks[$i];
-            $b = $toks[($i + 1) % count($toks)];
         }
         $humanId = $m['a_id'] === $aiId ? (string) $m['b_id'] : (string) $m['a_id'];
         $oppLatest = self::latestPlay($round, $humanId);
@@ -1664,6 +1684,60 @@ final class Clash
         } catch (Throwable $e) {
             error_log('[combocraft ai play] ' . $e->getMessage());
         }
+    }
+
+
+    /**
+     * @param array<string,array<string,mixed>> $hand
+     * @return array{0:string,1:string,2:bool} tokens plus whether this was a themed pick
+     */
+    private static function aiThemedPair(array $hand, string $theme, string $level, string $salt, float $roll): array
+    {
+        $toks = array_keys($hand);
+        $i = (int) (sprintf('%u', crc32($salt)) % max(1, count($toks)));
+        $fallback = [$toks[$i], $toks[($i + 1) % count($toks)], false];
+        $aim = ['easy' => 0.22, 'medium' => 0.58, 'hard' => 0.88][$level] ?? 0.4;
+        $list = array_values($hand);
+        $n = count($list);
+        $best = null;
+        $bestC = -1.0;
+        $limit = 0;
+        for ($a = 0; $a < $n && $limit < 40; $a++) {
+            for ($b = $a; $b < $n && $limit < 40; $b++) {
+                $limit++;
+                $name = self::knownCraftName($list[$a], $list[$b]);
+                if ($name === null) {
+                    continue;
+                }
+                $eval = ClashScore::evaluate($theme, ['name' => $name, 'tagline' => ''], null, 0);
+                if ((float) $eval['closeness'] > $bestC) {
+                    $bestC = (float) $eval['closeness'];
+                    $best = [$list[$a]['token'] ?? $list[$a]['id'], $list[$b]['token'] ?? $list[$b]['id'], true];
+                }
+            }
+        }
+        if ($best && $bestC >= 0.35 && $roll < $aim) {
+            return [(string) $best[0], (string) $best[1], true];
+        }
+        return [(string) $fallback[0], (string) $fallback[1], false];
+    }
+
+    /** @param array<string,mixed> $ea @param array<string,mixed> $eb */
+    private static function knownCraftName(array $ea, array $eb): ?string
+    {
+        if (empty($ea['temp']) && empty($eb['temp']) && !empty($ea['id']) && !empty($eb['id'])) {
+            $x = min((int) $ea['id'], (int) $eb['id']);
+            $y = max((int) $ea['id'], (int) $eb['id']);
+            try {
+                $recipe = Db::one('SELECT e.name FROM cc_recipes r JOIN cc_elements e ON e.id = r.result_id WHERE r.a_id = ? AND r.b_id = ?', [$x, $y]);
+                if ($recipe) {
+                    return (string) $recipe['name'];
+                }
+            } catch (Throwable $e) {
+            }
+        }
+        $seed = Seeds::RECIPES[Seeds::key((string) ($ea['name'] ?? ''), (string) ($eb['name'] ?? ''))] ?? null;
+        return $seed ? (string) $seed[0] : null;
     }
 
     public const QUICK_PHRASES = [

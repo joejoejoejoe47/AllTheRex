@@ -466,3 +466,34 @@ tr.side-b { background: linear-gradient(90deg, rgba(230,120,40,.10), transparent
 .bg-upload-ico { display: grid; place-items: center; height: 92px; font-size: 28px; background: rgba(255,255,255,.35); }
 .bg-acts { display: flex; justify-content: flex-end; margin-top: 14px; }
 [data-theme="dark"] .bg-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); color: #eef6ff; }
+
+
+/* Closeness meter: Cold → Warm → Hot → On Fire */
+.rl-heat {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 420px; margin: 8px auto 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel, #fff) 80%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 30%, transparent);
+  box-shadow: 0 6px 16px rgba(0,0,0,.12);
+}
+.rl-heat-lab {
+  font-family: "Russo One", sans-serif;
+  font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+  min-width: 4.8em;
+}
+.rl-heat-track {
+  flex: 1; height: 10px; border-radius: 99px; background: rgba(0,0,0,.18); overflow: hidden;
+}
+.rl-heat-track i { display: block; height: 100%; width: 0; border-radius: 99px; transition: width .35s ease, background .3s ease; background: #6ea8ff; }
+.rl-heat.cold .rl-heat-lab { color: #3d7dff; }
+.rl-heat.cold .rl-heat-track i { background: linear-gradient(90deg, #7ec8ff, #3d7dff); }
+.rl-heat.warm .rl-heat-lab { color: #e8942a; }
+.rl-heat.warm .rl-heat-track i { background: linear-gradient(90deg, #ffd36b, #e8942a); }
+.rl-heat.hot .rl-heat-lab { color: #e24a1b; }
+.rl-heat.hot .rl-heat-track i { background: linear-gradient(90deg, #ff8a4a, #e24a1b); }
+.rl-heat.on-fire .rl-heat-lab { color: #ff3b1a; text-shadow: 0 0 10px rgba(255,80,30,.55); }
+.rl-heat.on-fire .rl-heat-track i { background: linear-gradient(90deg, #ffb347, #ff4d00 55%, #ff1e5a); }
+.rl-boom.heat-warm .word { color: #e8942a; }
+.rl-boom.heat-hot .word, .rl-boom.heat-on-fire .word { color: #ff4d1a; }
