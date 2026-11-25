@@ -86,7 +86,7 @@ $html = str_contains($html, '<!--CC_BASE-->')
 // Share links (/e/123) and daily: give link previews the real combo / challenge.
 $og = [
     'title' => 'ComboCraft — What if you could combine anything?',
-    'desc' => 'Mix any two ideas and invent something new. Every first discovery is yours forever. Daily challenges, speedruns and First Discoveries to share.',
+    'desc' => 'Mix any two ideas and invent something new. Every first discovery is yours forever. Daily challenges, achievements and First Discoveries to share.',
     'image' => null,
     'url' => null,
 ];
