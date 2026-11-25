@@ -1,9 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=35';
-import { storyHtml, storyPng } from './share.js?v=35';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=35';
-import { initBg, syncPrefs } from './bg.js?v=35';
-import { initAds, renderAdRail } from './ads.js?v=35';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=36';
+import { storyHtml, storyPng } from './share.js?v=36';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=36';
+import { initBg, syncPrefs } from './bg.js?v=36';
+import { initAds, renderAdRail } from './ads.js?v=36';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -257,10 +257,22 @@ async function pagePlay() {
     renderSlots();
     sfx('pick');
   });
+  let pendingUse = 0;
   $('#resultZone').addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]');
     if (act) return resultAction(act.dataset.act);
-    if (e.target.closest('.result') && state.lastResult) useResult();
+    if (e.target.closest('.result') && state.lastResult) {
+      clearTimeout(pendingUse);
+      const lr = state.lastResult;
+      pendingUse = setTimeout(() => { pendingUse = 0; if (state.lastResult === lr) useResult(); }, 280);
+    }
+  });
+  $('#resultZone').addEventListener('dblclick', (e) => {
+    if (!e.target.closest('.result') || !state.lastResult?.el?.id) return;
+    e.preventDefault();
+    clearTimeout(pendingUse);
+    pendingUse = 0;
+    openRecipe(state.lastResult.el.id, { api, toast, ico, artHtml, BASE });
   });
   $('#sheet').addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]');
@@ -435,7 +447,7 @@ function showResult(lr, animate, daily) {
     if (daily.target?.name && !daily.cleared) note += ` Next: Make ${daily.target.name}.`;
   }
   z.innerHTML = `
-    <div class="result ${rarityClass(el)}${animate ? '' : '" style="animation:none'}" title="Click to use it in your next combo">
+    <div class="result ${rarityClass(el)}${animate ? '' : '" style="animation:none'}" data-id="${el.id}" title="Double-click for the family tree, or click to use it">
       <div class="sparkles">${['10%;top:8%', '88%;top:14%', '-2%;top:60%', '96%;top:68%', '50%;top:-4%'].map((p, i) => `<i style="left:${p};animation-delay:${i * 0.2}s">✦</i>`).join('')}</div>
       ${first ? `<div class="badge-first seal sm">${svg.seal}</div>` : ''}
       <div class="art">${artHtml(el, BASE)}</div>
@@ -1135,7 +1147,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=35').then((m) => {
+import('./clash.js?v=36').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1162,7 +1174,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=35');
+    const m = window.__ccClashMod || await import('./clash.js?v=36');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

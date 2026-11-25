@@ -1487,7 +1487,7 @@ final class Clash
     public static function isHiddenName(?string $name): bool
     {
         $n = trim((string) $name);
-        return $n !== '' && (bool) preg_match('/^(CcBot|CcFin|CcQA|CcTest|CcAi|CcAud)/i', $n);
+        return TestNicks::isHidden($n);
     }
 
     public static function isHiddenFromBoards(?string $id, ?string $name): bool
