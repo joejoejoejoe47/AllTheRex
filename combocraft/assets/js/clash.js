@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=30';
+import { rarityClass, nameClass, nameVars } from './features.js?v=31';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -14,7 +14,7 @@ function heatMeter(src) {
   const { esc } = ctx;
   const c = src && (src.closeness != null ? src.closeness : src.breakdown?.closeness);
   if (c == null) return '';
-  const heat = (src.heat || src.breakdown?.heat || (c >= 0.85 ? 'On Fire' : c >= 0.65 ? 'Hot' : c >= 0.4 ? 'Warm' : 'Cold'));
+  const heat = (src.heat || src.breakdown?.heat || (c >= 0.90 ? 'On Fire' : c >= 0.70 ? 'Hot' : c >= 0.4 ? 'Warm' : 'Cold'));
   const pct = Math.max(0, Math.min(100, Math.round(Number(c) * 100)));
   const cls = String(heat).toLowerCase().replace(/\s+/g, '-');
   return `<div class="rl-heat ${cls}" title="How close that combo was to the target">
@@ -1598,7 +1598,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=30');
+  const { createVoice } = await import('./voice.js?v=31');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

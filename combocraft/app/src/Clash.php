@@ -875,7 +875,7 @@ final class Clash
     {
         $priorCold = ($roundId && $playerId) ? self::priorCold($roundId, $playerId) : 0;
         $eval = ClashScore::evaluate($theme, $made, $targetName, $priorCold);
-        $cacheKey = 'clashj3:' . sha1(strtolower($theme . '|' . $made['name'] . '|' . $ea['name'] . '|' . $eb['name'] . '|' . ($opp['name'] ?? '') . '|' . ($attack ? '1' : '0')));
+        $cacheKey = 'clashj4:' . sha1(strtolower($theme . '|' . $made['name'] . '|' . $ea['name'] . '|' . $eb['name'] . '|' . ($opp['name'] ?? '') . '|' . ($attack ? '1' : '0')));
         $cached = Store::get($cacheKey);
         $ai = null;
         if ($cached) {
@@ -892,7 +892,7 @@ final class Clash
         if (is_array($ai) && isset($ai['closeness'])) {
             $eval = ClashScore::withAi((float) $ai['closeness'], $eval);
         } elseif (is_array($ai) && isset($ai['theme'])) {
-            $eval = ClashScore::withAi(((int) $ai['theme']) * 2.0, $eval);
+            $eval = ClashScore::withAi(((int) $ai['theme']) * 1.2, $eval);
         }
         $eval = ClashScore::recountPoints($eval, $priorCold);
         $fallback = self::fallbackJudge($theme, $made, $chain, $double, $attack, $opp);
@@ -941,19 +941,19 @@ final class Clash
      */
     private static function askJudge(string $theme, array $made, array $ea, array $eb, bool $attack, ?array $opp): ?array
     {
-        $prompt = 'You judge a 75-second combo battle. Theme: "' . $theme . '". '
+        $prompt = 'You judge a 75-second combo battle. Be a STRICT theme judge. Theme: "' . $theme . '". '
             . 'Combo: ' . $ea['name'] . ' + ' . $eb['name'] . ' = ' . $made['name']
             . ($made['tagline'] ? ' ("' . $made['tagline'] . '")' : '')
             . '. Rarity: ' . $made['rarity'] . '.';
         if ($attack && $opp) {
             $prompt .= ' This is an ATTACK on the opponent\'s latest creation: ' . ($opp['name'] ?? 'unknown') . '. Does this combo counter or destroy it?';
         }
-        $prompt .= ' Reply ONLY JSON: {"theme":0-50 how well it fits the theme,"creative":0-15 surprise/fun,"attack":true/false}.';
+        $prompt .= ' Score closeness 0-100 as how well the RESULT itself answers the theme, not a loose vibe. A single weak association (Steam is warm, so it fits "coziest comfort") is 25-45, never high. 0-35 Cold: unrelated or a stretch. 36-64 Warm: loosely related. 65-84 Hot: clearly on-theme, a solid answer. 85-99 On Fire: a standout embodiment of the theme, almost the thing itself. 100 only if it IS the theme or the exact target. On Fire must be rare. Reply ONLY JSON: {"closeness":0-100,"creative":0-15,"attack":true/false}.';
         try {
             $res = Ai::post(Ai::POLLINATIONS, [
                 'model' => 'openai',
                 'messages' => [
-                    ['role' => 'system', 'content' => 'You score playful combinatory creations. Be fair, slightly generous, never rude. JSON only.'],
+                    ['role' => 'system', 'content' => 'You are a strict theme judge for a combo game. Loose associations must score mid or low. On Fire (85+) is rare. Never rude. JSON only.'],
                     ['role' => 'user', 'content' => $prompt],
                 ],
                 'temperature' => 0.4,
@@ -969,7 +969,7 @@ final class Clash
                 if (is_array($j)) {
                     $closeness = $j['closeness'] ?? $j['close'] ?? null;
                     if ($closeness === null && isset($j['theme'])) {
-                        $closeness = ((int) $j['theme']) * 2;
+                        $closeness = (int) round(((int) $j['theme']) * 1.2);
                     }
                     return [
                         'closeness' => max(0, min(100, (int) ($closeness ?? 0))),
