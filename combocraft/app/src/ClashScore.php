@@ -23,10 +23,10 @@ final class ClashScore
 
     public static function heat(float $closeness): string
     {
-        if ($closeness >= 0.85) {
+        if ($closeness >= 0.90) {
             return 'On Fire';
         }
-        if ($closeness >= 0.65) {
+        if ($closeness >= 0.70) {
             return 'Hot';
         }
         if ($closeness >= 0.4) {
@@ -89,18 +89,34 @@ final class ClashScore
         ];
     }
 
-    /** Fold an optional 0–100 AI closeness into the 0–1 score. */
+    /**
+     * Fold an optional 0–100 AI closeness into the 0–1 score.
+     * The AI may not award On Fire on its own: loose associations
+     * (steam is warm, therefore "cozy") stay at most Hot, and only a
+     * strong local theme/graph fit can confirm On Fire.
+     */
     public static function withAi(?float $aiCloseness, array $eval): array
     {
         if ($aiCloseness === null) {
             return $eval;
         }
-        $c = max($eval['closeness'], max(0.0, min(1.0, $aiCloseness / 100)));
+        $local = (float) $eval['closeness'];
+        $ai = max(0.0, min(1.0, $aiCloseness / 100));
+        // Compress mid/high scores so "pretty good" does not become 1.0.
+        $ai = $ai ** 1.45;
+        $c = max($local, $ai);
         if (!empty($eval['exact'])) {
             $c = 1.0;
+        } elseif ($c >= 0.90 && $local < 0.55) {
+            // Uncorroborated AI: cap below On Fire.
+            $c = min($c, 0.82);
+        } elseif ($c >= 0.70 && $local < 0.28) {
+            // Pure stretch associations stay Warm.
+            $c = min($c, 0.58);
         }
         $eval['closeness'] = round($c, 4);
-        $eval['heat'] = self::heat($c);
+        $eval['heat'] = self::heat((float) $eval['closeness']);
+        $eval['aiRaw'] = round($aiCloseness / 100, 4);
         return $eval;
     }
 
@@ -161,7 +177,7 @@ final class ClashScore
             'disaster' => ['chaos', 'storm', 'crash', 'explode', 'wreck', 'ruin'],
             'meme' => ['funny', 'lol', 'cat', 'dog', 'cursed', 'joke'],
             'destroy' => ['destroy', 'counter', 'crush', 'anti', 'break'],
-            'comfort' => ['cozy', 'soft', 'warm', 'blanket', 'tea', 'home', 'hug'],
+            'comfort' => ['cozy', 'soft', 'blanket', 'cocoa', 'pillow', 'hug', 'sweater'],
             'snack' => ['food', 'pizza', 'cake', 'candy', 'soup', 'bread', 'sweet'],
             'cute' => ['cute', 'cat', 'puppy', 'baby', 'soft', 'love'],
             'flex' => ['gold', 'rich', 'money', 'rare', 'jewel'],
@@ -212,18 +228,25 @@ final class ClashScore
         $best = null;
         foreach (self::themeTokens($theme) as $t) {
             foreach (self::$names ?? [] as $key => $display) {
-                if ($key === $t || str_contains($key, $t) || str_contains(Text::key($display), $t)) {
-                    $d = self::graphDistance($from, $key);
-                    if ($d !== null && ($best === null || $d < $best)) {
-                        $best = $d;
-                    }
+                $dn = Text::key($display);
+                $hit = $key === $t || $dn === $t;
+                if (!$hit && strlen($t) >= 5) {
+                    $hit = str_contains($key, $t) || str_contains($dn, $t);
+                }
+                if (!$hit) {
+                    continue;
+                }
+                $d = self::graphDistance($from, $key);
+                if ($d !== null && ($best === null || $d < $best)) {
+                    $best = $d;
                 }
             }
         }
         if ($best === null) {
             return 0.0;
         }
-        return max(0.0, min(1.0, 0.72 ** $best));
+        // Theme-token graph hits are supporting evidence, not an exact target.
+        return max(0.0, min(0.78, 0.72 ** $best));
     }
 
     /** @return int|null hops, or null if unreachable / missing */
