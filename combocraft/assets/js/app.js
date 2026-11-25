@@ -1,6 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg } from './fx.js';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js';
 import { storyHtml, storyPng } from './share.js';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -32,6 +33,13 @@ const state = {
   newIds: new Set(),
   showAll: false,
   filter: '',
+  daily: null,
+  hints: null,
+  progress: null,
+  badges: [],
+  referral: null,
+  morse: null,
+  run: null,
 };
 
 // ---------------- API ----------------
@@ -81,16 +89,21 @@ async function loadMeNow() {
   state.elements = d.elements;
   state.byId = new Map(d.elements.map((e) => [e.id, e]));
   state.recent = d.recent;
+  applyMe(state, d);
 }
 
 // ---------------- Router ----------------
 const routes = {
   '': pageHero,
   play: pagePlay,
+  daily: pagePlay,
   discoveries: pageGallery,
   leaderboard: pageLeaderboard,
   chat: pageChat,
   pricing: pagePricing,
+  achievements: () => pageAchievements({ api, state, view, toast }),
+  speedrun: () => pageSpeedrun({ api, state, view, toast, sfx, shake, burst, onExtras: (r) => onCombineExtras(r, { state, toast, shake, burst }), go }),
+  clash: pageClash,
 };
 let cleanup = null;
 function currentRoute() {
@@ -164,8 +177,10 @@ async function pageHero() {
 function elCard(el, extra = '') {
   const long = el.name.length > 11 ? ' long' : '';
   const isNew = state.newIds.has(el.id) ? ' is-new' : '';
-  return `<button class="el${long}${isNew}${extra}" data-id="${el.id}" style="--c:${colorOf(el)}" title="${esc(el.name)}${el.tagline ? ' — ' + esc(el.tagline) : ''}">
+  const rar = ' ' + rarityClass(el);
+  return `<button class="el${long}${isNew}${extra}${rar}" data-id="${el.id}" style="--c:${colorOf(el)}" title="${esc(el.name)}${el.tagline ? ' — ' + esc(el.tagline) : ''}${el.rarity ? ' · ' + el.rarity : ''}">
     ${el.mineFirst ? '<span class="star" title="Your First Discovery">⭐</span>' : ''}
+    <span class="info" data-recipe="${el.id}" title="Recipe book" role="button" aria-label="Recipe">i</span>
     <span class="i">${ico(el.emoji)}</span><span class="n">${esc(el.name)}</span></button>`;
 }
 
@@ -177,6 +192,7 @@ async function pagePlay() {
   }
   view.innerHTML = `
   <div class="wrap play">
+    ${playChrome(state)}
     <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
       <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
       <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
@@ -206,6 +222,7 @@ async function pagePlay() {
   renderSlots();
   renderRecent();
   renderLimit();
+  bindPlayChrome({ api, toast, state, go, openRecipe });
   if (state.lastResult && state.slots[0] && state.slots[1]) showResult(state.lastResult, false);
 
   const strip = $('#strip');
@@ -367,7 +384,11 @@ async function combineNow() {
     if (card) { card.classList.add('pop-in'); if (!state.showAll) card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }
   }
   showResult(state.lastResult, true);
-  if (res.first) {
+  onCombineExtras(res, { state, toast, shake, burst });
+  if (res.result?.rarity === 'Legendary' && res.newForYou) {
+    sfx('fanfare');
+    legendaryPop(el, res.inputs);
+  } else if (res.first) {
     sfx('fanfare');
     setTimeout(() => celebrate(el, res.inputs), 750);
   } else sfx(res.newForYou ? 'success' : 'known');
@@ -394,12 +415,13 @@ function showResult(lr, animate) {
   const recipeTxt = `${esc(lr.inputs[0].name)} + ${esc(lr.inputs[1].name)}`;
   const note = first ? 'You discovered it first! 🏆' : newForYou ? 'A new combination discovered!' : 'You already have this one.';
   z.innerHTML = `
-    <div class="result${animate ? '' : '" style="animation:none'}" title="Click to use it in your next combo">
+    <div class="result ${rarityClass(el)}${animate ? '' : '" style="animation:none'}" title="Click to use it in your next combo">
       <div class="sparkles">${['10%;top:8%', '88%;top:14%', '-2%;top:60%', '96%;top:68%', '50%;top:-4%'].map((p, i) => `<i style="left:${p};animation-delay:${i * 0.2}s">✦</i>`).join('')}</div>
       ${first ? `<div class="badge-first seal sm">${svg.seal}</div>` : ''}
       <div class="art">${artHtml(el, BASE)}</div>
       <div class="rn">${esc(el.name)}</div>
       ${el.tagline ? `<div class="tg">${esc(el.tagline)}</div>` : ''}
+      <div class="rar-pill ${rarityClass(el)}">${esc(el.rarity || 'Common')}</div>
     </div>
     <div class="result-note">${note}<span class="paw">${ico('🐾')}</span></div>
     <div class="result-actions">
@@ -466,6 +488,13 @@ function setupDrag() {
     if (t && t.classList.contains('slot')) t.classList.add('hot');
   }
   function onDown(e) {
+    const rec = e.target.closest('[data-recipe]');
+    if (rec) {
+      e.preventDefault();
+      e.stopPropagation();
+      openRecipe(+rec.dataset.recipe, { api, toast, ico, artHtml, BASE });
+      return;
+    }
     const card = e.target.closest('#strip .el, .coll-grid .el');
     if (!card || e.button > 0) return;
     src = card;
@@ -544,10 +573,12 @@ function celebrate(el, inputs) {
   const wrap = document.createElement('div');
   wrap.className = 'celebrate';
   const streak = state.me?.streak || 1;
-  const rarity = el.depth >= 3 ? 'Ultra Rare' : el.depth === 2 ? 'Epic' : 'Rare';
+  const rarity = el.rarity || 'Rare';
   const desc = el.tagline || `${inputs[0].name} meets ${inputs[1].name}. Nothing will ever be the same.`;
+  if (rarity === 'Legendary') wrap.classList.add('cel-legendary');
   wrap.innerHTML = `
     <canvas class="confetti"></canvas>
+    ${rarity === 'Legendary' ? '<div class="leg-banner">LEGENDARY</div>' : ''}
     <div class="cel-top">
       <span><img class="logo-light" src="${BASE}assets/logo/logo.png" alt="ComboCraft"><img class="logo-dark" src="${BASE}assets/logo/logo-dark.png" alt="ComboCraft"></span>
       <span style="display:flex;align-items:center"><span class="streak">You're on a ${streak}-day streak ${ico('🔥')}</span><button class="x" aria-label="Close">${svg.close}</button></span>
@@ -569,6 +600,7 @@ function celebrate(el, inputs) {
       <button class="act share" data-a="share"><span class="bx">${svg.arrowShare}</span>Share</button>
       <button class="act copy" data-a="copy"><span class="bx">${svg.link}</span>Copy link</button>
       <button class="act dl" data-a="dl"><span class="bx">${svg.download}</span>Download</button>
+      <button class="act share" data-a="friend"><span class="bx">${svg.arrowShare}</span>Challenge a friend</button>
     </div>
     <div class="cel-saved">${svg.lock} Your discovery is saved in your Collection.</div>
     ${state.me && !state.me.nickname ? `<form class="claim"><span>Put your name on the leaderboard:</span><input maxlength="20" placeholder="Pick a nickname" required><button>Claim it</button><span class="err"></span></form>` : '<div style="height:24px"></div>'}`;
@@ -585,6 +617,7 @@ function celebrate(el, inputs) {
     if (b.dataset.a === 'share') shareNative(full, true);
     if (b.dataset.a === 'copy') copyLink(full);
     if (b.dataset.a === 'dl') downloadPng(full, true);
+    if (b.dataset.a === 'friend') copyInvite(state, toast, true);
   });
   const f = $('.claim', wrap);
   if (f) f.onsubmit = async (e) => {
@@ -719,6 +752,11 @@ $('#btnGear').onclick = async (e) => {
     <hr>
     <div class="row"><span>Daily combinations<div class="small">${me ? `${me.usedToday} of ${me.dailyLimit} used today (free plan)` : 'Free plan'}</div></span></div>
     <div class="row btnrow" data-go="nick">Change nickname <span class="small">${esc(me?.nickname || 'not set')}</span></div>
+    <div class="row btnrow" data-go="achievements">Achievements</div>
+    <div class="row btnrow" data-go="speedrun">Speedrun</div>
+    <div class="row btnrow" data-go="clash">Combo Clash</div>
+    <div class="row btnrow" data-go="invite">Invite a friend</div>
+    ${state.morse?.available ? `<div class="row btnrow" data-go="morse">${state.morse.linked ? 'Morse Chess · linked' : 'Link Morse Chess'} <span class="small">${state.morse.linked ? '+' + (state.morse.earned || 0) + ' coins' : (state.morse.signedIn ? 'ready to link' : 'sign in on Morse first')}</span></div>` : ''}
     <div class="row btnrow" data-go="pricing">Premium <span class="small" style="color:var(--blue)">Coming soon</span></div>`);
   if (!m) return;
   m.addEventListener('click', (ev) => {
@@ -732,7 +770,9 @@ $('#btnGear').onclick = async (e) => {
     if (!g) return;
     closeMenus();
     if (g.dataset.go === 'nick') askNickname();
-    else go('pricing');
+    else if (g.dataset.go === 'invite') copyInvite(state, toast, false);
+    else if (g.dataset.go === 'morse') linkMorse();
+    else go(g.dataset.go);
   });
 };
 $('#btnMe').onclick = async (e) => {
@@ -1003,4 +1043,40 @@ async function pageElement(id) {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
+import('./clash.js?v=4').then((m) => {
+  window.__ccClashMod = m;
+  m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
+}).catch(() => {});
+
+function legendaryPop(el, inputs) {
+  celebrate(el, inputs);
+  shake(0.75);
+  burst('Legendary');
+}
+
+async function linkMorse() {
+  try {
+    if (!state.morse?.signedIn) {
+      toast('Sign in at Morse Chess on this site, then come back and tap Link. We never see your password.');
+      window.open('/chess/', '_blank', 'noopener');
+      return;
+    }
+    const d = await api('morse/link', {});
+    state.morse = d;
+    toast(d.linked ? 'Linked to ' + (d.morseName || 'your Morse account') + '. First Discoveries now earn coins!' : 'Could not link right now.');
+  } catch (e) { toast(e.message); }
+}
+
+async function pageClash() {
+  const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
+  try {
+    const m = window.__ccClashMod || await import('./clash.js?v=4');
+    window.__ccClashMod = m;
+    cleanup = () => { try { m.stopMatch(); } catch {} };
+    return m.pageClash(ctx);
+  } catch (e) {
+    view.innerHTML = `<div class="wrap"><div class="lb-empty"><b>Combo Clash is almost ready</b>${esc(e.message)}</div></div>`;
+  }
+}
+
 window.__cc = { state, go };

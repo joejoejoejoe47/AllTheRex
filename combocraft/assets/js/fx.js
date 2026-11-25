@@ -67,6 +67,40 @@ export function sfx(name) {
   }
 }
 
+/** Light screen shake. Strength 0–1. */
+export function shake(strength = 0.3) {
+  const root = document.documentElement;
+  root.style.setProperty('--shake', (6 + strength * 10) + 'px');
+  root.classList.remove('shaking');
+  void root.offsetWidth;
+  root.classList.add('shaking');
+  clearTimeout(shake._t);
+  shake._t = setTimeout(() => root.classList.remove('shaking'), 420 + strength * 200);
+}
+
+/** Burst of sparkles around the combine result (bigger for rare tiers). */
+export function burst(rarity = 'Common') {
+  const host = document.querySelector('#resultZone .result, #srResult .result, .combine') || document.body;
+  const layer = document.createElement('div');
+  layer.className = 'burst-fx';
+  const n = rarity === 'Legendary' ? 28 : rarity === 'Epic' ? 18 : 12;
+  const colors = rarity === 'Legendary' ? ['#f4c542', '#fff', '#c084fc', '#60a5fa']
+    : rarity === 'Epic' ? ['#c084fc', '#fff', '#f472b6']
+    : rarity === 'Rare' ? ['#60a5fa', '#fff'] : ['#f4c542', '#fff'];
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('i');
+    const ang = (Math.PI * 2 * i) / n + Math.random() * 0.4;
+    const dist = 40 + Math.random() * 70;
+    s.style.setProperty('--x', Math.cos(ang) * dist + 'px');
+    s.style.setProperty('--y', Math.sin(ang) * dist + 'px');
+    s.style.color = colors[i % colors.length];
+    s.textContent = i % 3 === 0 ? '✦' : '✧';
+    layer.appendChild(s);
+  }
+  host.appendChild(layer);
+  setTimeout(() => layer.remove(), 900);
+}
+
 // ---------- Emoji artwork (Microsoft Fluent Emoji, MIT, via jsDelivr) ----------
 const CDN = 'https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/';
 let fluent = null;

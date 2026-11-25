@@ -80,6 +80,12 @@ final class Game
     }
 
     /** @param array<string,mixed> $row */
+    public static function insertPublic(string $table, array $row): void
+    {
+        self::insertIgnore($table, $row);
+    }
+
+    /** @param array<string,mixed> $row */
     private static function insertIgnore(string $table, array $row): void
     {
         $cols = array_keys($row);
@@ -135,15 +141,18 @@ final class Game
         return ['id' => (int) $e['id'], 'name' => (string) $e['name'], 'emoji' => Text::safeEmoji((string) $e['emoji'])];
     }
 
-    public static function rarity(int $depth, int $uses): string
+    public static function rarity(int $depth, int $uses = 0): string
     {
-        if ($depth <= 0) {
-            return 'Basic';
+        if ($depth <= 1) {
+            return 'Common';
         }
-        if ($depth >= 4) {
-            return 'Ultra Rare';
+        if ($depth === 2) {
+            return 'Rare';
         }
-        return ['Common', 'Common', 'Rare', 'Epic'][$depth] ?? 'Rare';
+        if ($depth === 3) {
+            return 'Epic';
+        }
+        return 'Legendary';
     }
 
     /** @param array<string,mixed> $player @return list<array<string,mixed>> */
@@ -350,7 +359,7 @@ final class Game
         $b = self::element($y);
         Player::reset();
         $me = Player::current();
-        return [
+        $out = [
             'result' => self::view($el, true) + ['mineFirst' => ($el['discovered_by'] ?? null) === $player['id']],
             'inputs' => [$a ? self::mini($a) : null, $b ? self::mini($b) : null],
             'first' => $first,
@@ -358,6 +367,15 @@ final class Game
             'newRecipe' => $newRecipe,
             'me' => $me ? Player::publicView($me) : null,
         ];
+        try {
+            $out['daily'] = Daily::onCombine($player, $out['result'], $out['inputs'], $newForYou);
+            $out['badges'] = Goals::onCombine($player, $out['result'], $first, $newForYou);
+            $out['coins'] = MorseLink::onFirstDiscovery($player, $out['result'], $first);
+            $out['progress'] = Goals::progress($player);
+        } catch (Throwable $e) {
+            error_log('[combocraft extras] ' . $e->getMessage());
+        }
+        return $out;
     }
 
     /** @return list<array<string,mixed>> */
