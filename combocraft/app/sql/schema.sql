@@ -401,3 +401,14 @@ CREATE TABLE IF NOT EXISTS cc_clash_party_play_scores (
   created_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cc_clash_pps_match ON cc_clash_party_play_scores (match_id, player_id);
+
+CREATE TABLE IF NOT EXISTS cc_daily_coin_grants (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  level INT NOT NULL,
+  amount INT NOT NULL,
+  morse_user_id VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day, level)
+);
+CREATE INDEX IF NOT EXISTS cc_daily_coins_morse ON cc_daily_coin_grants (morse_user_id, day, level);

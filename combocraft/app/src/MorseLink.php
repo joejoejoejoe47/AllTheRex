@@ -97,6 +97,130 @@ final class MorseLink
         }
     }
 
+    /** Coins for one Daily Challenge level: 2 at L1, +1 each level, cap 10. */
+    public static function dailyAmount(int $level): int
+    {
+        return max(1, min(10, 1 + max(1, $level)));
+    }
+
+    /**
+     * Credit Morse coins for every solved Daily level today that has not
+     * already been paid for this ComboCraft player. Idempotent per
+     * player / day / level. Returns the amount granted on this call.
+     * @param array<string,mixed> $player
+     * @param list<int> $levels
+     * @return array{justCoins:int, byLevel:array<int,int>}
+     */
+    public static function grantDailyLevels(array $player, string $day, array $levels): array
+    {
+        $out = ['justCoins' => 0, 'byLevel' => []];
+        $levels = array_values(array_unique(array_filter(array_map('intval', $levels), static fn ($n) => $n > 0)));
+        if ($levels === [] || $day === '') {
+            return $out;
+        }
+        $morse = self::resolveAccount($player);
+        if ($morse === null) {
+            return $out;
+        }
+        foreach ($levels as $level) {
+            $n = self::grantDailyLevel($player, $day, $level, $morse);
+            if ($n > 0) {
+                $out['justCoins'] += $n;
+                $out['byLevel'][$level] = $n;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     * @param array{morse_user_id:string,morse_name:string} $morse
+     */
+    private static function grantDailyLevel(array $player, string $day, int $level, array $morse): int
+    {
+        $amount = self::dailyAmount($level);
+        $pid = (string) $player['id'];
+        $uid = (string) $morse['morse_user_id'];
+        try {
+            $had = Db::one(
+                'SELECT 1 FROM cc_daily_coin_grants WHERE player_id = ? AND day = ? AND level = ?',
+                [$pid, $day, $level]
+            );
+            if ($had) {
+                return 0;
+            }
+            // Reserve the grant first so a retry cannot double-pay.
+            Game::insertPublic('cc_daily_coin_grants', [
+                'player_id' => $pid,
+                'day' => $day,
+                'level' => $level,
+                'amount' => $amount,
+                'morse_user_id' => $uid,
+                'created_at' => Db::now(),
+            ]);
+        } catch (Throwable $e) {
+            // Duplicate key = already paid (or a race we lost).
+            return 0;
+        }
+        try {
+            $n = Db::run('UPDATE profiles SET coins = coins + ? WHERE user_id = ?', [$amount, $uid]);
+            if ($n < 1) {
+                error_log('[combocraft daily coins] profiles row missing for ' . $uid);
+                Db::run('DELETE FROM cc_daily_coin_grants WHERE player_id = ? AND day = ? AND level = ?', [$pid, $day, $level]);
+                return 0;
+            }
+            return $amount;
+        } catch (Throwable $e) {
+            error_log('[combocraft daily coins] ' . $e->getMessage());
+            try {
+                Db::run('DELETE FROM cc_daily_coin_grants WHERE player_id = ? AND day = ? AND level = ?', [$pid, $day, $level]);
+            } catch (Throwable $e2) {
+            }
+            return 0;
+        }
+    }
+
+    /**
+     * Linked Morse account, or auto-link the current Morse Chess session
+     * when it is not already tied to another ComboCraft player.
+     * @param array<string,mixed> $player
+     * @return array{morse_user_id:string,morse_name:string}|null
+     */
+    private static function resolveAccount(array $player): ?array
+    {
+        $link = Db::one('SELECT morse_user_id, morse_name FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
+        if ($link) {
+            return ['morse_user_id' => (string) $link['morse_user_id'], 'morse_name' => (string) ($link['morse_name'] ?: 'Morse player')];
+        }
+        $session = self::peekSession();
+        if ($session['userId'] === null) {
+            return null;
+        }
+        $taken = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$session['userId']]);
+        if ($taken && $taken['player_id'] !== $player['id']) {
+            return null;
+        }
+        try {
+            if (!$taken) {
+                Game::insertPublic('cc_morse_links', [
+                    'player_id' => $player['id'],
+                    'morse_user_id' => $session['userId'],
+                    'morse_name' => $session['name'] ?? 'Morse player',
+                    'linked_at' => Db::now(),
+                ]);
+            }
+        } catch (Throwable $e) {
+            error_log('[combocraft daily coins link] ' . $e->getMessage());
+            // If a race linked this Morse user to us, we can still pay.
+            $again = Db::one('SELECT morse_user_id, morse_name FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
+            if (!$again) {
+                return null;
+            }
+            return ['morse_user_id' => (string) $again['morse_user_id'], 'morse_name' => (string) ($again['morse_name'] ?: 'Morse player')];
+        }
+        return ['morse_user_id' => (string) $session['userId'], 'morse_name' => (string) ($session['name'] ?? 'Morse player')];
+    }
+
     /** @return array{available:bool,userId:?string,name:?string} */
     private static function peekSession(): array
     {

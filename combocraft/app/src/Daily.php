@@ -36,8 +36,11 @@ final class Daily
         $player = $player ?? Player::current();
         $chain = $player ? self::loadChain($player, $day) : self::freshChain($day, []);
         $auto = [];
+        $coins = ['justCoins' => 0, 'byLevel' => []];
         if ($player) {
             $auto = self::claimOwned($player, $day, $chain);
+            $claimLevels = array_values(array_unique(array_map(static fn ($row) => (int) ($row['level'] ?? 0), $auto)));
+            $coins = MorseLink::grantDailyLevels($player, $day, $claimLevels);
         }
         $target = self::viewForKey($chain['target_key']);
         $stats = ['streak' => 0, 'best_streak' => 0, 'wins' => 0, 'last_day' => ''];
@@ -79,6 +82,8 @@ final class Daily
             'wins' => (int) $stats['wins'],
             'share' => self::shareText($day, $target, $chain, (int) $stats['streak']),
             'autoSolved' => $auto,
+            'justCoins' => (int) ($coins['justCoins'] ?? 0),
+            'coinGrants' => $coins['byLevel'] ?? [],
         ];
     }
 
@@ -182,6 +187,13 @@ final class Daily
         $status['justName'] = $just ? $prevTarget : null;
         $status['scoreGain'] = $just ? (10 * $prevLevel + (int) ($status['history'][count($status['history']) - 1]['steps'] ?? 0)) : 0;
         $status['clearedAll'] = $clearedAll;
+        if ($just) {
+            $pay = MorseLink::grantDailyLevels($player, $day, [$prevLevel]);
+            $status['justCoins'] = (int) ($status['justCoins'] ?? 0) + (int) ($pay['justCoins'] ?? 0);
+            if (!empty($pay['byLevel'])) {
+                $status['coinGrants'] = ($status['coinGrants'] ?? []) + $pay['byLevel'];
+            }
+        }
         return $status;
     }
 
@@ -865,6 +877,23 @@ final class Daily
             self::saveChain($player['id'], $day, $chain);
         }
         return $claimed;
+    }
+
+    /** @param array<string,mixed> $chain @return list<int> */
+    private static function solvedLevels(array $chain): array
+    {
+        $out = [];
+        foreach ($chain['history'] ?? [] as $row) {
+            $n = (int) ($row['level'] ?? 0);
+            if ($n > 0) {
+                $out[] = $n;
+            }
+        }
+        if ($out === [] && !empty($chain['solved_list'])) {
+            // History may be empty on a very old row; levels were claimed in order.
+            $out = range(1, count($chain['solved_list']));
+        }
+        return $out;
     }
 
     private static function markLegacySolved(array $player, string $day, array $result, array $path, int $combos): void
