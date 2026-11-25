@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=11';
+import { rarityClass } from './features.js?v=12';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -1084,31 +1084,52 @@ function showPartyInvite(ch) {
   };
 }
 
+const DEMO_REPLAYS = [
+  { aName: 'Player', bName: 'Rival', plays: [
+    { a: 'Water', b: 'Fire', name: 'Steam', emoji: '☁️' },
+    { a: 'Cat', b: 'Chaos', name: 'Zoomies Apocalypse', emoji: '🐈' },
+    { a: 'Fire', b: 'Politician', name: 'Hot Take', emoji: '🎤' },
+    { a: 'Water', b: 'Water', name: 'Ocean', emoji: '🌊' },
+    { a: 'Fire', b: 'Pizza', name: 'Wood-Fired Pizza', emoji: '🪵' },
+    { a: 'Meme', b: 'Meme', name: 'Meme Overload', emoji: '🤯' },
+  ]},
+];
+
 async function startReplayBg() {
   const stage = document.getElementById('ccReplay');
   if (!stage) return;
+  if (replayTimer) { clearInterval(replayTimer); replayTimer = 0; }
   let list = [];
   try { const d = await ctx.api('clash/replays'); list = d.replays || []; } catch {}
-  if (!list.length) {
-    stage.innerHTML = `<div class="rp-ghost">Recent match replays will play back here.</div>`;
-    return;
-  }
-  let i = 0, j = 0;
-  const paint = () => {
-    const r = list[i % list.length];
-    const plays = r.plays || [];
-    const pl = plays[j] || null;
+  if (!list.length) list = DEMO_REPLAYS;
+  const { esc, ico } = ctx;
+  stage.innerHTML = '<div class="rp-stage"></div>';
+  const box = stage.querySelector('.rp-stage');
+  let n = 0;
+  const spawn = () => {
+    if (!document.getElementById('ccReplay')) { clearInterval(replayTimer); replayTimer = 0; return; }
+    const r = list[n % list.length];
+    const plays = r.plays && r.plays.length ? r.plays : DEMO_REPLAYS[0].plays;
+    const pl = plays[n % plays.length];
     const aName = r.a?.name || r.aName || 'Player';
     const bName = r.b?.name || r.bName || 'Rival';
-    stage.innerHTML = `<div class="rp-lab">Replay</div>
-      <div class="rp-vs">${ctx.esc(aName)} vs ${ctx.esc(bName)}</div>
-      ${pl ? `<div class="rp-play ${pl.side || ''} ${pl.hit ? 'hit' : ''}">${pl.emoji ? ctx.ico(pl.emoji) + ' ' : ''}<b>${ctx.esc(pl.name)}</b><div class="rp-eq">${ctx.esc(pl.a || '')} + ${ctx.esc(pl.b || '')}</div></div>` : '<div class="rp-play">A packed Combo Clash</div>'}`;
-    j++;
-    if (j >= Math.max(1, plays.length)) { j = 0; i++; }
+    const el = document.createElement('div');
+    el.className = 'rp-card';
+    const lane = 12 + ((n * 23) % 76);
+    el.style.left = lane + '%';
+    el.style.animationDuration = (8 + (n % 5)) + 's';
+    el.innerHTML = `<div class="rp-lab">Replay</div>
+      <div class="rp-vs">${esc(aName)} vs ${esc(bName)}</div>
+      <div class="rp-eq">${esc(pl.a || '')} + ${esc(pl.b || '')}</div>
+      <div class="rp-res">${pl.emoji ? ico(pl.emoji) + ' ' : ''}<b>${esc(pl.name || 'Combo')}</b></div>`;
+    box.appendChild(el);
+    setTimeout(() => el.remove(), 11000);
+    n++;
   };
-  paint();
-  if (replayTimer) clearInterval(replayTimer);
-  replayTimer = setInterval(paint, 1600);
+  spawn();
+  setTimeout(spawn, 400);
+  setTimeout(spawn, 1200);
+  replayTimer = setInterval(spawn, 2200);
 }
 
 async function showPartyMatch(id) {
@@ -1180,7 +1201,7 @@ function paintPartyMatch(m) {
   </div>`;
   view.innerHTML = `
     <div class="wrap clash-wrap arena party-arena${spectate ? ' spectating' : ''}">
-      <div class="cl-theme party-target">the thing · Session ${Math.min(3, (m.youAlive ? m.youSession + 1 : m.youSession) || 1)} / 3<br>
+      <div class="cl-theme party-target">the thing · Session ${Math.min(3, m.session || (m.youAlive ? m.youSession + 1 : (m.oppSession + 1)) || 1)} / 3<br>
         <b>${target.emoji ? ico(target.emoji) + ' ' : ''}${esc(target.name || '???')}</b>
       </div>
       <div class="cl-top">
@@ -1188,7 +1209,7 @@ function paintPartyMatch(m) {
         <div class="cl-timer"><div class="time ${secs <= 15 && !spectate ? 'low' : ''}">${formatTime(secs)}</div><div class="bo3">${esc(m.headline)}</div></div>
         <div class="cl-score opp"><em>${m.oppSession}</em><b>@${esc(m.oppName)}</b></div>
       </div>
-      ${spectate ? `<div class="inter-banner">Your team is defeated this session — spectating teammates and the other party. You can leave the party or exit to the menu.</div>` : ''}
+      ${spectate ? `<div class="inter-banner">Your team is out — spectating the rest of the match. You can leave the party or exit to the menu.</div>` : ''}
       <div class="cl-stage party-stage">
         <div class="cl-col"><h3>You</h3><div class="cl-feed">${(m.youPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Combine toward the thing.</div>'}</div></div>
         ${spectate ? `
@@ -1338,7 +1359,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=11');
+  const { createVoice } = await import('./voice.js?v=12');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
