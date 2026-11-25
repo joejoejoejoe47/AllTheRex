@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<!--CC_BASE-->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!--CC_META-->
+<meta name="theme-color" content="#ffffff" />
+<link rel="icon" type="image/png" sizes="64x64" href="assets/logo/icon-64.png" />
+<link rel="icon" type="image/svg+xml" href="assets/logo/icon.svg" />
+<link rel="apple-touch-icon" href="assets/logo/apple-touch-icon.png" />
+<link rel="manifest" href="assets/manifest.webmanifest" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fredoka:wght@500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/app.css?v=1" />
+<script>try{var t=localStorage.getItem('cc_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="./" data-link aria-label="ComboCraft home">
+    <img class="logo-light" src="assets/logo/logo.png" alt="ComboCraft" width="968" height="160" />
+    <img class="logo-dark" src="assets/logo/logo-dark.png" alt="ComboCraft" width="968" height="160" />
+  </a>
+  <div class="page-title" id="pageTitle"></div>
+  <nav class="nav" id="nav">
+    <a href="play" data-link data-r="play">Play</a>
+    <a href="discoveries" data-link data-r="discoveries">Discoveries</a>
+    <a href="leaderboard" data-link data-r="leaderboard">Leaderboard</a>
+    <a href="chat" data-link data-r="chat">Chat</a>
+    <a href="pricing" data-link data-r="pricing" class="premium">Premium</a>
+  </nav>
+  <div class="tb-right">
+    <button class="icon-btn" id="btnMe" aria-label="Your profile" title="Your profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="9.6" r="3.2"/><path d="M6.2 18.2c1.4-2.3 3.4-3.4 5.8-3.4s4.4 1.1 5.8 3.4"/></svg>
+    </button>
+    <button class="icon-btn" id="btnGear" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M10.3 3.2h3.4l.5 2.4 1.7.9 2.3-.9 1.7 2.9-1.8 1.6v1.9l1.8 1.6-1.7 2.9-2.3-.9-1.7.9-.5 2.4h-3.4l-.5-2.4-1.7-.9-2.3.9-1.7-2.9 1.8-1.6v-1.9L4.1 8.5l1.7-2.9 2.3.9 1.7-.9z"/><circle cx="12" cy="12" r="2.8"/></svg>
+    </button>
+  </div>
+</header>
+<main id="view"></main>
+<nav class="tabs" id="tabs">
+  <a href="play" data-link data-r="play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><path d="M17 13.5v7M13.5 17h7"/></svg>Play</a>
+  <a href="discoveries" data-link data-r="discoveries"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>Discoveries</a>
+  <a href="leaderboard" data-link data-r="leaderboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h10v4a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 13v4M8 20h8M9.5 17h5"/></svg>Leaders</a>
+  <a href="chat" data-link data-r="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
+  <a href="pricing" data-link data-r="pricing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>Premium</a>
+</nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="assets/js/app.js?v=1"></script>
+</body>
+</html>
