@@ -1,5 +1,16 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=21';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=22';
+
+/** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
+export function nameClass(name) {
+  const n = String(name || '').length;
+  return n > 18 ? ' xlong' : n > 10 ? ' long' : '';
+}
+export function nameVars(name) {
+  const n = String(name || '').length;
+  const ns = n <= 10 ? 13 : n <= 14 ? 12 : n <= 18 ? 11 : n <= 24 ? 10 : 9;
+  return `--ns:${ns}px`;
+}
 
 export function applyMe(state, d) {
   state.daily = d.daily || state.daily || null;
@@ -90,6 +101,27 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
   };
   const share = $('#dailyShare');
   if (share) share.onclick = () => shareDaily(state, toast);
+  announceAutoDaily(state, toast);
+}
+
+function announceAutoDaily(state, toast) {
+  const d = state.daily;
+  const skipped = d?.autoSolved || [];
+  if (!skipped.length) return;
+  d.autoSolved = [];
+  paintDailyBar(state);
+  const pts = skipped.reduce((s, x) => s + (x.scoreGain || 0), 0);
+  const names = skipped.map((x) => x.name).join(', ');
+  const n = skipped.length;
+  const gain = pts ? ' · +' + pts + ' pts' : '';
+  if (d.cleared) {
+    toast(`You already had ${names}! ${n} daily level${n === 1 ? '' : 's'} claimed${gain}. Chain complete!`, 4200);
+    setTimeout(() => dailyWin(state, toast), 700);
+  } else {
+    const next = d.target?.name ? ` Next: Make ${d.target.name}.` : '';
+    toast(`You already had ${names}! ${n} daily level${n === 1 ? '' : 's'} claimed${gain}.${next}`, 4200);
+    popDailyLevel({ ...d, justName: skipped[skipped.length - 1].name, scoreGain: pts }, toast);
+  }
 }
 
 function flashElements(ids) {
@@ -121,11 +153,20 @@ export function onCombineExtras(res, { state, toast, shake, burst }) {
   if (res.daily?.justSolved) {
     paintDailyBar(state);
     const d = res.daily;
-    if (d.clearedAll) {
+    const extra = d.autoSolved || [];
+    d.autoSolved = [];
+    if (extra.length) {
+      const names = extra.map((x) => x.name).join(', ');
+      const pts = (d.scoreGain || 0) + extra.reduce((s, x) => s + (x.scoreGain || 0), 0);
+      toast(`Solved ${d.justName || 'it'}! You already had ${names} too · +${pts} pts.`, 4000);
+    }
+    if (d.clearedAll || d.cleared) {
       setTimeout(() => dailyWin(state, toast), 600);
     } else {
       popDailyLevel(d, toast);
     }
+  } else if (res.daily?.autoSolved?.length) {
+    announceAutoDaily(state, toast);
   }
   const bar = document.querySelector('#worldBar span');
   if (bar && state.progress) {
@@ -201,38 +242,49 @@ export function showBadges(badges, toast) {
   });
 }
 
+function eqCard(el, icoFn) {
+  if (!el) return `<span class="eq-card unknown"><span class="i">❓</span><span class="n">???</span></span>`;
+  const name = el.hidden ? '???' : (el.name || '???');
+  const emoji = el.hidden ? '❓' : (el.emoji || '✨');
+  return `<span class="eq-card ${rarityClass(el)}"><span class="i">${icoFn(emoji)}</span><span class="n">${esc(name)}</span></span>`;
+}
+
+function eqRow(a, b, r, icoFn) {
+  return `<div class="eq-row">${eqCard(a, icoFn)}<span class="eq-op">+</span>${eqCard(b, icoFn)}<span class="eq-op">=</span>${eqCard(r, icoFn)}</div>`;
+}
+
 export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
   let d;
   try { d = await api('recipe/' + id); } catch (e) { toast(e.message); return; }
   const el = d.element;
   const from = d.yours || d.madeFrom;
   const fromHtml = from
-    ? `<div class="rb-row">${ico(from[0].emoji)} <b>${esc(from[0].name)}</b> <span class="op">+</span> ${ico(from[1].emoji)} <b>${from[1].name}</b></div>`
+    ? eqRow(from[0], from[1], el, ico)
     : '<p class="muted">A starting element — it was never crafted.</p>';
-  const makes = (d.makes || []).map((m) => `
-    <button class="rb-make" data-id="${m.owned ? m.result.id : ''}">
-      <span>with ${ico(m.with.emoji)} ${esc(m.with.name)}</span>
-      <span class="op">=</span>
-      <span>${m.owned ? `${ico(m.result.emoji)} ${esc(m.result.name)}` : '❓ ???'}</span>
-    </button>`).join('') || '<p class="muted">Nothing known yet. Try combining it!</p>';
+  const firstNote = (d.yours && d.madeFrom && (d.yours[0].id !== d.madeFrom[0].id || d.yours[1].id !== d.madeFrom[1].id))
+    ? `<p class="muted">First ever: ${esc(d.madeFrom[0].name)} + ${esc(d.madeFrom[1].name)}</p>` : '';
+  const makes = (d.makes || []).map((m) => {
+    const res = m.owned ? m.result : { name: '???', emoji: '❓', hidden: true, rarity: 'Common' };
+    const id = m.owned && m.result?.id ? m.result.id : '';
+    return `<button type="button" class="eq-make" data-id="${id}">${eqRow(el, m.with, res, ico)}</button>`;
+  }).join('') || '<p class="muted">Nothing known yet. Try combining it!</p>';
   const wrap = document.createElement('div');
   wrap.className = 'overlay';
-  wrap.innerHTML = `<div class="modal book">
+  wrap.innerHTML = `<div class="modal book eq-book">
     <button class="x" aria-label="Close">${svg.close}</button>
     <div class="rb-hero ${rarityClass(el)}">${artHtml(el, BASE)}</div>
     <h3>${esc(el.name)}</h3>
     <div class="rar-pill ${rarityClass(el)}">${esc(el.rarity || 'Common')}</div>
     ${el.tagline ? `<p class="muted">${esc(el.tagline)}</p>` : ''}
-    <h4>How it was made</h4>${fromHtml}
-    ${d.yours && d.madeFrom && (d.yours[0].id !== d.madeFrom[0].id || d.yours[1].id !== d.madeFrom[1].id) ? `<p class="muted">First ever: ${esc(d.madeFrom[0].name)} + ${esc(d.madeFrom[1].name)}</p>` : ''}
-    <h4>What it has made</h4>
-    <div class="rb-makes">${makes}</div>
+    <h4>How it was made</h4>${fromHtml}${firstNote}
+    <h4>What it combines into</h4>
+    <div class="rb-makes eq-makes">${makes}</div>
   </div>`;
   document.body.appendChild(wrap);
   const close = () => wrap.remove();
   wrap.querySelector('.x').onclick = close;
   wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
-  wrap.querySelectorAll('.rb-make[data-id]').forEach((b) => {
+  wrap.querySelectorAll('.eq-make[data-id], .rb-make[data-id]').forEach((b) => {
     b.onclick = () => { if (b.dataset.id) { close(); openRecipe(+b.dataset.id, { api, toast, ico, artHtml, BASE }); } };
   });
 }
@@ -267,7 +319,7 @@ export async function pageSpeedrun({ api, state, view, toast, sfx, shake, burst,
     <div class="wrap speed">
       <h1>Speedrun</h1>
       <p class="lead">Start with the 12 base elements. Reach the target in as few combos as you can.</p>
-      <div class="sr-targets">${targets.map((t) => `<button class="el ${rarityClass(t)}" data-tid="${t.id}" style="--c:#7b3fe4">${ico(t.emoji)}<span class="n">${esc(t.name)}</span></button>`).join('') || '<p>Targets will appear as seed elements are discovered.</p>'}</div>
+      <div class="sr-targets">${targets.map((t) => `<button class="el ${rarityClass(t)}${nameClass(t.name)}" data-tid="${t.id}" style="--c:#7b3fe4;${nameVars(t.name)}" title="${esc(t.name)}">${ico(t.emoji)}<span class="n">${esc(t.name)}</span></button>`).join('') || '<p>Targets will appear as seed elements are discovered.</p>'}</div>
       <h2>Leaderboard</h2>
       <div class="select" style="margin:8px 0 14px"><select id="srSel">${targets.map((t) => `<option value="${t.id}" ${t.id === board.targetId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>
       <div id="srBoard">${renderSrRows(board.rows)}</div>
@@ -330,7 +382,7 @@ function renderRun({ api, state, view, toast, sfx, shake, burst, onExtras, go })
   const paint = () => {
     const strip = document.querySelector('#srStrip');
     strip.innerHTML = (state.run.elements || []).map((el) =>
-      `<button class="el ${rarityClass(el)}" data-id="${el.id}" style="--c:#7b3fe4">${ico(el.emoji)}<span class="n">${esc(el.name)}</span></button>`
+      `<button class="el ${rarityClass(el)}${nameClass(el.name)}" data-id="${el.id}" style="--c:#7b3fe4;${nameVars(el.name)}" title="${esc(el.name)}">${ico(el.emoji)}<span class="n">${esc(el.name)}</span></button>`
     ).join('');
   };
   const slots = [null, null];

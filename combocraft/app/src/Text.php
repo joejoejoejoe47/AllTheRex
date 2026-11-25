@@ -85,18 +85,53 @@ final class Text
         return implode(' ', $words);
     }
 
+    /** Intensifier words that get stacked into ugly runaway names. */
+    private const PUFF = [
+        'double', 'triple', 'quadruple', 'mega', 'super', 'ultra', 'hyper',
+        'giga', 'omega', 'turbo', 'deluxe', 'extreme', 'ultimate', 'squared',
+        'cubed', 'maxi', 'giant', 'supreme', 'premium', 'uber',
+    ];
+
+    public static function isPuffedName(string $name): bool
+    {
+        $words = preg_split('/\s+/u', mb_strtolower(trim($name))) ?: [];
+        $puffs = [];
+        foreach ($words as $w) {
+            $w = trim($w, ".,!?'’\-");
+            if (in_array($w, self::PUFF, true)) {
+                if (isset($puffs[$w])) {
+                    return true;
+                }
+                $puffs[$w] = true;
+            }
+        }
+        if (count($puffs) >= 2) {
+            return true;
+        }
+        // "Mega Money Squared" / "Double X Squared"
+        if (isset($puffs['squared']) || isset($puffs['cubed'])) {
+            return isset($puffs['double']) || isset($puffs['triple']) || isset($puffs['mega'])
+                || isset($puffs['super']) || isset($puffs['ultra']) || isset($puffs['hyper'])
+                || isset($puffs['giga']) || count($words) >= 3;
+        }
+        return false;
+    }
+
     public static function cleanName(string $name): ?string
     {
         $name = trim((string) preg_replace('/[\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{FE0F}\x{200D}]/u', '', $name));
         $name = trim($name, " \t\n\r\0\x0B\"'`*.:;");
         $name = (string) preg_replace('/\s+/u', ' ', $name);
-        if ($name === '' || mb_strlen($name) > 48) {
+        if ($name === '' || mb_strlen($name) > 24) {
             return null;
         }
-        if (!preg_match("/^[\\p{L}\\p{N}][\\p{L}\\p{N} '’&\\-!?.,:]*$/u", $name)) {
+        if (!preg_match("/^[\p{L}\p{N}][\p{L}\p{N} '’&\-!?.,:]*$/u", $name)) {
             return null;
         }
-        if (count(explode(' ', $name)) > 8) {
+        if (count(explode(' ', $name)) > 3) {
+            return null;
+        }
+        if (self::isPuffedName($name)) {
             return null;
         }
         return self::title($name);
