@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=23';
-import { storyHtml, storyPng } from './share.js?v=23';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=23';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=24';
+import { storyHtml, storyPng } from './share.js?v=24';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=24';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -398,7 +398,7 @@ async function combineNow() {
     const card = $(`#strip .el[data-id="${el.id}"]`);
     if (card) { card.classList.add('pop-in'); if (!state.showAll) card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); }
   }
-  showResult(state.lastResult, true);
+  showResult(state.lastResult, true, res.daily);
   onCombineExtras(res, { state, toast, shake, burst });
   if (res.result?.rarity === 'Legendary' && res.newForYou) {
     sfx('fanfare');
@@ -423,12 +423,22 @@ async function relay(p) {
   return api('combine/resolve', { ticket: p.ticket, content });
 }
 
-function showResult(lr, animate) {
+function showResult(lr, animate, daily) {
   const { el, first, newForYou } = lr;
   const z = $('#resultZone');
   if (!z) return;
   const recipeTxt = `${esc(lr.inputs[0].name)} + ${esc(lr.inputs[1].name)}`;
-  const note = first ? 'You discovered it first! 🏆' : newForYou ? 'A new combination discovered!' : 'You already have this one.';
+  let note = first ? 'You discovered it first! 🏆' : newForYou ? 'A new combination discovered!' : 'You already have this one.';
+  if (daily?.justSolved) {
+    note = daily.justName
+      ? `Daily Level ${daily.justLevel || '?'} solved — ${daily.justName}!`
+      : 'Daily challenge solved!';
+    if (daily.cleared || daily.clearedAll) note += ' Chain complete!';
+    else if (daily.target?.name) note += ` Next: Make ${daily.target.name}.`;
+  } else if (daily?.autoSolved?.length) {
+    note = 'You already had this — daily level claimed!';
+    if (daily.target?.name && !daily.cleared) note += ` Next: Make ${daily.target.name}.`;
+  }
   z.innerHTML = `
     <div class="result ${rarityClass(el)}${animate ? '' : '" style="animation:none'}" title="Click to use it in your next combo">
       <div class="sparkles">${['10%;top:8%', '88%;top:14%', '-2%;top:60%', '96%;top:68%', '50%;top:-4%'].map((p, i) => `<i style="left:${p};animation-delay:${i * 0.2}s">✦</i>`).join('')}</div>
@@ -1114,7 +1124,7 @@ function openRecipePicker() {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=23').then((m) => {
+import('./clash.js?v=24').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1141,7 +1151,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=23');
+    const m = window.__ccClashMod || await import('./clash.js?v=24');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
