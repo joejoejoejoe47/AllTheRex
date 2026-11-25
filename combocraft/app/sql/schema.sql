@@ -412,3 +412,12 @@ CREATE TABLE IF NOT EXISTS cc_daily_coin_grants (
   PRIMARY KEY (player_id, day, level)
 );
 CREATE INDEX IF NOT EXISTS cc_daily_coins_morse ON cc_daily_coin_grants (morse_user_id, day, level);
+
+CREATE TABLE IF NOT EXISTS cc_bg_files (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  name VARCHAR(48) NOT NULL,
+  mime VARCHAR(32) NOT NULL,
+  bytes_b64 TEXT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_bg_files_name ON cc_bg_files (name);

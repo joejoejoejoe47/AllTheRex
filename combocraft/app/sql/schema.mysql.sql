@@ -445,3 +445,12 @@ CREATE TABLE IF NOT EXISTS cc_daily_coin_grants (
   PRIMARY KEY (player_id, day, level),
   KEY cc_daily_coins_morse (morse_user_id, day, level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_bg_files (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  name VARCHAR(48) NOT NULL,
+  mime VARCHAR(32) NOT NULL,
+  bytes_b64 MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY cc_bg_files_name (name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

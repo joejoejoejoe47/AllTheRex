@@ -1,9 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=32';
-import { storyHtml, storyPng } from './share.js?v=32';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=32';
-import { initBg, syncPrefs } from './bg.js?v=32';
-import { initAds, renderAdRail } from './ads.js?v=32';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=33';
+import { storyHtml, storyPng } from './share.js?v=33';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=33';
+import { initBg, syncPrefs } from './bg.js?v=33';
+import { initAds, renderAdRail } from './ads.js?v=33';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -1118,7 +1118,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=32').then((m) => {
+import('./clash.js?v=33').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1145,7 +1145,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=32');
+    const m = window.__ccClashMod || await import('./clash.js?v=33');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
