@@ -24,6 +24,13 @@ final class Clash
     public const MAX_LOADOUT = 12;
     public const QUEUE_STALE_SECS = 20;
 
+    /** Reserved bot opponents for Challenge AI. Ids stay stable so rematches work. */
+    public const AI = [
+        'easy' => ['id' => 'pai_easy', 'name' => 'Easy Bot', 'avatar' => '🤖', 'nick' => 'Easy Bot', 'cards' => 8, 'firstMs' => 6000, 'gapMs' => 9000, 'attack' => 0.12, 'chain' => 0.15],
+        'medium' => ['id' => 'pai_med', 'name' => 'Medium Bot', 'avatar' => '🤖', 'nick' => 'Medium Bot', 'cards' => 10, 'firstMs' => 2800, 'gapMs' => 5000, 'attack' => 0.35, 'chain' => 0.45],
+        'hard' => ['id' => 'pai_hard', 'name' => 'Hard Bot', 'avatar' => '🤖', 'nick' => 'Hard Bot', 'cards' => 12, 'firstMs' => 1100, 'gapMs' => 2200, 'attack' => 0.6, 'chain' => 0.7],
+    ];
+
     private const MULT = ['Common' => 1.0, 'Rare' => 1.35, 'Epic' => 1.7, 'Legendary' => 2.2];
 
     private const THEMES = [
@@ -113,6 +120,23 @@ final class Clash
         return ['queued' => false];
     }
 
+    /** Start a best-of-3 against a timed bot. @param array<string,mixed> $p @return array<string,mixed> */
+    public static function challengeAi(array $p, string $level): array
+    {
+        self::requireName($p);
+        $level = self::normLevel($level);
+        if ($level === null) {
+            throw new HttpError('Pick Easy, Medium, or Hard.', 422);
+        }
+        if ($live = self::activeMatch($p)) {
+            return ['match' => self::matchView($live, $p), 'ai' => self::aiLevelOf($live)];
+        }
+        self::ensureAiPlayer($level);
+        $m = self::createMatch($p['id'], self::AI[$level]['id']);
+        self::prepareAiLoadout($m, $level);
+        return ['match' => self::matchView(self::getMatch($m['id']), $p), 'ai' => $level];
+    }
+
     /** @param array<string,mixed> $p @return array<string,mixed> */
     public static function challenge(array $p, string $nickname): array
     {
@@ -127,6 +151,10 @@ final class Clash
         }
         if ($to['id'] === $p['id']) {
             throw new HttpError('You cannot challenge yourself.', 422);
+        }
+        $aiLevel = self::levelFromId((string) $to['id']);
+        if ($aiLevel) {
+            return self::challengeAi($p, $aiLevel);
         }
         $recent = Db::value(
             'SELECT id FROM cc_clash_challenges WHERE from_id = ? AND to_id = ? AND created_at > ?',
@@ -295,10 +323,18 @@ final class Clash
     }
 
     /** @param array<string,mixed> $p */
-    public static function play(array $p, string $matchId, string $aTok, string $bTok, bool $attack): array
+    public static function play(array $p, string $matchId, string $aTok, string $bTok, bool $attack, bool $internal = false): array
     {
-        $m = self::mine($p, $matchId);
-        $m = self::tick($m);
+        if ($internal) {
+            $m = self::getMatch($matchId);
+            if ($m['a_id'] !== $p['id'] && $m['b_id'] !== $p['id']) {
+                throw new HttpError('This is not your match.', 403);
+            }
+            self::touch($p, $matchId);
+        } else {
+            $m = self::mine($p, $matchId);
+            $m = self::tick($m);
+        }
         if ($m['status'] !== 'playing') {
             throw new HttpError('This round is not in play.', 422);
         }
@@ -327,7 +363,7 @@ final class Clash
         $chain = !empty($ea['temp']) || !empty($eb['temp']);
         $double = !empty($ea['temp']) && !empty($eb['temp']);
         $oppLatest = self::latestPlay($round, self::oppId($m, $p['id']));
-        $judge = self::judge((string) $round['theme'], $made, $ea, $eb, $chain, $double, $attack, $oppLatest);
+        $judge = self::judge((string) $round['theme'], $made, $ea, $eb, $chain, $double, $attack, $oppLatest, !$internal);
         $side = $m['a_id'] === $p['id'] ? 'a' : 'b';
         $newScore = (int) $round[$side . '_score'] + (int) $judge['score'];
         $oppSide = $side === 'a' ? 'b' : 'a';
@@ -410,6 +446,10 @@ final class Clash
         if ($live = self::activeMatch($p)) {
             return ['match' => self::matchView($live, $p)];
         }
+        $aiLevel = self::levelFromId($opp);
+        if ($aiLevel) {
+            return self::challengeAi($p, $aiLevel) + ['challenged' => false];
+        }
         $oppLive = Db::one(
             "SELECT * FROM cc_clash_matches WHERE status IN ('loadout','playing','inter') AND (a_id = ? OR b_id = ?)",
             [$opp, $opp]
@@ -435,20 +475,30 @@ final class Clash
         if ($kind === 'daily') {
             $day = Player::today();
             $rows = Db::all(
-                'SELECT d.player_id, d.wins, d.points, p.nickname, p.avatar FROM cc_clash_daily d JOIN cc_players p ON p.id = d.player_id WHERE d.day = ? ORDER BY d.points DESC, d.wins DESC LIMIT 25',
+                'SELECT d.player_id, d.wins, d.points, p.nickname, p.avatar FROM cc_clash_daily d JOIN cc_players p ON p.id = d.player_id WHERE d.day = ? ORDER BY d.points DESC, d.wins DESC LIMIT 80',
                 [$day]
             );
-            return ['kind' => 'daily', 'day' => $day, 'rows' => array_map(fn ($r, $i) => [
-                'rank' => $i + 1,
-                'name' => $r['nickname'] ?: 'Player',
-                'avatar' => Text::safeEmoji((string) ($r['avatar'] ?: '🐱')),
-                'wins' => (int) $r['wins'],
-                'points' => (int) $r['points'],
-            ], $rows, array_keys($rows))];
+            $out = [];
+            foreach ($rows as $r) {
+                if (self::isHiddenFromBoards((string) $r['player_id'], (string) ($r['nickname'] ?? ''))) {
+                    continue;
+                }
+                $out[] = [
+                    'rank' => count($out) + 1,
+                    'name' => $r['nickname'] ?: 'Player',
+                    'avatar' => Text::safeEmoji((string) ($r['avatar'] ?: '🐱')),
+                    'wins' => (int) $r['wins'],
+                    'points' => (int) $r['points'],
+                ];
+                if (count($out) >= 25) {
+                    break;
+                }
+            }
+            return ['kind' => 'daily', 'day' => $day, 'rows' => $out];
         }
         if ($kind === 'rare') {
             $rows = Db::all(
-                "SELECT p.result_name, p.result_emoji, p.rarity, p.a_name, p.b_name, m.id AS match_id, m.winner_id, w.nickname AS winner, l.nickname AS loser
+                "SELECT p.result_name, p.result_emoji, p.rarity, p.a_name, p.b_name, m.id AS match_id, m.winner_id, w.nickname AS winner, l.nickname AS loser, l.id AS loser_id
                  FROM cc_clash_plays p
                  JOIN cc_clash_rounds r ON r.id = p.round_id
                  JOIN cc_clash_matches m ON m.id = r.match_id
@@ -456,11 +506,15 @@ final class Clash
                  JOIN cc_players l ON l.id = CASE WHEN m.winner_id = m.a_id THEN m.b_id ELSE m.a_id END
                  WHERE m.status IN ('finished','forfeit') AND p.player_id = m.winner_id
                  ORDER BY CASE p.rarity WHEN 'Legendary' THEN 4 WHEN 'Epic' THEN 3 WHEN 'Rare' THEN 2 ELSE 1 END DESC, p.score DESC, p.id DESC
-                 LIMIT 25"
+                 LIMIT 80"
             );
             $out = [];
             $seen = [];
             foreach ($rows as $r) {
+                if (self::isHiddenFromBoards((string) ($r['winner_id'] ?? ''), (string) ($r['winner'] ?? ''))
+                    || self::isHiddenFromBoards((string) ($r['loser_id'] ?? ''), (string) ($r['loser'] ?? ''))) {
+                    continue;
+                }
                 $k = mb_strtolower((string) $r['result_name']);
                 if (isset($seen[$k])) {
                     continue;
@@ -482,18 +536,25 @@ final class Clash
             return ['kind' => 'rare', 'rows' => $out];
         }
         $rows = Db::all(
-            "SELECT winner_id AS player_id, COUNT(*) AS wins FROM cc_clash_matches WHERE status IN ('finished','forfeit') AND winner_id IS NOT NULL GROUP BY winner_id ORDER BY wins DESC LIMIT 25"
+            "SELECT winner_id AS player_id, COUNT(*) AS wins FROM cc_clash_matches WHERE status IN ('finished','forfeit') AND winner_id IS NOT NULL GROUP BY winner_id ORDER BY wins DESC LIMIT 80"
         );
         $out = [];
         $i = 0;
         foreach ($rows as $r) {
             $pl = Db::one('SELECT nickname, avatar FROM cc_players WHERE id = ?', [$r['player_id']]);
+            $name = $pl['nickname'] ?? 'Player';
+            if (self::isHiddenFromBoards((string) $r['player_id'], (string) $name)) {
+                continue;
+            }
             $out[] = [
                 'rank' => ++$i,
-                'name' => $pl['nickname'] ?? 'Player',
+                'name' => $name,
                 'avatar' => Text::safeEmoji((string) (($pl['avatar'] ?? '') ?: '🐱')),
                 'wins' => (int) $r['wins'],
             ];
+            if (count($out) >= 25) {
+                break;
+            }
         }
         return ['kind' => 'wins', 'rows' => $out];
     }
@@ -520,6 +581,10 @@ final class Clash
     /** @param array<string,mixed> $m */
     private static function tick(array $m): array
     {
+        if (self::aiLevelOf($m)) {
+            self::ensureAiReady($m);
+            $m = self::getMatch($m['id']);
+        }
         if ($m['status'] === 'loadout') {
             $ready = Db::all('SELECT player_id, ready FROM cc_clash_loadouts WHERE match_id = ?', [$m['id']]);
             $ok = 0;
@@ -538,6 +603,10 @@ final class Clash
             $round = self::currentRound($m);
             if ($round && strtotime((string) $round['ends_at'] . ' UTC') <= time() && !(int) $round['settled']) {
                 self::settleRound($m, $round);
+                return self::getMatch($m['id']);
+            }
+            if (self::aiLevelOf($m)) {
+                self::maybeAiPlay($m);
                 return self::getMatch($m['id']);
             }
             return $m;
@@ -644,8 +713,10 @@ final class Clash
         $bRoundWins = (int) $m['b_wins'];
         $wRounds = $m['a_id'] === $winnerId ? $aRoundWins : $bRoundWins;
         $lRounds = $m['a_id'] === $winnerId ? $bRoundWins : $aRoundWins;
-        self::bumpDaily($winnerId, $day, 1, 3 + $wRounds);
-        if ($loser) {
+        if (!self::isAiId($winnerId)) {
+            self::bumpDaily($winnerId, $day, 1, 3 + $wRounds);
+        }
+        if ($loser && !self::isAiId($loser)) {
             self::bumpDaily($loser, $day, 0, $lRounds);
         }
     }
@@ -739,14 +810,14 @@ final class Clash
      * @param array<string,mixed>|null $opp
      * @return array<string,mixed>
      */
-    private static function judge(string $theme, array $made, array $ea, array $eb, bool $chain, bool $double, bool $attack, ?array $opp): array
+    private static function judge(string $theme, array $made, array $ea, array $eb, bool $chain, bool $double, bool $attack, ?array $opp, bool $remote = true): array
     {
         $cacheKey = 'clashj:' . sha1(strtolower($theme . '|' . $made['name'] . '|' . $ea['name'] . '|' . $eb['name'] . '|' . ($opp['name'] ?? '') . '|' . ($attack ? '1' : '0')));
         $cached = Store::get($cacheKey);
         $ai = null;
         if ($cached) {
             $ai = json_decode($cached, true);
-        } else {
+        } elseif ($remote) {
             $ai = self::askJudge($theme, $made, $ea, $eb, $attack, $opp);
             if ($ai) {
                 try {
@@ -994,6 +1065,9 @@ final class Clash
             return;
         }
         $opp = self::oppId($live, $p['id']);
+        if (self::isAiId($opp)) {
+            return;
+        }
         $seen = Db::one('SELECT * FROM cc_clash_seen WHERE player_id = ?', [$opp]);
         $limit = $live['status'] === 'loadout' ? self::DISCONNECT_LOADOUT_SECS : self::DISCONNECT_PLAY_SECS;
         $last = $seen ? strtotime((string) $seen['last_poll'] . ' UTC') : strtotime((string) $live['updated_at'] . ' UTC');
@@ -1214,6 +1288,8 @@ final class Clash
             'lastRound' => $lastRound,
             'share' => $share,
             'now' => Db::nowMs(),
+            'isAi' => self::isAiId(self::oppId($m, $p['id'])),
+            'aiLevel' => self::aiLevelOf($m),
         ];
     }
 
@@ -1225,6 +1301,176 @@ final class Clash
             'Rare' => 2,
             default => 1,
         };
+    }
+
+    public static function isAiId(string $id): bool
+    {
+        return str_starts_with($id, 'pai_');
+    }
+
+    public static function isHiddenName(?string $name): bool
+    {
+        $n = trim((string) $name);
+        return $n !== '' && (bool) preg_match('/^(CcBot|CcFin|CcQA|CcTest)/i', $n);
+    }
+
+    public static function isHiddenFromBoards(?string $id, ?string $name): bool
+    {
+        if ($id && self::isAiId($id)) {
+            return true;
+        }
+        return self::isHiddenName($name);
+    }
+
+    public static function normLevel(string $level): ?string
+    {
+        $level = strtolower(trim($level));
+        return isset(self::AI[$level]) ? $level : null;
+    }
+
+    public static function levelFromId(string $id): ?string
+    {
+        foreach (self::AI as $level => $cfg) {
+            if ($cfg['id'] === $id) {
+                return $level;
+            }
+        }
+        return null;
+    }
+
+    /** @param array<string,mixed> $m */
+    public static function aiLevelOf(array $m): ?string
+    {
+        return self::levelFromId((string) ($m['a_id'] ?? '')) ?? self::levelFromId((string) ($m['b_id'] ?? ''));
+    }
+
+    private static function ensureAiPlayer(string $level): void
+    {
+        $cfg = self::AI[$level];
+        $row = Db::one('SELECT * FROM cc_players WHERE id = ?', [$cfg['id']]);
+        $now = Db::now();
+        $nick = $cfg['name'];
+        $key = mb_strtolower($nick);
+        if ($row) {
+            if (($row['nickname'] ?? '') !== $nick) {
+                Db::run('UPDATE cc_players SET nickname = ?, nick_key = ?, avatar = ?, last_seen = ? WHERE id = ?', [$nick, $key, $cfg['avatar'], $now, $cfg['id']]);
+            }
+            return;
+        }
+        $hash = hash('sha256', 'cc-reserved-ai|' . $cfg['id']);
+        Db::run(
+            'INSERT INTO cc_players (id, token_hash, nickname, nick_key, avatar, day, day_count, streak, last_day, firsts, combos, ip_hash, created_at, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [$cfg['id'], $hash, $nick, $key, $cfg['avatar'], '', 0, 0, '', 0, 0, 'ai-reserved', $now, $now]
+        );
+    }
+
+    /** @param array<string,mixed> $m */
+    private static function prepareAiLoadout(array $m, string $level): void
+    {
+        $cfg = self::AI[$level];
+        $aiId = $cfg['id'];
+        $bases = Db::all('SELECT id FROM cc_elements WHERE is_base = 1 ORDER BY sort_order, id');
+        $ids = [];
+        foreach ($bases as $row) {
+            $ids[] = (int) $row['id'];
+            if (count($ids) >= (int) $cfg['cards']) {
+                break;
+            }
+        }
+        if (count($ids) < self::MIN_LOADOUT) {
+            return;
+        }
+        Db::upsert(
+            'cc_clash_loadouts',
+            ['match_id' => $m['id'], 'player_id' => $aiId, 'ids' => json_encode($ids), 'ready' => 1, 'last_play_ms' => 0],
+            ['match_id', 'player_id'],
+            ['ids', 'ready']
+        );
+        self::touchId($aiId, $m['id']);
+    }
+
+    /** @param array<string,mixed> $m */
+    private static function ensureAiReady(array $m): void
+    {
+        $level = self::aiLevelOf($m);
+        if (!$level) {
+            return;
+        }
+        self::ensureAiPlayer($level);
+        $aiId = self::AI[$level]['id'];
+        $lo = Db::one('SELECT * FROM cc_clash_loadouts WHERE match_id = ? AND player_id = ?', [$m['id'], $aiId]);
+        if (!$lo || !(int) $lo['ready']) {
+            self::prepareAiLoadout($m, $level);
+        } else {
+            self::touchId($aiId, $m['id']);
+        }
+    }
+
+    /** @param array<string,mixed> $m */
+    private static function maybeAiPlay(array $m): void
+    {
+        $level = self::aiLevelOf($m);
+        if (!$level || $m['status'] !== 'playing') {
+            return;
+        }
+        $cfg = self::AI[$level];
+        $aiId = $cfg['id'];
+        $round = self::currentRound($m);
+        if (!$round || (int) $round['settled'] || strtotime((string) $round['ends_at'] . ' UTC') <= time()) {
+            return;
+        }
+        $lo = Db::one('SELECT * FROM cc_clash_loadouts WHERE match_id = ? AND player_id = ?', [$m['id'], $aiId]);
+        if (!$lo) {
+            return;
+        }
+        $nowMs = Db::nowMs();
+        $last = (int) ($lo['last_play_ms'] ?? 0);
+        $startMs = strtotime((string) $round['started_at'] . ' UTC') * 1000;
+        $wait = $last > 0 ? (int) $cfg['gapMs'] : (int) $cfg['firstMs'];
+        $from = $last > 0 ? $last : $startMs;
+        if ($nowMs - $from < $wait) {
+            return;
+        }
+        $ai = Db::one('SELECT * FROM cc_players WHERE id = ?', [$aiId]);
+        if (!$ai) {
+            return;
+        }
+        $hand = self::hand($ai, $m, $round);
+        $toks = array_keys($hand);
+        if (count($toks) < 1) {
+            return;
+        }
+        $temps = [];
+        $bases = [];
+        foreach ($hand as $tok => $card) {
+            if (!empty($card['temp'])) {
+                $temps[] = $tok;
+            } else {
+                $bases[] = $tok;
+            }
+        }
+        $roll = (crc32($m['id'] . '|' . $round['id'] . '|' . $nowMs) % 1000) / 1000;
+        $a = $bases[0] ?? $toks[0];
+        $b = $bases[1] ?? $bases[0] ?? $toks[0];
+        if ($roll < (float) $cfg['chain'] && $temps) {
+            $a = $temps[array_key_last($temps)];
+            $b = $bases ? $bases[crc32((string) $nowMs) % count($bases)] : ($temps[0] ?? $a);
+            if ($b === $a && count($temps) > 1) {
+                $b = $temps[0];
+            }
+        } else {
+            $i = crc32($m['id'] . '|' . (string) $nowMs) % count($toks);
+            $a = $toks[$i];
+            $b = $toks[($i + 1) % count($toks)];
+        }
+        $humanId = $m['a_id'] === $aiId ? (string) $m['b_id'] : (string) $m['a_id'];
+        $oppLatest = self::latestPlay($round, $humanId);
+        $attack = $oppLatest && $roll < (float) $cfg['attack'] + 0.15;
+        try {
+            self::play($ai, (string) $m['id'], (string) $a, (string) $b, $attack, true);
+        } catch (Throwable $e) {
+            error_log('[combocraft ai play] ' . $e->getMessage());
+        }
     }
 
     private static function id(string $p): string

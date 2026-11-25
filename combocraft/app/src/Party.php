@@ -135,6 +135,9 @@ final class Party
         if ($to['id'] === $p['id']) {
             throw new HttpError('You cannot invite yourself.', 422);
         }
+        if (Clash::isAiId((string) $to['id'])) {
+            throw new HttpError('Bots cannot join a party. Challenge AI from the lobby instead.', 422);
+        }
         $party = self::currentParty($p);
         if (!$party) {
             $party = self::createParty($p);
@@ -910,7 +913,9 @@ final class Party
             [$p['id'], $p['id'], $p['id']]
         );
         foreach ($rows as $r) {
-            $ids[(string) $r['oid']] = true;
+            if (!Clash::isAiId((string) $r['oid'])) {
+                $ids[(string) $r['oid']] = true;
+            }
         }
         $mates = Db::all(
             'SELECT m2.player_id AS oid, MAX(m2.joined_at) AS j FROM cc_clash_party_members m1 JOIN cc_clash_party_members m2 ON m2.party_id = m1.party_id AND m2.player_id <> m1.player_id WHERE m1.player_id = ? GROUP BY m2.player_id ORDER BY j DESC LIMIT 20',
@@ -934,7 +939,11 @@ final class Party
         }
         $out = [];
         foreach (array_keys($ids) as $id) {
-            $out[] = self::mini($id);
+            $mini = self::mini($id);
+            if (Clash::isHiddenFromBoards((string) $id, (string) ($mini['name'] ?? ''))) {
+                continue;
+            }
+            $out[] = $mini;
             if (count($out) >= 12) {
                 break;
             }

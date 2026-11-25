@@ -92,6 +92,7 @@ final class Api
                 '/api/clash/queue' => self::mutating(fn () => Http::json(['ok' => true] + Clash::queue(Player::require(), (string) (Http::jsonBody()['pair'] ?? '')))),
                 '/api/clash/queue/cancel' => self::mutating(fn () => Http::json(['ok' => true] + Clash::cancelQueue(Player::require()))),
                 '/api/clash/challenge' => self::mutating(fn () => Http::json(['ok' => true] + Clash::challenge(Player::require(), (string) (Http::jsonBody()['nickname'] ?? '')))),
+                '/api/clash/ai' => self::mutating(fn () => Http::json(['ok' => true] + Clash::challengeAi(Player::require(), (string) (Http::jsonBody()['level'] ?? '')))),
                 '/api/clash/invite' => self::mutating(fn () => Http::json(['ok' => true] + Clash::makeInvite(Player::require()))),
                 '/api/clash/invite/open' => self::mutating(fn () => Http::json(['ok' => true] + Clash::openInvite(Player::require(), (string) (Http::jsonBody()['id'] ?? '')))),
                 '/api/clash/respond' => self::mutating(fn () => Http::json(['ok' => true] + Clash::respond(Player::require(), (string) (Http::jsonBody()['id'] ?? ''), !empty(Http::jsonBody()['accept'])))),

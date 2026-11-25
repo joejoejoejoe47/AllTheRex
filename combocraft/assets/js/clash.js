@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=6';
+import { rarityClass } from './features.js?v=7';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -87,32 +87,35 @@ async function renderLobby(inbox) {
             <div class="cs-you"><span class="av">${ico(last.you.avatar)}</span><b>${esc(last.you.name)}</b><em>${last.you.score}</em></div>
             <div class="cs-mid">${last.kind === 'party' ? 'Sessions' : 'VS'}</div>
             <div class="cs-opp"><em>${last.opp.score}</em><b>${esc(last.opp.name)}</b><span class="av">${ico(last.opp.avatar)}</span></div>
-          ` : `<div class="cs-empty">Your last score will show up here after a match — with their username right across from yours.</div>`}
+          ` : `<div class="cs-empty">${icoInfo()} Your last score will show up here after a match — with their username right across from yours.</div>`}
         </div>
         <div class="clash-actions">
           <button class="btn clash-lg" id="ccPartyUp">Party Up</button>
           <button class="btn clash-lg" id="ccReady">${party?.queued ? 'Searching…' : 'Ready'}</button>
-          <button class="pill-btn clash-lg" id="ccOnline">Play Online (1v1)</button>
-          <button class="pill-btn clash-lg" id="ccInvite">Challenge link</button>
+          <button class="pill-btn clash-lg" id="ccOnline">${icoPeople()} Play Online (1v1)</button>
+          <button class="pill-btn clash-lg" id="ccAi">${icoBot()} Challenge AI</button>
+          <button class="pill-btn clash-lg" id="ccInvite">${icoLink()} Challenge link</button>
         </div>
         <form class="clash-chal" id="ccChal">
           <input id="ccNick" maxlength="20" placeholder="Challenge a username" autocomplete="off" />
-          <button class="btn" type="submit">Challenge</button>
+          <button class="btn clash-lg" type="submit">Challenge</button>
         </form>
         <div id="ccQueue" class="clash-queue" ${party?.queued ? '' : 'hidden'}>${party?.queued ? '<div class="thinking">Searching for another party…</div><button class="mini-btn" id="ccCancelQ">Cancel</button>' : ''}</div>
       </div>
       <div class="clash-boards">
-        ${boardBlock('Most wins', boards.wins.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.wins} win${row.wins===1?'':'s'}</span>`)}
-        ${boardBlock('Daily tournament', boards.daily.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.points} pts · ${row.wins} wins</span>`, boards.daily.day ? 'Today · ' + boards.daily.day : 'Today')}
-        ${boardBlock('Rarest winning combos', boards.rare.rows, (row) => `<b>${row.emoji ? ico(row.emoji) + ' ' : ''}${esc(row.name)}</b> <span>${esc(row.rarity)} · ${esc(row.recipe)} · ${esc(row.winner)}</span>`)}
+        ${boardBlock('Most wins', icoTrophy(), boards.wins.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.wins} win${row.wins===1?'':'s'}</span>`)}
+        ${boardBlock('Daily tournament', icoCal(), boards.daily.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.points} pts</span><i>· ${row.wins} win${row.wins===1?'':'s'}</i>`, boards.daily.day ? 'Today · ' + boards.daily.day : 'Today')}
+        ${boardBlock('Rarest winning combos', icoGem(), boards.rare.rows, (row) => `<b>${row.emoji ? ico(row.emoji) + ' ' : ''}${esc(row.name)}</b> <span>${esc(row.winner)}</span>`)}
       </div>
     </div>`;
 
   $('#ccOnline').onclick = () => joinQueue();
   $('#ccInvite').onclick = () => makeInvite();
+  $('#ccAi').onclick = () => openAiPicker();
   $('#ccPartyUp').onclick = () => openPartyUp(inbox);
   $('#ccReady').onclick = () => clickReady();
   const cq = $('#ccCancelQ'); if (cq) cq.onclick = () => cancelReady();
+  document.querySelectorAll('[data-first]').forEach((b) => { b.onclick = () => openAiPicker(); });
   ensurePartyBar(party);
   startReplayBg();
   if (party?.needsName) promptPartyName();
@@ -130,12 +133,70 @@ async function renderLobby(inbox) {
   };
 }
 
-function boardBlock(title, rows, line, sub = '') {
+function boardBlock(title, icon, rows, line, sub = '') {
   const { esc } = ctx;
   const body = (rows || []).length
     ? `<ol>${rows.map((r, i) => `<li><span class="rk">${r.rank || i + 1}</span>${line(r)}</li>`).join('')}</ol>`
-    : `<div class="lb-empty">No battles yet. Be the first!</div>`;
-  return `<section class="clash-board"><h2>${esc(title)}</h2>${sub ? `<div class="cb-sub">${esc(sub)}</div>` : ''}${body}</section>`;
+    : `<div class="lb-empty">${icoBox()}<div>No battles yet.</div><button type="button" class="linkish" data-first>Be the first!</button></div>`;
+  return `<section class="clash-board"><h2>${icon}<span>${esc(title)}</span></h2>${sub ? `<div class="cb-sub">${esc(sub)}</div>` : ''}${body}</section>`;
+}
+
+function icoSvg(inner, cls = '') {
+  return `<svg class="cl-ico ${cls}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+}
+function icoInfo() {
+  return icoSvg('<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="8" r=".8" fill="currentColor" stroke="none"/>', 'cl-ico-info');
+}
+function icoPeople() {
+  return icoSvg('<path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1"/><circle cx="9" cy="7" r="3"/><path d="M22 19v-1a4 4 0 0 0-3-3.87"/><path d="M16 3.13a3 3 0 0 1 0 5.74"/>');
+}
+function icoLink() {
+  return icoSvg('<path d="M10 13a5 5 0 0 0 7.07 0l1.41-1.41a5 5 0 0 0-7.07-7.07L10 5.93"/><path d="M14 11a5 5 0 0 0-7.07 0L5.5 12.4a5 5 0 0 0 7.07 7.07L14 18.07"/>');
+}
+function icoBot() {
+  return icoSvg('<rect x="5" y="9" width="14" height="10" rx="2"/><path d="M12 9V6"/><circle cx="9" cy="13" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1" fill="currentColor" stroke="none"/><path d="M8 19v2"/><path d="M16 19v2"/>');
+}
+function icoTrophy() {
+  return icoSvg('<path d="M8 5h8v5a4 4 0 0 1-8 0V5z"/><path d="M8 6H5a3 3 0 0 0 3 5"/><path d="M16 6h3a3 3 0 0 1-3 5"/><path d="M12 14v3"/><path d="M8 20h8"/>', 'cl-ico-purple');
+}
+function icoCal() {
+  return icoSvg('<rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 4v4"/><path d="M16 4v4"/><path d="M4 10h16"/>', 'cl-ico-blue');
+}
+function icoGem() {
+  return icoSvg('<path d="M6 9l6 11 6-11-4-4H10L6 9z"/><path d="M6 9h12"/><path d="M10 5l2 4 2-4"/>', 'cl-ico-purple');
+}
+function icoBox() {
+  return icoSvg('<path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3.5 8.5 12 13l8.5-4.5"/><path d="M12 13v8"/>', 'cl-ico-box');
+}
+
+async function openAiPicker() {
+  const { api, toast, go, esc } = ctx;
+  document.querySelector('.cc-ai-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal on cc-ai-modal';
+  modal.innerHTML = `<button class="x" type="button" aria-label="Close">×</button>
+    <h3>Challenge AI</h3>
+    <p>Play a best-of-3 against a bot. It builds a loadout and makes timed combos — Easy is slower, Hard chains and attacks.</p>
+    <div class="ai-diffs">
+      <button type="button" data-lvl="easy"><b>Easy</b><span>Slower mixes, a gentle start</span></button>
+      <button type="button" data-lvl="medium"><b>Medium</b><span>A fair, timed fight</span></button>
+      <button type="button" data-lvl="hard"><b>Hard</b><span>Fast chains and counter-attacks</span></button>
+    </div>`;
+  const veil = document.createElement('div');
+  veil.className = 'veil on';
+  const close = () => { modal.remove(); veil.remove(); };
+  modal.querySelector('.x').onclick = close;
+  veil.onclick = close;
+  modal.querySelectorAll('[data-lvl]').forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        const d = await api('clash/ai', { level: btn.dataset.lvl });
+        close();
+        if (d.match) go('clash/' + d.match.id);
+      } catch (e) { toast(e.message); }
+    };
+  });
+  document.body.append(veil, modal);
 }
 
 async function joinQueue() {
@@ -1056,7 +1117,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=6');
+  const { createVoice } = await import('./voice.js?v=7');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {
