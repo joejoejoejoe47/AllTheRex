@@ -8,7 +8,9 @@ use Throwable;
 
 /**
  * Per-player background preference. Additive cc_prefs only.
- * Built-in scenes, or a re-encoded custom webp stored under app/storage/bg.
+ * Built-in scenes, or a re-encoded custom webp. Bytes live in additive
+ * cc_bg_files (the Plesk app pool cannot write app/storage) and are
+ * optionally cached on disk when that folder is writable.
  */
 final class Prefs
 {
@@ -31,6 +33,27 @@ final class Prefs
                     updated_at DATETIME NOT NULL
                 )"
             );
+            if (Db::isSqlite()) {
+                Db::run(
+                    "CREATE TABLE IF NOT EXISTS cc_bg_files (
+                        player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+                        name VARCHAR(48) NOT NULL,
+                        mime VARCHAR(32) NOT NULL,
+                        bytes_b64 TEXT NOT NULL,
+                        created_at DATETIME NOT NULL
+                    )"
+                );
+            } else {
+                Db::run(
+                    "CREATE TABLE IF NOT EXISTS cc_bg_files (
+                        player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+                        name VARCHAR(48) NOT NULL,
+                        mime VARCHAR(32) NOT NULL,
+                        bytes_b64 MEDIUMTEXT NOT NULL,
+                        created_at DATETIME NOT NULL
+                    )"
+                );
+            }
         } catch (Throwable $e) {
             error_log('[combocraft prefs boot] ' . $e->getMessage());
         }
@@ -140,37 +163,35 @@ final class Prefs
             imagedestroy($src);
             $src = $dst;
         }
-        $dir = self::dir();
-        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        try {
+            $encoded = self::encodeImage($src);
+        } finally {
             imagedestroy($src);
-            throw new HttpError('Could not save the background on the server.', 500);
         }
-        $id = bin2hex(random_bytes(16));
-        $name = $id . '.webp';
-        $path = $dir . '/' . $name;
-        $ok = false;
-        if (function_exists('imagewebp')) {
-            $ok = @imagewebp($src, $path, 82);
-        }
-        if (!$ok) {
-            $name = $id . '.jpg';
-            $path = $dir . '/' . $name;
-            $canvas = imagecreatetruecolor(imagesx($src), imagesy($src));
-            if ($canvas === false) {
-                imagedestroy($src);
-                throw new HttpError('Could not save that image.', 500);
-            }
-            $white = imagecolorallocate($canvas, 255, 255, 255);
-            imagefilledrectangle($canvas, 0, 0, imagesx($src), imagesy($src), $white);
-            imagecopy($canvas, $src, 0, 0, 0, 0, imagesx($src), imagesy($src));
-            $ok = @imagejpeg($canvas, $path, 85);
-            imagedestroy($canvas);
-        }
-        imagedestroy($src);
-        if (!$ok || !is_file($path)) {
+        if ($encoded === null) {
             throw new HttpError('Could not save that image. Try a different photo.', 500);
         }
+        [$name, $mime, $bytes] = $encoded;
         self::deleteFileFor($player['id']);
+        try {
+            Game::insertPublic('cc_bg_files', [
+                'player_id' => $player['id'],
+                'name' => $name,
+                'mime' => $mime,
+                'bytes_b64' => base64_encode($bytes),
+                'created_at' => Db::now(),
+            ]);
+            $row = Db::one('SELECT name FROM cc_bg_files WHERE player_id = ? AND name = ?', [$player['id'], $name]);
+            if (!$row) {
+                throw new HttpError('Could not save the background on the server.', 500);
+            }
+        } catch (HttpError $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            error_log('[combocraft prefs upload] ' . $e->getMessage());
+            throw new HttpError('Could not save the background on the server.', 500);
+        }
+        self::tryWriteDisk($name, $bytes);
         self::upsert($player['id'], 'custom', $name);
         return self::get($player);
     }
@@ -186,18 +207,37 @@ final class Prefs
         $path = self::dir() . '/' . $name;
         $realDir = realpath(self::dir());
         $real = is_file($path) ? realpath($path) : false;
-        if ($realDir === false || $real === false || !str_starts_with($real, $realDir)) {
+        $bytes = null;
+        $mime = str_ends_with($name, '.jpg') ? 'image/jpeg' : 'image/webp';
+        if ($realDir !== false && $real !== false && str_starts_with($real, $realDir)) {
+            $bytes = (string) file_get_contents($real);
+        } else {
+            try {
+                $row = Db::one('SELECT mime, bytes_b64 FROM cc_bg_files WHERE name = ?', [$name]);
+            } catch (Throwable $e) {
+                $row = null;
+            }
+            if ($row && !empty($row['bytes_b64'])) {
+                $decoded = base64_decode((string) $row['bytes_b64'], true);
+                if ($decoded !== false && $decoded !== '') {
+                    $bytes = $decoded;
+                    if (!empty($row['mime'])) {
+                        $mime = (string) $row['mime'];
+                    }
+                }
+            }
+        }
+        if ($bytes === null || $bytes === '') {
             http_response_code(404);
             header('Content-Type: text/plain; charset=utf-8');
             echo "Not found\n";
             exit;
         }
-        $mime = str_ends_with($name, '.jpg') ? 'image/jpeg' : 'image/webp';
         header('Content-Type: ' . $mime);
         header('X-Content-Type-Options: nosniff');
         header('Cache-Control: public, max-age=31536000, immutable');
-        header('Content-Length: ' . (string) filesize($real));
-        readfile($real);
+        header('Content-Length: ' . (string) strlen($bytes));
+        echo $bytes;
         exit;
     }
 
@@ -254,17 +294,69 @@ final class Prefs
     {
         try {
             $row = Db::one('SELECT file FROM cc_prefs WHERE player_id = ?', [$playerId]);
+            $file = (string) ($row['file'] ?? '');
+            if ($file !== '' && preg_match('/^[a-f0-9]{32}\.(webp|jpg)$/', $file)) {
+                $path = self::dir() . '/' . $file;
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
         } catch (Throwable $e) {
+        }
+        try {
+            Db::run('DELETE FROM cc_bg_files WHERE player_id = ?', [$playerId]);
+        } catch (Throwable $e) {
+        }
+    }
+
+    /**
+     * Re-encode a GD image to webp (or jpeg) in the system temp dir.
+     * @param \GdImage|resource $src
+     * @return array{0:string,1:string,2:string}|null name, mime, raw bytes
+     */
+    private static function encodeImage($src): ?array
+    {
+        $id = bin2hex(random_bytes(16));
+        $tmp = rtrim(sys_get_temp_dir(), '/\\') . '/ccbg_' . $id;
+        $ok = false;
+        $name = $id . '.webp';
+        $mime = 'image/webp';
+        if (function_exists('imagewebp')) {
+            $ok = @imagewebp($src, $tmp, 82);
+        }
+        if (!$ok) {
+            @unlink($tmp);
+            $name = $id . '.jpg';
+            $mime = 'image/jpeg';
+            $canvas = imagecreatetruecolor(imagesx($src), imagesy($src));
+            if ($canvas === false) {
+                return null;
+            }
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            imagefilledrectangle($canvas, 0, 0, imagesx($src), imagesy($src), $white);
+            imagecopy($canvas, $src, 0, 0, 0, 0, imagesx($src), imagesy($src));
+            $ok = @imagejpeg($canvas, $tmp, 85);
+            imagedestroy($canvas);
+        }
+        if (!$ok || !is_file($tmp)) {
+            @unlink($tmp);
+            return null;
+        }
+        $bytes = (string) file_get_contents($tmp);
+        @unlink($tmp);
+        if ($bytes === '') {
+            return null;
+        }
+        return [$name, $mime, $bytes];
+    }
+
+    private static function tryWriteDisk(string $name, string $bytes): void
+    {
+        $dir = self::dir();
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
             return;
         }
-        $file = (string) ($row['file'] ?? '');
-        if ($file === '' || !preg_match('/^[a-f0-9]{32}\.(webp|jpg)$/', $file)) {
-            return;
-        }
-        $path = self::dir() . '/' . $file;
-        if (is_file($path)) {
-            @unlink($path);
-        }
+        @file_put_contents($dir . '/' . $name, $bytes);
     }
 
     /** @return \GdImage|resource|false */
