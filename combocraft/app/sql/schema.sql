@@ -431,3 +431,13 @@ CREATE TABLE IF NOT EXISTS cc_first_discoveries (
   created_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cc_firsts_player ON cc_first_discoveries (player_id, legacy, coin_granted);
+
+CREATE TABLE IF NOT EXISTS cc_tree_best (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  element_id INT NOT NULL,
+  element_name VARCHAR(160) NOT NULL DEFAULT '',
+  tree_size INT NOT NULL DEFAULT 0,
+  depth INT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL
+);
+

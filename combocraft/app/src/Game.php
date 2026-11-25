@@ -385,6 +385,9 @@ final class Game
             $out['badges'] = Goals::onCombine($player, $out['result'], $first, $newForYou);
             $out['coins'] = MorseLink::onFirstDiscovery($player, $out['result'], $first);
             $out['progress'] = Goals::progress($player);
+            if ($first) {
+                Tree::record($player, $el);
+            }
         } catch (Throwable $e) {
             error_log('[combocraft extras] ' . $e->getMessage());
         }

@@ -464,3 +464,13 @@ CREATE TABLE IF NOT EXISTS cc_first_discoveries (
   created_at DATETIME NOT NULL,
   KEY cc_firsts_player (player_id, legacy, coin_granted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_tree_best (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  element_id INT NOT NULL,
+  element_name VARCHAR(160) NOT NULL DEFAULT '',
+  tree_size INT NOT NULL DEFAULT 0,
+  depth INT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

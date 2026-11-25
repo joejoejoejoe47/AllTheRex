@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=34';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=35';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -19,6 +19,8 @@ export function applyMe(state, d) {
   state.badges = d.badges || state.badges || [];
   state.referral = d.referral || state.referral || null;
   state.morse = d.morse || state.morse || null;
+  state.deepestTree = d.deepestTree || state.deepestTree || null;
+  state.mineTree = d.mineTree || state.mineTree || null;
   if (state.daily) cacheDaily(state.daily);
   else {
     const cached = readDailyCache();
@@ -256,6 +258,95 @@ function eqRow(a, b, r, icoFn) {
   return `<div class="eq-row">${eqCard(a, icoFn)}<span class="eq-op">+</span>${eqCard(b, icoFn)}<span class="eq-op">=</span>${eqCard(r, icoFn)}</div>`;
 }
 
+
+function ftNode(n, icoFn, level) {
+  if (!n) return '';
+  const hasKids = !!(n.a || n.b);
+  const open = hasKids && !n.cycle && level < 3;
+  const src = n.source === 'yours' ? 'Your recipe' : n.source === 'first' ? 'First ever' : (n.source === 'known' ? 'Known recipe' : '');
+  return `<div class="ft-unit${n.base ? ' is-base' : ''}${n.cycle ? ' is-cycle' : ''}${hasKids ? ' has-kids' : ''}">
+    <div class="ft-card-wrap">
+      ${hasKids ? `<button type="button" class="ft-tog" aria-expanded="${open ? 'true' : 'false'}" title="${open ? 'Collapse' : 'Expand branch'}">${open ? '▾' : '▸'}</button>` : ''}
+      <button type="button" class="ft-card eq-card ${rarityClass(n)}${n.base ? ' is-base' : ''}" data-open="${n.id || ''}" title="${esc(n.name)}${src ? ' · ' + src : ''}">
+        <span class="i">${icoFn(n.emoji)}</span>
+        <span class="n">${esc(n.name)}</span>
+        ${n.base ? '<span class="ft-tag">Base</span>' : ''}
+        ${n.cycle ? '<span class="ft-tag">Loop</span>' : ''}
+        ${src && !n.base ? `<span class="ft-src">${src}</span>` : ''}
+      </button>
+    </div>
+    ${hasKids ? `<div class="ft-kids"${open ? '' : ' hidden'}>
+      <div class="ft-stem" aria-hidden="true"></div>
+      <div class="ft-bar" aria-hidden="true"></div>
+      <div class="ft-pair">
+        <div class="ft-col">${ftNode(n.a, icoFn, level + 1)}</div>
+        <div class="ft-col">${ftNode(n.b, icoFn, level + 1)}</div>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function bindFtPan(stage) {
+  if (!stage) return;
+  let drag = false, px = 0, py = 0, sx = 0, sy = 0;
+  stage.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, a, input')) return;
+    drag = true;
+    px = e.clientX; py = e.clientY;
+    sx = stage.scrollLeft; sy = stage.scrollTop;
+    try { stage.setPointerCapture(e.pointerId); } catch {}
+    stage.classList.add('grabbing');
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    stage.scrollLeft = sx - (e.clientX - px);
+    stage.scrollTop = sy - (e.clientY - py);
+  });
+  const up = () => { drag = false; stage.classList.remove('grabbing'); };
+  stage.addEventListener('pointerup', up);
+  stage.addEventListener('pointercancel', up);
+}
+
+function bindFtToggles(root) {
+  root.querySelectorAll('.ft-tog').forEach((b) => {
+    b.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const unit = b.closest('.ft-unit');
+      const kids = unit?.querySelector(':scope > .ft-kids');
+      if (!kids) return;
+      const open = kids.hasAttribute('hidden');
+      if (open) kids.removeAttribute('hidden');
+      else kids.setAttribute('hidden', '');
+      b.setAttribute('aria-expanded', String(open));
+      b.textContent = open ? '▾' : '▸';
+    };
+  });
+  const exp = root.querySelector('#ftExpand');
+  const col = root.querySelector('#ftCollapse');
+  if (exp) exp.onclick = () => {
+    root.querySelectorAll('.ft-unit.has-kids > .ft-kids').forEach((k) => k.removeAttribute('hidden'));
+    root.querySelectorAll('.ft-tog').forEach((b) => { b.setAttribute('aria-expanded', 'true'); b.textContent = '▾'; });
+  };
+  if (col) col.onclick = () => {
+    root.querySelectorAll('.ft-unit.has-kids').forEach((unit) => {
+      const depth = (() => {
+        let d = 0, p = unit.parentElement;
+        while (p) { if (p.classList?.contains('ft-unit')) d++; p = p.parentElement; }
+        return d;
+      })();
+      const kids = unit.querySelector(':scope > .ft-kids');
+      const tog = unit.querySelector(':scope > .ft-card-wrap .ft-tog');
+      if (!kids || !tog) return;
+      const open = depth < 1;
+      if (open) kids.removeAttribute('hidden');
+      else kids.setAttribute('hidden', '');
+      tog.setAttribute('aria-expanded', String(open));
+      tog.textContent = open ? '▾' : '▸';
+    });
+  };
+}
+
 export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
   let d;
   try { d = await api('recipe/' + id); } catch (e) { toast(e.message); return; }
@@ -268,18 +359,34 @@ export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
     ? `<p class="muted">First ever: ${esc(d.madeFrom[0].name)} + ${esc(d.madeFrom[1].name)}</p>` : '';
   const makes = (d.makes || []).map((m) => {
     const res = m.owned ? m.result : { name: '???', emoji: '❓', hidden: true, rarity: 'Common' };
-    const id = m.owned && m.result?.id ? m.result.id : '';
-    return `<button type="button" class="eq-make" data-id="${id}">${eqRow(el, m.with, res, ico)}</button>`;
+    const mid = m.owned && m.result?.id ? m.result.id : '';
+    return `<button type="button" class="eq-make" data-id="${mid}">${eqRow(el, m.with, res, ico)}</button>`;
   }).join('') || '<p class="muted">Nothing known yet. Try combining it!</p>';
+  const tree = d.tree;
+  const hasTree = tree && tree.root && !tree.base && (tree.root.a || tree.root.b);
+  const treeHtml = hasTree ? `
+    <div class="ft-head">
+      <h4>Family tree</h4>
+      <div class="ft-stats"><span class="ft-pill">Tree size <b>${tree.size}</b> combo${tree.size === 1 ? '' : 's'}</span>
+        <span class="ft-pill">Depth <b>${tree.depth}</b></span></div>
+      <div class="ft-tools">
+        <button type="button" class="mini-btn" id="ftExpand">Expand all</button>
+        <button type="button" class="mini-btn" id="ftCollapse">Collapse deep</button>
+      </div>
+    </div>
+    <div class="ft-stage" id="ftStage" title="Drag or scroll to look around">
+      <div class="ft-inner">${ftNode(tree.root, ico, 0)}</div>
+    </div>` : (tree?.base ? '<p class="muted">A base element — the start of every family tree.</p>' : '');
   const wrap = document.createElement('div');
   wrap.className = 'overlay';
-  wrap.innerHTML = `<div class="modal book eq-book">
+  wrap.innerHTML = `<div class="modal book eq-book${hasTree ? ' ft-open' : ''}">
     <button class="x" aria-label="Close">${svg.close}</button>
     <div class="rb-hero ${rarityClass(el)}">${artHtml(el, BASE)}</div>
     <h3>${esc(el.name)}</h3>
     <div class="rar-pill ${rarityClass(el)}">${esc(el.rarity || 'Common')}</div>
     ${el.tagline ? `<p class="muted">${esc(el.tagline)}</p>` : ''}
     <h4>How it was made</h4>${fromHtml}${firstNote}
+    ${treeHtml}
     <h4>What it combines into</h4>
     <div class="rb-makes eq-makes">${makes}</div>
   </div>`;
@@ -287,9 +394,16 @@ export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
   const close = () => wrap.remove();
   wrap.querySelector('.x').onclick = close;
   wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
-  wrap.querySelectorAll('.eq-make[data-id], .rb-make[data-id]').forEach((b) => {
-    b.onclick = () => { if (b.dataset.id) { close(); openRecipe(+b.dataset.id, { api, toast, ico, artHtml, BASE }); } };
+  wrap.querySelectorAll('.eq-make[data-id], .rb-make[data-id], .ft-card[data-open]').forEach((b) => {
+    b.onclick = () => {
+      const nid = +(b.dataset.id || b.dataset.open || 0);
+      if (nid && nid !== id) { close(); openRecipe(nid, { api, toast, ico, artHtml, BASE }); }
+    };
   });
+  if (hasTree) {
+    bindFtToggles(wrap);
+    bindFtPan(wrap.querySelector('#ftStage'));
+  }
 }
 
 export async function pageAchievements({ api, state, view, toast }) {
