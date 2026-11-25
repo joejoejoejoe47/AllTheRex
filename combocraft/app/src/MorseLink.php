@@ -16,7 +16,7 @@ use Throwable;
 final class MorseLink
 {
     public const COOKIE = 'morse_session';
-    public const COINS_FIRST = 10;
+    public const COINS_FIRST = 3;
 
     /** @param array<string,mixed> $player @return array<string,mixed> */
     public static function status(array $player): array
@@ -55,7 +55,12 @@ final class MorseLink
             'morse_name' => $session['name'] ?? 'Morse player',
             'linked_at' => Db::now(),
         ]);
-        return self::status($player);
+        $paid = self::payPending($player);
+        $status = self::status($player);
+        if ($paid > 0) {
+            $status['justGranted'] = $paid;
+        }
+        return $status;
     }
 
     /**
@@ -69,31 +74,70 @@ final class MorseLink
         if (!$first) {
             return self::status($player);
         }
-        $link = Db::one('SELECT * FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
-        if ($link === null) {
+        $eid = (int) ($result['id'] ?? 0);
+        if ($eid <= 0 || Firsts::isLegacy($eid) || Firsts::alreadyPaid($eid)) {
             return self::status($player);
         }
-        $eid = (int) $result['id'];
-        $had = Db::value('SELECT 1 FROM cc_coin_grants WHERE morse_user_id = ? AND element_id = ?', [$link['morse_user_id'], $eid]);
+        $morse = self::resolveAccount($player);
+        if ($morse === null) {
+            return self::status($player);
+        }
+        $granted = self::grantFirstCoins($player, $morse, $eid);
+        $status = self::status($player);
+        if ($granted > 0) {
+            $status['justGranted'] = $granted;
+        }
+        return $status;
+    }
+
+    /**
+     * Pay any unpaid non-legacy firsts now that a Morse account is known.
+     * Never pays grandfathered rows.
+     * @param array<string,mixed> $player
+     */
+    public static function payPending(array $player): int
+    {
+        $morse = self::resolveAccount($player);
+        if ($morse === null) {
+            return 0;
+        }
+        $total = 0;
+        foreach (Firsts::unpaidFor($player) as $eid) {
+            $total += self::grantFirstCoins($player, $morse, $eid);
+        }
+        return $total;
+    }
+
+    /**
+     * @param array<string,mixed> $player
+     * @param array{morse_user_id:string,morse_name:string} $morse
+     */
+    private static function grantFirstCoins(array $player, array $morse, int $eid): int
+    {
+        if ($eid <= 0 || Firsts::isLegacy($eid) || Firsts::alreadyPaid($eid)) {
+            return 0;
+        }
+        $uid = (string) $morse['morse_user_id'];
+        $had = Db::value('SELECT 1 FROM cc_coin_grants WHERE morse_user_id = ? AND element_id = ?', [$uid, $eid]);
         if ($had !== null) {
-            return self::status($player) + ['justGranted' => 0];
+            Firsts::markPaid($eid);
+            return 0;
         }
         try {
-            $n = Db::run('UPDATE profiles SET coins = coins + ? WHERE user_id = ?', [self::COINS_FIRST, $link['morse_user_id']]);
+            $n = Db::run('UPDATE profiles SET coins = coins + ? WHERE user_id = ?', [self::COINS_FIRST, $uid]);
             if ($n < 1) {
-                error_log('[combocraft morse] profiles row missing for ' . $link['morse_user_id']);
-                return self::status($player);
+                error_log('[combocraft morse] profiles row missing for ' . $uid);
+                return 0;
             }
             Game::insertPublic('cc_coin_grants', [
-                'player_id' => $player['id'], 'morse_user_id' => $link['morse_user_id'],
+                'player_id' => $player['id'], 'morse_user_id' => $uid,
                 'element_id' => $eid, 'amount' => self::COINS_FIRST, 'created_at' => Db::now(),
             ]);
-            $status = self::status($player);
-            $status['justGranted'] = self::COINS_FIRST;
-            return $status;
+            Firsts::markPaid($eid);
+            return self::COINS_FIRST;
         } catch (Throwable $e) {
             error_log('[combocraft morse credit] ' . $e->getMessage());
-            return self::status($player);
+            return 0;
         }
     }
 

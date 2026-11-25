@@ -125,11 +125,14 @@ final class Game
             }
             $v['discoveredBy'] = null;
             $v['discoveredAt'] = null;
-            if (!empty($e['discovered_by'])) {
-                $p = Db::one('SELECT nickname, avatar FROM cc_players WHERE id = ?', [$e['discovered_by']]);
+            $owner = Firsts::ownerId((int) $e['id']) ?: ($e['discovered_by'] ?? null);
+            if (!empty($owner)) {
+                $p = Db::one('SELECT nickname, avatar FROM cc_players WHERE id = ?', [$owner]);
                 $v['discoveredBy'] = $p ? ($p['nickname'] ?: 'Anonymous crafter') : null;
+                $v['discoveredById'] = $owner;
                 $v['discoveredByAvatar'] = $p['avatar'] ?? null;
                 $v['discoveredAt'] = $e['discovered_at'] ? Db::toMs($e['discovered_at']) : null;
+                $v['worldFirst'] = true;
             }
         }
         return $v;
@@ -167,9 +170,11 @@ final class Game
         foreach ($rows as $r) {
             $out[] = self::view($r) + ['mineFirst' => false];
         }
+        $owners = Firsts::owners(array_map(static fn ($r) => (int) $r['id'], $mine));
         foreach ($mine as $r) {
+            $oid = $owners[(int) $r['id']] ?? ($r['discovered_by'] ?? null);
             $out[] = self::view($r) + [
-                'mineFirst' => ($r['discovered_by'] ?? null) === $player['id'],
+                'mineFirst' => $oid === $player['id'],
                 'via' => $r['via_a'] ? [(int) $r['via_a'], (int) $r['via_b']] : null,
                 'gotAt' => Db::toMs($r['got_at']),
             ];
@@ -320,9 +325,6 @@ final class Game
                     $resultId = (int) $r['result_id'];
                     $first = false;
                 }
-                if ($first) {
-                    Db::run('UPDATE cc_players SET firsts = firsts + 1 WHERE id = ?', [$player['id']]);
-                }
             });
         } catch (HttpError $e) {
             throw $e;
@@ -353,6 +355,17 @@ final class Game
                 $newForYou = true;
             }
         }
+        // Global first: only the winning INSERT IGNORE counts. Grandfathered
+        // existing firsts never receive coins.
+        $first = Firsts::claim($resultId, $player);
+        if ($first) {
+            Db::run(
+                'UPDATE cc_elements SET discovered_by = COALESCE(discovered_by, ?), discovered_at = COALESCE(discovered_at, ?) WHERE id = ?',
+                [$player['id'], Db::now(), $resultId]
+            );
+            Db::run('UPDATE cc_players SET firsts = firsts + 1 WHERE id = ?', [$player['id']]);
+            $el = self::element($resultId) ?? $el;
+        }
         Db::run('UPDATE cc_elements SET uses = uses + 1 WHERE id = ?', [$resultId]);
         $el['uses'] = (int) $el['uses'] + 1;
         $a = self::element($x);
@@ -360,7 +373,7 @@ final class Game
         Player::reset();
         $me = Player::current();
         $out = [
-            'result' => self::view($el, true) + ['mineFirst' => ($el['discovered_by'] ?? null) === $player['id']],
+            'result' => self::view($el, true) + ['mineFirst' => $first || (Firsts::ownerId($resultId) === $player['id'])],
             'inputs' => [$a ? self::mini($a) : null, $b ? self::mini($b) : null],
             'first' => $first,
             'newForYou' => $newForYou,

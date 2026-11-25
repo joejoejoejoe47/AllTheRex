@@ -454,3 +454,13 @@ CREATE TABLE IF NOT EXISTS cc_bg_files (
   created_at DATETIME NOT NULL,
   KEY cc_bg_files_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_first_discoveries (
+  element_id INT NOT NULL PRIMARY KEY,
+  player_id VARCHAR(24) NOT NULL,
+  discovered_at DATETIME NOT NULL,
+  coin_granted TINYINT NOT NULL DEFAULT 0,
+  legacy TINYINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL,
+  KEY cc_firsts_player (player_id, legacy, coin_granted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

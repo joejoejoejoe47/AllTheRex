@@ -421,3 +421,13 @@ CREATE TABLE IF NOT EXISTS cc_bg_files (
   created_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cc_bg_files_name ON cc_bg_files (name);
+
+CREATE TABLE IF NOT EXISTS cc_first_discoveries (
+  element_id INTEGER PRIMARY KEY,
+  player_id VARCHAR(24) NOT NULL,
+  discovered_at DATETIME NOT NULL,
+  coin_granted TINYINT NOT NULL DEFAULT 0,
+  legacy TINYINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_firsts_player ON cc_first_discoveries (player_id, legacy, coin_granted);
