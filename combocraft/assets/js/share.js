@@ -1,5 +1,5 @@
 // Instagram-story style share card (mockup 04): DOM preview + 1080x1920 PNG.
-import { esc, iconUrl, artHtml, svg } from './fx.js?v=37';
+import { esc, iconUrl, artHtml, svg } from './fx.js?v=38';
 
 export function storyHtml(el, { base, first, small = false } = {}) {
   const [a, b] = el.recipe || [null, null];
@@ -16,7 +16,6 @@ export function storyHtml(el, { base, first, small = false } = {}) {
     ${a ? `<div class="a">${esc(a.name)}</div><div class="plusop">+</div><div class="b">${esc(b.name)}</div><div class="eq2">=</div>` : '<div class="a" style="margin-top:90px">&nbsp;</div>'}
     <div class="res${el.name.length > 34 ? ' long' : ''}">${resHtml}</div>
     <div class="pic">${artHtml(el.art === 'boyfriend' ? { ...el, art: 'bfguy' } : el, base)}</div>
-    <button class="shareb" data-act="share">${svg.share}Share</button>
     <div class="foot"><img src="${base}assets/logo/logo.png" alt="ComboCraft"></div>
   </div>`;
 }

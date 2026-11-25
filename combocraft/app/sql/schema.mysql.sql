@@ -474,3 +474,33 @@ CREATE TABLE IF NOT EXISTS cc_tree_best (
   updated_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS cc_discovery_posts (
+  element_id INT NOT NULL PRIMARY KEY,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY cc_discovery_posts_player (player_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_discovery_likes (
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (element_id, player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_discovery_comments (
+  id INT NOT NULL AUTO_INCREMENT,
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  body VARCHAR(240) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  KEY cc_discovery_comments_el (element_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_discovery_views (
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (element_id, player_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

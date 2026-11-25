@@ -1,9 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=37';
-import { storyHtml, storyPng } from './share.js?v=37';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=37';
-import { initBg, syncPrefs } from './bg.js?v=37';
-import { initAds, renderAdRail } from './ads.js?v=37';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=38';
+import { storyHtml, storyPng } from './share.js?v=38';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=38';
+import { initBg, syncPrefs } from './bg.js?v=38';
+import { initAds, renderAdRail } from './ads.js?v=38';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -732,25 +732,90 @@ async function shareNative(el, first) {
   try { await navigator.clipboard.writeText(text + ' ' + url); toast('Copied! Paste it anywhere.'); }
   catch { prompt('Copy this:', text + ' ' + url); }
 }
-function openShare(el, first) {
-  const m = modal(`<div class="share-wrap">${storyHtml(el, { base: BASE, first })}
-    <div class="share-actions">
-      <button class="mini-btn" data-s="copy">${svg.link.replace('<svg', '<svg width="15" height="15"')} Copy link</button>
-      <button class="mini-btn" data-s="dl">${svg.download.replace('<svg', '<svg width="15" height="15"')} Download PNG</button>
-      <button class="mini-btn" data-s="chat">💬 Post to chat</button>
-    </div></div>`, { wide: true });
+async function openShare(el, first) {
+  const m = modal(`<div class="share-wrap share-lg">
+    <div class="share-art">${storyHtml(el, { base: BASE, first })}</div>
+    <div class="share-social">
+      <h3>${esc(el.name)}</h3>
+      ${el.tagline ? `<p class="muted">${esc(el.tagline)}</p>` : ''}
+      <div class="share-stats">
+        <span data-k="views">👁 0 views</span>
+        <span data-k="likes">❤️ 0 likes</span>
+        <span data-k="comments">💬 0 comments</span>
+      </div>
+      <div class="share-actions">
+        <button class="mini-btn" data-s="like">❤️ Like</button>
+        <button class="btn" data-s="post">Post to Discoveries</button>
+        <button class="mini-btn" data-s="copy">${svg.link.replace('<svg', '<svg width="15" height="15"')} Copy link</button>
+        <button class="mini-btn" data-s="dl">${svg.download.replace('<svg', '<svg width="15" height="15"')} Download PNG</button>
+        <button class="mini-btn" data-s="chat">💬 Post to chat</button>
+        <button class="mini-btn" data-s="native">${svg.share.replace('<svg', '<svg width="15" height="15"')} Share</button>
+      </div>
+      <div class="share-clist" id="shareClist"><div class="muted">Loading comments…</div></div>
+      <form class="share-cform"><input maxlength="240" placeholder="Write a comment…" autocomplete="off"><button class="mini-btn" type="submit">Send</button></form>
+    </div>
+  </div>`, { wide: true });
   m.box.style.width = 'auto';
   m.box.style.background = 'transparent';
   m.box.style.boxShadow = 'none';
   m.box.style.border = '0';
-  m.box.addEventListener('click', (e) => {
-    const s = e.target.closest('[data-s], [data-act="share"]');
+  const social = $('.share-social', m.box);
+  const paint = (d) => {
+    if (!d) return;
+    const n = (k, label) => `${({ views: '👁', likes: '❤️', comments: '💬' })[k]} ${d[k] ?? 0} ${label}`;
+    const views = social.querySelector('[data-k="views"]');
+    const likes = social.querySelector('[data-k="likes"]');
+    const comments = social.querySelector('[data-k="comments"]');
+    if (views) views.textContent = n('views', 'views');
+    if (likes) likes.textContent = n('likes', 'likes');
+    if (comments) comments.textContent = n('comments', 'comments');
+    const likeBtn = social.querySelector('[data-s="like"]');
+    if (likeBtn) likeBtn.textContent = d.liked ? '❤️ Liked' : '🤍 Like';
+    const postBtn = social.querySelector('[data-s="post"]');
+    if (postBtn) {
+      postBtn.disabled = !!d.posted || d.canPost === false;
+      postBtn.textContent = d.posted ? 'Posted to Discoveries' : 'Post to Discoveries';
+    }
+    const list = social.querySelector('#shareClist');
+    if (list) {
+      const rows = d.commentList || [];
+      list.innerHTML = rows.length
+        ? rows.map((c) => `<div class="share-c"><b>${esc(c.nickname)}</b> ${esc(c.body)}</div>`).join('')
+        : '<div class="muted">No comments yet. Be the first!</div>';
+    }
+  };
+  try { paint(await api('discovery/' + el.id)); } catch (e) {
+    const list = social.querySelector('#shareClist');
+    if (list) list.innerHTML = `<div class="muted">${esc(e.message)}</div>`;
+  }
+  m.box.addEventListener('click', async (e) => {
+    const s = e.target.closest('[data-s]');
     if (!s) return;
-    if (s.dataset.act === 'share') shareNative(el, first);
-    if (s.dataset.s === 'copy') copyLink(el);
-    if (s.dataset.s === 'dl') downloadPng(el, first);
-    if (s.dataset.s === 'chat') { m.close(); shareToChat(el); }
+    if (s.dataset.s === 'native') return shareNative(el, first);
+    if (s.dataset.s === 'copy') return copyLink(el);
+    if (s.dataset.s === 'dl') return downloadPng(el, first);
+    if (s.dataset.s === 'chat') { m.close(); return shareToChat(el); }
+    if (s.dataset.s === 'like') {
+      try { await ensureMe(); paint(await api('discovery/' + el.id + '/like', {})); }
+      catch (er) { toast(er.message); }
+    }
+    if (s.dataset.s === 'post') {
+      try { await ensureMe(); paint(await api('discovery/' + el.id + '/post', {})); toast('Posted to Discoveries!'); }
+      catch (er) { toast(er.message); }
+    }
   });
+  const form = $('form.share-cform', m.box);
+  if (form) form.onsubmit = async (ev) => {
+    ev.preventDefault();
+    const inp = $('input', form);
+    const body = (inp.value || '').trim();
+    if (!body) return;
+    if (!state.me?.nickname && !(await askNickname('Pick a nickname to comment.'))) return;
+    try {
+      paint(await api('discovery/' + el.id + '/comment', { body }));
+      inp.value = '';
+    } catch (er) { toast(er.message); }
+  };
 }
 
 // ---------------- Modals & menus ----------------
@@ -941,7 +1006,7 @@ async function pageGallery() {
   view.innerHTML = `<div class="wrap gal">
     <div class="gal-head"><div><h1>Discoveries</h1><p>Hilarious combos crafted by the community. Click any card to dive in.</p></div>
       <div class="gal-tools"><button class="pill-btn" id="submitCombo">${svg.sparkle} Submit a Combo</button>
-      <div class="select"><select id="sortSel" aria-label="Sort"><option value="latest">Latest</option><option value="popular">Most combined</option><option value="featured">Featured</option></select></div></div></div>
+      <div class="select"><select id="sortSel" aria-label="Sort"><option value="latest">Latest</option><option value="posted">Posted</option><option value="loved">Most liked</option><option value="popular">Most combined</option><option value="featured">Featured</option></select></div></div></div>
     <div class="gal-grid" id="galGrid"><div class="gal-more">Loading…</div></div>
   </div>`;
   $('#sortSel').value = sort;
@@ -957,7 +1022,8 @@ async function pageGallery() {
       return `<div class="gcard g${g}" data-i="${i}" role="button" tabindex="0">
         <span class="lab">${esc(it.label || 'COMMUNITY')}</span>
         <div class="gart">${artHtml(it, BASE)}</div>
-        <div class="gt"><div class="t">${t}</div><div class="s">${esc(it.tagline || '')}${it.discoveredBy ? ` · by ${esc(it.discoveredBy)}` : it.label ? ' · Not discovered yet!' : ''}</div></div>
+        <div class="gt"><div class="t">${t}</div><div class="s">${esc(it.tagline || '')}${it.discoveredBy ? ` · by ${esc(it.discoveredBy)}` : it.label ? ' · Not discovered yet!' : ''}</div>
+          <div class="gstats"><span>👁 ${it.views || 0}</span><span>❤️ ${it.likes || 0}</span><span>💬 ${it.comments || 0}</span></div></div>
         <button class="gs" data-share="${i}" aria-label="Share">${shareIcon}</button>
       </div>`;
     }).join('') || '<div class="gal-more">No discoveries yet. Be the first!</div>';
@@ -1147,7 +1213,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=37').then((m) => {
+import('./clash.js?v=38').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1174,7 +1240,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=37');
+    const m = window.__ccClashMod || await import('./clash.js?v=38');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

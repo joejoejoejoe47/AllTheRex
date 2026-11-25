@@ -441,3 +441,32 @@ CREATE TABLE IF NOT EXISTS cc_tree_best (
   updated_at DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cc_discovery_posts (
+  element_id INT NOT NULL PRIMARY KEY,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_discovery_posts_player ON cc_discovery_posts (player_id, created_at);
+
+CREATE TABLE IF NOT EXISTS cc_discovery_likes (
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (element_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS cc_discovery_comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  body VARCHAR(240) NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_discovery_comments_el ON cc_discovery_comments (element_id, id);
+
+CREATE TABLE IF NOT EXISTS cc_discovery_views (
+  element_id INT NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (element_id, player_id)
+);

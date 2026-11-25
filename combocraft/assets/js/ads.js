@@ -2,7 +2,7 @@
 // Add more entries to HOUSE_ADS. A real network tag can be dropped into
 // the [data-ad-slot] placeholder in the right-hand panel.
 
-import { esc } from './fx.js?v=37';
+import { esc } from './fx.js?v=38';
 
 /** @typedef {{ id:string, title:string, kicker?:string, blurb:string, cta:string, href:string, external?:boolean, youtube?:string, start?:number, image?:string }} Ad */
 
