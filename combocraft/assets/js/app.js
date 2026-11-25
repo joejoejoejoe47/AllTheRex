@@ -1,8 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=28';
-import { storyHtml, storyPng } from './share.js?v=28';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=28';
-import { initBg, syncPrefs } from './bg.js?v=28';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=29';
+import { storyHtml, storyPng } from './share.js?v=29';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=29';
+import { initBg, syncPrefs } from './bg.js?v=29';
+import { initAds, renderAdRail } from './ads.js?v=29';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -228,6 +229,7 @@ async function pagePlay() {
           <div class="recent-row" id="recentRow"></div>
         </section>
       </div>
+      <aside class="play-ads" id="playAds" aria-label="Sponsored"></aside>
     </div>
   </div>
   <div class="sheet" id="sheet"></div>`;
@@ -235,6 +237,7 @@ async function pagePlay() {
   renderSlots();
   renderRecent();
   bindPlayChrome({ api, toast, state, go, openRecipe });
+  renderAdRail(document.getElementById('playAds'));
   window.__ccClashMod?.mountPlayActivity?.();
   if (state.lastResult && state.slots[0] && state.slots[1]) showResult(state.lastResult, false);
 
@@ -1112,9 +1115,10 @@ function openRecipePicker() {
 
 // ---------------- Boot ----------------
 loadFluent(BASE).then(() => render());
+initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=28').then((m) => {
+import('./clash.js?v=29').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1141,7 +1145,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=28');
+    const m = window.__ccClashMod || await import('./clash.js?v=29');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

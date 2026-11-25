@@ -160,5 +160,7 @@ $meta = '<title>' . htmlspecialchars($og['title'], ENT_QUOTES) . '</title>'
 $html = str_replace('<!--CC_META-->', $meta, $html);
 
 header('Content-Type: text/html; charset=utf-8');
-header('Cache-Control: no-cache');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 echo $html;
