@@ -192,7 +192,6 @@ async function pagePlay() {
         <div class="slot" data-slot="0"></div>
         <div class="plus" id="plus">+</div>
         <div class="slot" data-slot="1"></div>
-        <svg class="link-svg" id="linkSvg"></svg>
       </div>
       <div class="result-zone" id="resultZone"></div>
     </section>
@@ -232,10 +231,8 @@ async function pagePlay() {
     const act = e.target.closest('[data-act]');
     if (act) return resultAction(act.dataset.act);
   });
-  const ro = () => drawLink(false);
-  addEventListener('resize', ro);
   const offDrag = setupDrag();
-  cleanup = () => { removeEventListener('resize', ro); offDrag(); };
+  cleanup = () => { offDrag(); };
 }
 
 function visibleElements() {
@@ -315,63 +312,13 @@ function clearResult() {
   const z = $('#resultZone');
   if (z) z.innerHTML = '';
   $('#sheet')?.classList.remove('on');
-  drawLink(false);
   $$('.slot').forEach((s) => s.classList.remove('glow'));
-}
-
-// Glowing connection line between the two slots (03 / 08).
-function drawLink(active) {
-  const g = $('#linkSvg');
-  if (!g) return;
-  if (!active && !(state.slots[0] && state.slots[1] && state.lastResult)) { g.innerHTML = ''; return; }
-  const box = $('#slots').getBoundingClientRect();
-  const a = $('.slot[data-slot="0"]').getBoundingClientRect();
-  const b = $('.slot[data-slot="1"]').getBoundingClientRect();
-  const x1 = a.right - box.left - 10, y1 = a.top - box.top + a.height * 0.62;
-  const x2 = b.left - box.left + 6, y2 = b.top - box.top + a.height * 0.3;
-  const mx = (x1 + x2) / 2, my = Math.max(y1, y2) + 34;
-  const d = `M${x1},${y1} Q${mx},${my} ${x2},${y2}`;
-  g.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
-  g.innerHTML = `
-    <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#c9a7ff" stop-opacity="0"/><stop offset=".55" stop-color="#a26bf2"/><stop offset="1" stop-color="#f2e9ff"/></linearGradient>
-    <filter id="gl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs>
-    <path d="${d}" stroke="#b27cff" stroke-width="12" opacity=".45" filter="url(#gl)" id="lp1"/>
-    <path d="${d}" stroke="url(#lg)" stroke-width="4" id="lp2"/>
-    <g class="spark" id="spk"><circle r="5" fill="#fff"/><path d="M0,-14 L2.5,-2.5 14,0 2.5,2.5 0,14 -2.5,2.5 -14,0 -2.5,-2.5z" fill="#fff"/></g>`;
-  const p2 = $('#lp2', g), p1 = $('#lp1', g), spk = $('#spk', g);
-  const L = p2.getTotalLength();
-  const place = (t) => { const pt = p2.getPointAtLength(L * t); spk.setAttribute('transform', `translate(${pt.x},${pt.y})`); };
-  if (active) {
-    [p1, p2].forEach((p) => { p.style.strokeDasharray = L; p.style.strokeDashoffset = L; });
-    const t0 = performance.now();
-    const step = (now) => {
-      const t = Math.min(1, (now - t0) / 600);
-      const e = 1 - Math.pow(1 - t, 3);
-      [p1, p2].forEach((p) => { p.style.strokeDashoffset = L * (1 - e); });
-      place(e);
-      if (t < 1 && g.isConnected) requestAnimationFrame(step);
-      else if (g.isConnected) pulse();
-    };
-    requestAnimationFrame(step);
-  } else place(1);
-  function pulse() {
-    if (!state.busy || !g.isConnected) return;
-    const t0 = performance.now();
-    const loop = (now) => {
-      if (!state.busy || !g.isConnected) { place(1); return; }
-      const t = ((now - t0) / 900) % 1;
-      place(t);
-      requestAnimationFrame(loop);
-    };
-    requestAnimationFrame(loop);
-  }
 }
 
 async function combineNow() {
   const [a, b] = state.slots;
   state.busy = true;
   $$('.slot').forEach((s) => s.classList.add('glow'));
-  drawLink(true);
   sfx('whoosh');
   const z = $('#resultZone');
   z.innerHTML = '<div class="thinking">Combining <span class="dots"><i></i><i></i><i></i></span></div>';
@@ -390,7 +337,6 @@ async function combineNow() {
     sfx('error');
     z.innerHTML = '';
     $$('.slot').forEach((s) => s.classList.remove('glow'));
-    drawLink(false);
     if (e.data && e.data.limit) return openLimit(e.message);
     toast(e.message);
     state.slots[1] = null;
@@ -461,7 +407,6 @@ function showResult(lr, animate) {
       <button class="mini-btn" data-act="share">${svg.upload.replace('<svg', '<svg width="15" height="15"')} Share card</button>
       <button class="mini-btn" data-act="chat">💬 Post to chat</button>
     </div>`;
-  drawLink(false);
   // Phones: slide-up sheet (05)
   const sh = $('#sheet');
   if (sh) {
