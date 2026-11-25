@@ -80,6 +80,8 @@ final class Api
                 '/api/chat' => Http::method() === 'POST' ? self::mutating(fn () => self::chatPost()) : self::chatList(),
                 '/api/chat/react' => self::mutating(fn () => Http::json(Chat::react((int) (Http::jsonBody()['id'] ?? 0), (string) (Http::jsonBody()['emoji'] ?? '')))),
                 '/api/daily' => self::dailyRoute(),
+                '/api/prefs' => Http::method() === 'POST' ? self::mutating(fn () => Http::json(['ok' => true] + Prefs::set(Player::require(), (string) (Http::jsonBody()['bg'] ?? ''), !empty(Http::jsonBody()['reset'])))) : self::prefsGet(),
+                '/api/prefs/bg' => self::mutating(fn () => Http::json(['ok' => true] + Prefs::upload(Player::require()))),
                 '/api/hint' => self::mutating(fn () => Http::json(['ok' => true] + Hint::give(Player::require()))),
                 '/api/achievements' => self::goalsRoute(),
                 '/api/speedrun' => self::speedrunGet(),
@@ -197,7 +199,14 @@ final class Api
             'badges' => Goals::all($p),
             'referral' => Referral::for($p),
             'morse' => MorseLink::status($p),
+            'prefs' => Prefs::get($p),
         ]);
+    }
+
+    private static function prefsGet(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + Prefs::get(Player::require()));
     }
 
     /** @param array<string,mixed> $p @return list<array<string,mixed>> */

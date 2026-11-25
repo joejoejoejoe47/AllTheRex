@@ -45,6 +45,10 @@ if ($path === '/api' || str_starts_with($path, '/api/')) {
     \ComboCraft\Api::handle($path);
 }
 
+if (preg_match('#^/bg/u/([a-f0-9]{32}\.(webp|jpg))$#', $path, $m)) {
+    \ComboCraft\Prefs::serve($m[1]);
+}
+
 if (str_starts_with($path, '/og/')) {
     try {
         if (\ComboCraft\Config::dbConfigured()) {

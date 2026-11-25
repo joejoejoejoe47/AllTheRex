@@ -1,7 +1,8 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=24';
-import { storyHtml, storyPng } from './share.js?v=24';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=24';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=25';
+import { storyHtml, storyPng } from './share.js?v=25';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=25';
+import { initBg, syncPrefs } from './bg.js?v=25';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -90,6 +91,7 @@ async function loadMeNow() {
   state.byId = new Map(d.elements.map((e) => [e.id, e]));
   state.recent = d.recent;
   applyMe(state, d);
+  if (d.prefs) syncPrefs(d.prefs);
 }
 
 // ---------------- Router ----------------
@@ -1124,7 +1126,7 @@ function openRecipePicker() {
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=24').then((m) => {
+import('./clash.js?v=25').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1151,7 +1153,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=24');
+    const m = window.__ccClashMod || await import('./clash.js?v=25');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
@@ -1161,3 +1163,5 @@ async function pageClash() {
 }
 
 window.__cc = { state, go };
+
+initBg({ api, toast, state, BASE });
