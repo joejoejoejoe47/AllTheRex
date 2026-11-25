@@ -449,3 +449,20 @@ tr.side-b { background: linear-gradient(90deg, rgba(230,120,40,.10), transparent
 .daily-bar.daily-pop { animation: daily-pop .7s cubic-bezier(.2,1.4,.3,1) both; }
 [data-theme="dark"] .daily-bar.rl-daily { background: linear-gradient(180deg, rgba(16,28,52,.88), rgba(10,18,36,.86)); border-color: #2a4a7a; }
 [data-theme="dark"] .daily-bar.rl-daily .db-target { color: #eef6ff; }
+
+.modal.bg-picker { width: min(760px, 94vw); }
+.bg-picker h3 { font-family: "Russo One", sans-serif; margin: 0 0 6px; font-style: italic; }
+.bg-lead { margin: 0; color: var(--rl-muted, #4a6080); font-weight: 600; }
+.bg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+.bg-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 0 0 10px;
+  border: 2px solid rgba(16,32,56,.12); border-radius: 14px; overflow: hidden;
+  background: rgba(16,32,56,.08); color: inherit; cursor: pointer; text-align: center;
+  font-weight: 800; font-size: 13px;
+}
+.bg-card img { width: 100%; height: 92px; object-fit: cover; display: block; background: #cfe8ff; }
+.bg-card.on { border-color: #f4c542; box-shadow: 0 0 0 3px rgba(244,197,66,.35); }
+.bg-card.bg-upload { justify-content: center; min-height: 132px; border-style: dashed; }
+.bg-upload-ico { display: grid; place-items: center; height: 92px; font-size: 28px; background: rgba(255,255,255,.35); }
+.bg-acts { display: flex; justify-content: flex-end; margin-top: 14px; }
+[data-theme="dark"] .bg-card { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); color: #eef6ff; }

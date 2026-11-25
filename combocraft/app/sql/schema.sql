@@ -383,3 +383,10 @@ CREATE TABLE IF NOT EXISTS cc_clash_rtc_signals (
   created_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cc_clash_rtc_inbox ON cc_clash_rtc_signals (room, to_peer, id);
+
+CREATE TABLE IF NOT EXISTS cc_prefs (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  bg VARCHAR(32) NOT NULL DEFAULT 'stadium',
+  file VARCHAR(48) NULL,
+  updated_at DATETIME NOT NULL
+);

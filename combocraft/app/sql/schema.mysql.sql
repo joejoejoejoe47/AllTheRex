@@ -416,3 +416,10 @@ CREATE TABLE IF NOT EXISTS cc_daily_chain (
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (player_id, day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_prefs (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  bg VARCHAR(32) NOT NULL DEFAULT 'stadium',
+  file VARCHAR(48) NULL,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1112,6 +1112,22 @@ body::before {
   background-color: #0b1230;
   background-image: url("../art/arena-bg-dark.webp");
 }
+
+html[data-bg="beach"] body::before { background-color: #7ec8f0; background-image: url("../art/bg-beach.webp"); }
+html[data-bg="candy"] body::before { background-color: #ff9ecb; background-image: url("../art/bg-candy.webp"); }
+html[data-bg="space"] body::before { background-color: #1a0a3c; background-image: url("../art/bg-space.webp"); }
+html[data-bg="jungle"] body::before { background-color: #1e6b3a; background-image: url("../art/bg-jungle.webp"); }
+html[data-bg="snow"] body::before { background-color: #c5e8ff; background-image: url("../art/bg-snow.webp"); }
+html[data-bg="coral"] body::before { background-color: #0a6b8a; background-image: url("../art/bg-coral.webp"); }
+html[data-bg="stadium"] body::before { background-image: url("../art/arena-bg.webp"); }
+html[data-bg="stadium"][data-theme="dark"] body::before { background-image: url("../art/arena-bg-dark.webp"); }
+html[data-bg="custom"] body::before {
+  background-color: #8ecfff;
+  background-image: var(--cc-bg-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
 .topbar {
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: saturate(1.4) blur(14px);
