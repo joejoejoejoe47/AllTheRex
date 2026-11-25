@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=20';
-import { storyHtml, storyPng } from './share.js?v=20';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=20';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=21';
+import { storyHtml, storyPng } from './share.js?v=21';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, pageSpeedrun, rarityClass, shareDaily, copyInvite, dailyWin, showBadges } from './features.js?v=21';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -181,7 +181,6 @@ function elCard(el, extra = '') {
   const rar = ' ' + rarityClass(el);
   return `<button class="el${long}${isNew}${extra}${rar}" data-id="${el.id}" style="--c:${colorOf(el)}" title="${esc(el.name)}${el.tagline ? ' — ' + esc(el.tagline) : ''}${el.rarity ? ' · ' + el.rarity : ''}">
     ${el.mineFirst ? '<span class="star" title="Your First Discovery">⭐</span>' : ''}
-    <span class="info" data-recipe="${el.id}" title="Recipe book" role="button" aria-label="Recipe">i</span>
     <span class="i">${ico(el.emoji)}</span><span class="n">${esc(el.name)}</span></button>`;
 }
 
@@ -206,6 +205,7 @@ async function pagePlay() {
         ${playChrome(state)}
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
+          <button class="mini-btn" id="btnRecipe" title="Long-press or right-click a card">Recipe Book</button>
           <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
         <div class="strip-wrap">
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
@@ -244,6 +244,8 @@ async function pagePlay() {
   $('#arrR').onclick = () => strip.scrollBy({ left: strip.clientWidth * 0.8 });
   $('#elSearch').oninput = (e) => { state.filter = e.target.value; renderStrip(); };
   $('#toggleAll').onclick = () => { state.showAll = !state.showAll; strip.classList.toggle('all', state.showAll); $('#toggleAll').textContent = state.showAll ? 'Show less' : 'Show all'; };
+  const btnRecipe = $('#btnRecipe');
+  if (btnRecipe) btnRecipe.onclick = () => openRecipePicker();
   $('#viewAll').onclick = (e) => { e.preventDefault(); openCollection(); };
   $('#slots').addEventListener('click', (e) => {
     const s = e.target.closest('.slot.full');
@@ -502,27 +504,28 @@ function setupDrag() {
     if (t && t.classList.contains('slot')) t.classList.add('hot');
   }
   function onDown(e) {
-    const rec = e.target.closest('[data-recipe]');
-    if (rec) {
-      e.preventDefault();
-      e.stopPropagation();
-      openRecipe(+rec.dataset.recipe, { api, toast, ico, artHtml, BASE });
-      return;
-    }
-    const card = e.target.closest('#strip .el, .coll-grid .el');
+    const card = e.target.closest('#strip .el, .coll-grid .el, .recent-row .el');
     if (!card || e.button > 0) return;
     src = card;
     srcEl = state.byId.get(+card.dataset.id);
-    start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+    start = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId, elId: +card.dataset.id };
     dragging = false;
-    if (isTouch(e)) hold = setTimeout(() => { if (start) begin({ clientX: start.x, clientY: start.y, pointerType: 'touch' }); }, 260);
+    hold = setTimeout(() => {
+      if (!start || dragging) return;
+      const id = start.elId;
+      start = null;
+      if (navigator.vibrate) navigator.vibrate(18);
+      if (id) openRecipe(id, { api, toast, ico, artHtml, BASE });
+    }, 520);
   }
   function onMove(e) {
     if (!start || e.pointerId !== start.id) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;
     if (!dragging) {
       if (Math.hypot(dx, dy) > 8) {
-        if (isTouch(e)) { clearTimeout(hold); start = null; return; } // it's a scroll
+        const held = performance.now() - start.t;
+        if (isTouch(e) && held < 180) { clearTimeout(hold); start = null; return; }
+        clearTimeout(hold);
         begin(e);
       }
       return;
@@ -570,15 +573,21 @@ function setupDrag() {
   document.addEventListener('pointermove', onMove);
   document.addEventListener('pointerup', onUp);
   document.addEventListener('pointercancel', onCancel);
-  document.addEventListener('contextmenu', ctxBlock);
-  function ctxBlock(e) { if (e.target.closest('#strip .el')) e.preventDefault(); }
+  document.addEventListener('contextmenu', ctxOpen);
+  function ctxOpen(e) {
+    const card = e.target.closest('#strip .el, .coll-grid .el, .recent-row .el, .sheet .el, .rb-pick .el');
+    if (!card) return;
+    e.preventDefault();
+    const id = +card.dataset.id;
+    if (id) openRecipe(id, { api, toast, ico, artHtml, BASE });
+  }
   return () => {
     document.removeEventListener('pointerdown', onDown);
     document.removeEventListener('pointermove', onMove);
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointercancel', onCancel);
     document.removeEventListener('touchmove', blockScroll);
-    document.removeEventListener('contextmenu', ctxBlock);
+    document.removeEventListener('contextmenu', ctxOpen);
   };
 }
 
@@ -1053,11 +1062,34 @@ async function pageElement(id) {
   cleanup = () => { view.onclick = null; };
 }
 
+
+function openRecipePicker() {
+  const list = (state.elements || []);
+  const wrap = document.createElement('div');
+  wrap.className = 'overlay';
+  wrap.innerHTML = `<div class="modal book rb-pick">
+    <button class="x" aria-label="Close">${svg.close}</button>
+    <h3>Recipe Book</h3>
+    <p class="muted">Pick a card to see how you made it and what it can turn into. You can also long-press or right-click any element card.</p>
+    <div class="coll-grid">${list.map((e) => elCard(e)).join('') || '<p class="muted">Nothing to look up yet.</p>'}</div>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close = () => wrap.remove();
+  wrap.querySelector('.x').onclick = close;
+  wrap.addEventListener('click', (e) => {
+    if (e.target === wrap) close();
+    const c = e.target.closest('.el');
+    if (!c) return;
+    close();
+    openRecipe(+c.dataset.id, { api, toast, ico, artHtml, BASE });
+  });
+}
+
 // ---------------- Boot ----------------
 loadFluent(BASE).then(() => render());
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=20').then((m) => {
+import('./clash.js?v=21').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1084,7 +1116,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=20');
+    const m = window.__ccClashMod || await import('./clash.js?v=21');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

@@ -661,7 +661,7 @@ html.shaking { animation: shake .45s ease-in-out; }
 .el.r-rare { box-shadow: 0 0 0 2px rgba(96,165,250,.55), 0 8px 16px rgba(96,165,250,.18); }
 .el.r-epic { box-shadow: 0 0 0 2px rgba(192,132,252,.65), 0 8px 18px rgba(168,85,247,.25); }
 .el.r-leg { box-shadow: 0 0 0 2px rgba(244,197,66,.8), 0 0 22px rgba(244,197,66,.45); }
-.el .info { position: absolute; top: 4px; left: 5px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: rgba(255,255,255,.8); color: #3a3544; font: 700 11px/18px Inter,sans-serif; padding: 0; z-index: 2; }
+.el .info, .el span.info, button.info, .info[data-recipe] { display: none !important; }
 .el.hint-flash { outline: 3px solid #f4c542; outline-offset: 2px; animation: popIn .5s ease; }
 .result.r-rare { box-shadow: 0 0 0 4px rgba(96,165,250,.25), 0 0 30px rgba(96,165,250,.3); }
 .result.r-epic { box-shadow: 0 0 0 4px rgba(192,132,252,.3), 0 0 36px rgba(168,85,247,.4); }
@@ -719,7 +719,7 @@ html.shaking { animation: shake .45s ease-in-out; }
 .plan .cta { height: 50px; font-size: 18px; }
 .modal .x { width: 40px; height: 40px; }
 .claim input, .claim button { height: 46px; }
-.el .info { width: 22px; height: 22px; font: 700 12px/22px Inter,sans-serif; cursor: pointer; }
+
 
 @media (max-width: 720px) {
   .nav a { padding: 10px 10px; font-size: 14px; }
@@ -1176,3 +1176,6 @@ body.hero-mode .topbar { background: transparent; }
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
+
+.modal.book.rb-pick { width: min(760px, 96vw); }
+.modal.book.rb-pick .coll-grid { margin-top: 12px; max-height: 56vh; overflow: auto; }
