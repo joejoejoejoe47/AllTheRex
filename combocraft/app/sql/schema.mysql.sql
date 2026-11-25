@@ -382,3 +382,22 @@ CREATE TABLE IF NOT EXISTS cc_clash_rtc_signals (
   created_at DATETIME NOT NULL,
   KEY cc_clash_rtc_inbox (room, to_peer, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_clash_ranks (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  mmr INT NOT NULL DEFAULT 600,
+  xp INT NOT NULL DEFAULT 0,
+  level INT NOT NULL DEFAULT 1,
+  wins INT NOT NULL DEFAULT 0,
+  losses INT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_clash_quick (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  match_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  phrase VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL,
+  KEY cc_clash_qck_match (match_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

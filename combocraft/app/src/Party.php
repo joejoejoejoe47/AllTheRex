@@ -255,6 +255,7 @@ final class Party
             return ['party' => null];
         }
         self::removeMember($party, $p['id'], false);
+        ClashRematch::cancelForPlayer($p['id']);
         return ['party' => null];
     }
 
@@ -272,6 +273,7 @@ final class Party
             throw new HttpError('They are not in this party.', 404);
         }
         self::removeMember($party, $playerId, true);
+        ClashRematch::cancelForPlayer($playerId);
         return ['party' => self::partyView(self::getParty($party['id']), $p)];
     }
 
@@ -462,9 +464,45 @@ final class Party
         if (!self::inMatch($m, $p['id'])) {
             throw new HttpError('This is not your match.', 403);
         }
-        // Leaving the match UI does not disband the party. If this was the last
-        // living teammate still playing, the team fails the current session.
+        // Leaving the match UI does not disband the party.
+        ClashRematch::cancelForPlayer($p['id']);
         return ['ok' => true, 'party' => self::currentParty($p) ? self::partyView(self::currentParty($p), $p) : null];
+    }
+
+
+    /** @param array<string,mixed> $p @return array<string,mixed> */
+    public static function rematchVote(array $p, string $matchId): array
+    {
+        $m = self::getMatch($matchId);
+        if (!self::inMatch($m, $p['id'])) {
+            throw new HttpError('This is not your match.', 403);
+        }
+        if ($m['status'] !== 'finished') {
+            throw new HttpError('Finish this match first.', 422);
+        }
+        $needed = [];
+        foreach ([$m['a_party'], $m['b_party']] as $pid) {
+            foreach (Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ?', [$pid]) as $row) {
+                $needed[] = (string) $row['player_id'];
+            }
+        }
+        $needed = array_values(array_unique($needed));
+        if (count($needed) < 2) {
+            throw new HttpError('Both parties need at least one player for a rematch.', 422);
+        }
+        $st = ClashRematch::open($matchId, 'party', $needed, [], $p['id']);
+        $st = ClashRematch::tick($matchId);
+        if (($st['status'] ?? '') === 'cancelled') {
+            return ['match' => self::matchView($m, $p), 'rematch' => ClashRematch::publicView($st, $p['id'])];
+        }
+        if (ClashRematch::allVoted($st)) {
+            $a = self::getParty((string) $m['a_party']);
+            $b = self::getParty((string) $m['b_party']);
+            $nm = self::createMatch($a, $b);
+            ClashRematch::markAccepted($matchId, $st, (string) $nm['id']);
+            return ['match' => self::matchView($nm, $p), 'rematch' => ClashRematch::publicView(ClashRematch::load($matchId) ?: $st, $p['id'])];
+        }
+        return ['match' => self::matchView($m, $p), 'rematch' => ClashRematch::publicView($st, $p['id'])];
     }
 
     /** Morse-style WebRTC signaling over additive cc_clash_rtc_* tables. */
@@ -1147,6 +1185,9 @@ final class Party
             'voiceRoom' => 'party-' . $partyId,
             'partyId' => $partyId,
             'now' => Db::nowMs(),
+            'rematch' => $m['status'] === 'finished'
+                ? ClashRematch::publicView(ClashRematch::tick($m['id']), $p['id'])
+                : ClashRematch::idle(),
         ];
     }
 

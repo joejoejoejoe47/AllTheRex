@@ -1,12 +1,15 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=17';
+import { rarityClass } from './features.js?v=18';
 
 let inboxTimer = 0;
 let matchTimer = 0;
 let shownInvite = new Set();
 let ctx = null;
 let attackMode = false;
+let burstMode = false;
 let pick = [null, null];
+let selectedMode = 'duel';
+let boom = null;
 
 export function startInbox(c) {
   ctx = c;
@@ -34,11 +37,11 @@ export async function pageClash(c) {
   ctx.state.clashInbox = inbox;
 
   if (inbox.needName || !state.me?.nickname) {
-    view.innerHTML = `<div class="wrap clash-wrap"><div class="clash-hero">
-      <div class="ch-kicker">Combo Clash</div>
-      <h1>Pick a display name first</h1>
+    view.innerHTML = `<div class="wrap"><div class="rl-panel rl-namepick">
+      <div class="rl-kicker">Combo Clash</div>
+      <h1 class="rl-title">Pick a display name first</h1>
       <p>Other players will see this when you challenge them, and on the “I beat @you” cards.</p>
-      <button class="btn clash-lg" id="ccName">Choose a name</button>
+      <button class="rl-play" id="ccName"><span>Choose a name</span></button>
     </div></div>`;
     $('#ccName').onclick = async () => { await askNickname(); if (state.me?.nickname) pageClash(ctx); };
     return;
@@ -74,46 +77,86 @@ async function renderLobby(inbox) {
     boards = { wins: w, rare: r, daily: d };
   } catch {}
 
-  const last = inbox.lastScore;
   const party = inbox.party;
+  const me = state.me || {};
+  const rank = inbox.rank || me.rank || { tier: 'Bronze', tierShort: 'B', mmr: 600, level: 1, title: 'Rookie', xpInto: 0, xpNext: 100 };
+  const xpPct = Math.max(0, Math.min(100, Math.round(((rank.xpInto || 0) / (rank.xpNext || 100)) * 100)));
+  const modes = [
+    { id: 'duel', tag: 'Ranked', title: '1v1 Duel', blurb: 'Best of 3. Build a loadout and outscore a rival.' },
+    { id: 'p2', tag: 'Party', title: '2v2 Party', blurb: 'Team up, hit the target, and advance together.' },
+    { id: 'p3', tag: 'Party', title: '3v3 Party', blurb: 'Bigger parties, three 90-second sessions.' },
+    { id: 'ai', tag: 'Practice', title: 'vs AI', blurb: 'Easy, Medium or Hard bots. Jump in now.' },
+    { id: 'priv', tag: 'Invite', title: 'Private Match', blurb: 'Send a challenge link. They have 5 seconds to accept.' },
+  ];
+  const row = (rows, line) => (rows || []).length
+    ? `<ol>${rows.slice(0, 6).map((r, i) => `<li><span><i class="rk">${r.rank || i + 1}</i> ${line(r)}</span><span>${r._right || ''}</span></li>`).join('')}</ol>`
+    : `<div class="rl-empty">${icoBox()} No battles yet. <button type="button" class="linkish" data-first>Be the first!</button></div>`;
+
   view.innerHTML = `
-    <div class="wrap clash-wrap lobby-has-replay">
+    <div class="rl-lobby lobby-has-replay">
       <div class="clash-replay" id="ccReplay" aria-hidden="true"></div>
-      <div class="clash-hero clash-hero-front">
-        <div class="ch-kicker">Combo Clash</div>
-        <h1>Combo Clash</h1>
-        <div class="clash-scoreboard" id="ccScoreboard">
-          ${last ? `
-            <div class="cs-you"><span class="av">${ico(last.you.avatar)}</span><b>${esc(last.you.name)}</b><em>${last.you.score}</em></div>
-            <div class="cs-mid">${last.kind === 'party' ? 'Sessions' : 'VS'}</div>
-            <div class="cs-opp"><em>${last.opp.score}</em><b>${esc(last.opp.name)}</b><span class="av">${ico(last.opp.avatar)}</span></div>
-          ` : `<div class="cs-empty">${icoInfo()} Your last score will show up here after a match — with their username right across from yours.</div>`}
+      <div class="rl-kicker">Online arena</div>
+      <div class="rl-hero-row">
+        <div>
+          <h1 class="rl-title">Combo Clash</h1>
+          <div class="rl-panel rl-banner">
+            <div class="rl-av">${ico(me.avatar || '🐱')}</div>
+            <div class="rl-who">
+              <div class="name">${esc(me.nickname || 'You')}</div>
+              <div class="meta">${esc(rank.title || 'Rookie')} · Level ${rank.level || 1}</div>
+              <div class="rl-xp"><i style="width:${xpPct}%"></i></div>
+              <div class="rl-xp-lab">${rank.xpInto || 0} / ${rank.xpNext || 100} XP to Level ${(rank.level || 1) + 1}</div>
+            </div>
+            <div class="rl-rank">
+              <div class="rl-badge">${esc(rank.tierShort || 'B')}</div>
+              <b>${esc(rank.tier || 'Bronze')}</b>
+              <em>${rank.mmr ?? 600} MMR</em>
+            </div>
+          </div>
         </div>
-        <div class="clash-actions">
-          <button class="btn clash-lg" id="ccPartyUp">Party Up</button>
-          <button class="btn clash-lg" id="ccReady">${party?.queued ? 'Searching…' : 'Ready'}</button>
-          <button class="pill-btn clash-lg" id="ccOnline">${icoPeople()} Play Online (1v1)</button>
-          <button class="pill-btn clash-lg" id="ccAi">${icoBot()} Challenge AI</button>
-          <button class="pill-btn clash-lg" id="ccInvite">${icoLink()} Challenge link</button>
+        <div class="play-col">
+          <button class="rl-play" id="ccPlay"><span>PLAY</span></button>
         </div>
-        <form class="clash-chal" id="ccChal">
-          <input id="ccNick" maxlength="20" placeholder="Challenge a username" autocomplete="off" />
-          <button class="btn clash-lg" type="submit">Challenge</button>
-        </form>
-        <div id="ccQueue" class="clash-queue" ${party?.queued ? '' : 'hidden'}>${party?.queued ? '<div class="thinking">Searching for another party…</div><button class="mini-btn" id="ccCancelQ">Cancel</button>' : ''}</div>
       </div>
-      <div class="clash-boards">
-        ${boardBlock('Most wins', icoTrophy(), boards.wins.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.wins} win${row.wins===1?'':'s'}</span>`)}
-        ${boardBlock('Daily tournament', icoCal(), boards.daily.rows, (row) => `<b>${esc(row.name)}</b> <span>${row.points} pts</span><i>· ${row.wins} win${row.wins===1?'':'s'}</i>`, boards.daily.day ? 'Today · ' + boards.daily.day : 'Today')}
-        ${boardBlock('Rarest winning combos', icoGem(), boards.rare.rows, (row) => `<b>${row.emoji ? ico(row.emoji) + ' ' : ''}${esc(row.name)}</b> <span>${esc(row.winner)}</span>`)}
+      <div class="rl-modes">
+        ${modes.map((m) => `<button type="button" class="rl-panel rl-mode${selectedMode === m.id ? ' on' : ''}" data-mode="${m.id}"><div class="tag">${m.tag}</div><h3>${m.title}</h3><p>${m.blurb}</p></button>`).join('')}
+      </div>
+      <form class="rl-chal" id="ccChal">
+        <input id="ccNick" maxlength="20" placeholder="Challenge a username" autocomplete="off" />
+        <button class="btn" type="submit">Challenge</button>
+      </form>
+      <div id="ccQueue" class="clash-queue" ${party?.queued ? '' : 'hidden'}>${party?.queued ? '<div class="thinking">Searching for a match…</div><button class="mini-btn" id="ccCancelQ">Cancel</button>' : ''}</div>
+      <div class="rl-boards">
+        <section class="rl-panel rl-board"><h2>Most wins</h2>${row(boards.wins.rows, (r) => `${esc(r.name)}` ).replace(/<span><\/span>/, '')}</section>
       </div>
     </div>`;
 
-  $('#ccOnline').onclick = () => joinQueue();
-  $('#ccInvite').onclick = () => makeInvite();
-  $('#ccAi').onclick = () => openAiPicker();
-  $('#ccPartyUp').onclick = () => openPartyUp(inbox);
-  $('#ccReady').onclick = () => clickReady();
+  // boards properly
+  const boardHtml = (title, rows, rightFn, nameFn) => {
+    const body = (rows || []).length
+      ? `<ol>${rows.slice(0, 6).map((r, i) => `<li><span><i class="rk">${r.rank || i + 1}</i> ${nameFn(r)}</span><span>${rightFn(r)}</span></li>`).join('')}</ol>`
+      : `<div class="rl-empty">${icoBox()} No battles yet. <button type="button" class="linkish" data-first>Be the first!</button></div>`;
+    return `<section class="rl-panel rl-board"><h2>${esc(title)}</h2>${body}</section>`;
+  };
+  const boardsEl = view.querySelector('.rl-boards');
+  boardsEl.innerHTML = [
+    boardHtml('Most wins', boards.wins.rows, (r) => `${r.wins} win${r.wins === 1 ? '' : 's'}`, (r) => esc(r.name)),
+    boardHtml('Daily tournament', boards.daily.rows, (r) => `${r.points} pts`, (r) => esc(r.name)),
+    boardHtml('Rarest winning combos', boards.rare.rows, (r) => esc(r.winner || ''), (r) => `${r.emoji ? ico(r.emoji) + ' ' : ''}${esc(r.name)}`),
+  ].join('');
+
+  view.querySelectorAll('[data-mode]').forEach((b) => {
+    b.onclick = () => { selectedMode = b.dataset.mode; renderLobby(inbox); };
+  });
+  const play = () => {
+    if (selectedMode === 'duel') return joinQueue();
+    if (selectedMode === 'ai') return openAiPicker();
+    if (selectedMode === 'priv') return makeInvite();
+    // party modes
+    if (!party) return openPartyUp(inbox);
+    return clickReady();
+  };
+  $('#ccPlay').onclick = play;
   const cq = $('#ccCancelQ'); if (cq) cq.onclick = () => cancelReady();
   document.querySelectorAll('[data-first]').forEach((b) => { b.onclick = () => openAiPicker(); });
   ensurePartyBar(party);
@@ -306,7 +349,7 @@ function paintMatch(m, now, soft = false) {
   const { view } = ctx;
   if (!m) return;
   if (m.status === 'loadout') return paintLoadout(m, soft);
-  if (m.status === 'finished' || m.status === 'forfeit') return paintResults(m);
+  if (m.status === 'finished' || m.status === 'forfeit') return paintResults(m, soft);
   return paintArena(m, now || m.now, soft);
 }
 
@@ -379,76 +422,92 @@ function paintLoadout(m, soft) {
 
 function paintArena(m, now, soft) {
   const { view, esc, ico } = ctx;
+  const kickLeft = m.kickoffUntil ? Math.max(0, m.kickoffUntil - Date.now()) : 0;
+  const inKick = kickLeft > 0 && m.status === 'playing';
   const leftMs = m.status === 'inter'
     ? Math.max(0, (m.interUntil || 0) - Date.now())
-    : Math.max(0, (m.endsAt || 0) - Date.now());
+    : Math.max(0, (m.endsAt || 0) - Date.now() - (inKick ? kickLeft : 0));
   const secs = Math.ceil(leftMs / 1000);
-  const pip = (n) => {
-    const you = m.youWins >= n ? 'you' : '';
-    const opp = m.oppWins >= n ? 'opp' : '';
-    return `<i class="${you || opp || (m.round === n ? 'on' : '')}"></i>`;
-  };
+  const mm = Math.floor(Math.max(0, secs) / 60);
+  const ss = String(Math.max(0, secs) % 60).padStart(2, '0');
+  const clock = `${mm}:${ss}`;
+  const youBlue = (m.youTeam || 'blue') === 'blue';
+  const left = youBlue
+    ? { name: m.you.name, pts: m.status === 'inter' ? (m.lastRound?.you ?? m.youWins) : m.youWins, you: true }
+    : { name: m.opp.name, pts: m.status === 'inter' ? (m.lastRound?.opp ?? m.oppWins) : m.oppWins, you: false };
+  const right = youBlue
+    ? { name: m.opp.name, pts: m.status === 'inter' ? (m.lastRound?.opp ?? m.oppWins) : m.oppWins, you: false }
+    : { name: m.you.name, pts: m.status === 'inter' ? (m.lastRound?.you ?? m.youWins) : m.youWins, you: true };
+  // scoreboard shows round wins (best of 3), like the mockup
+  left.pts = youBlue ? m.youWins : m.oppWins;
+  right.pts = youBlue ? m.oppWins : m.youWins;
   const hand = [...(m.loadout || []).map((e) => ({ ...e, token: e.token || ('e:' + e.id) })), ...(m.youPlays || [])];
   const slot = (i) => {
     const c = pick[i];
-    if (!c) return `<div class="cl-slot" data-s="${i}"><span>+</span></div>`;
-    return `<div class="cl-slot filled ${rarityClass(c)}" data-s="${i}"><span class="i">${ico(c.emoji)}</span><span class="n">${esc(c.name)}</span></div>`;
+    if (!c) return `<div class="rl-slot" data-s="${i}"><span class="dot"></span><div>Drop an element</div></div>`;
+    return `<div class="rl-slot filled ${rarityClass(c)}" data-s="${i}"><div class="i">${ico(c.emoji)}</div><div>${esc(c.name)}</div></div>`;
   };
-  const playCard = (p, mine, i) => `<div class="cl-play ${rarityClass(p)}${p.attack ? ' atk' : ''}${p.breakdown?.attackWorks ? ' hit' : ''}${i === 0 ? ' land' : ''}">
-    <div class="cp-eq">${esc(p.a)} + ${esc(p.b)}</div>
-    <div class="cp-name">${p.emoji ? ico(p.emoji) + ' ' : ''}<b>${esc(p.name)}</b></div>
-    <div class="cp-pts">+${p.score}${p.attack ? (p.breakdown?.attackWorks ? ' · counter landed' : ' · counter missed') : ''}</div>
+  const playCard = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}">
+    <div class="eq">${esc(p.a)} + ${esc(p.b)}</div>
+    <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}</div>
+    <div class="pts">+${p.score}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
   </div>`;
+  const boost = m.boost || 0;
+  const boostMax = m.boostMax || 100;
+  const canAtk = boost >= (m.boostAttack || 30) && m.oppLatest;
+  const canBurst = boost >= (m.boostBurst || 50);
+  const kickN = inKick ? Math.ceil(kickLeft / 1000) : 0;
+  const kickWord = kickN >= 3 ? '3' : kickN === 2 ? '2' : kickN === 1 ? '1' : 'GO';
+  const themeText = m.status === 'inter' && m.lastRound
+    ? `Round ${m.lastRound.n} ${m.lastRound.winner ? (m.lastRound.winner.id === m.you.id ? 'you win' : esc(m.lastRound.winner.name) + ' wins') : 'is a tie'} · ${m.lastRound.you}–${m.lastRound.opp}`
+    : (m.theme || '');
+  const boLine = m.overtime ? 'OVERTIME' : `Best of 3 · Round ${m.round || 1}`;
 
   const arena = `
-    <div class="wrap clash-wrap arena">
-      <div class="cl-top">
-        <div class="cl-score you"><span class="av">${ico(m.you.avatar)}</span><b>${esc(m.you.name)}</b><em>${m.youScore}</em></div>
-        <div class="cl-timer">
-          <div class="pips">${pip(1)}${pip(2)}${pip(3)}</div>
-          <div class="time ${secs <= 10 && m.status === 'playing' ? 'low' : ''}">${m.status === 'inter' ? 'Next ' : ''}${formatTime(secs)}</div>
-          <div class="bo3">Best of 3 · ${m.youWins}–${m.oppWins}</div>
-        </div>
-        <div class="cl-score opp"><em>${m.oppScore}</em><b>${esc(m.opp.name)}</b><span class="av">${ico(m.opp.avatar)}</span></div>
+    <div class="rl-arena">
+      <div class="rl-scoreboard">
+        <div class="rl-sb-blue">${left.you ? '<span class="rl-you-tag">YOU</span>' : ''}<span class="rl-sb-name">${esc(left.name)}</span><span class="rl-sb-pts">${left.pts}</span></div>
+        <div class="rl-sb-mid"><div class="rl-sb-time">${m.status === 'inter' ? 'NEXT' : clock}</div><div class="rl-sb-bo">${boLine}</div></div>
+        <div class="rl-sb-orange"><span class="rl-sb-pts">${right.pts}</span><span class="rl-sb-name">${esc(right.name)}</span>${right.you ? '<span class="rl-you-tag">YOU</span>' : ''}</div>
       </div>
-      <div class="cl-theme">${m.status === 'inter' && m.lastRound
-        ? `<div class="inter-banner">Round ${m.lastRound.n} ${m.lastRound.winner ? (m.lastRound.winner.name === m.you.name ? 'you win' : m.lastRound.winner.name + ' wins') : 'is a tie'} · ${m.lastRound.you}–${m.lastRound.opp}</div>`
-        : `Theme: <b>${esc(m.theme || '')}</b>`}</div>
-      <div class="cl-stage">
-        <div class="cl-col you">
+      <div class="rl-theme">${m.status === 'inter' ? themeText : `Theme: <b>${esc(themeText)}</b>`}</div>
+      <div class="rl-grid">
+        <div class="rl-panel rl-col blue">
           <h3>Your creations</h3>
-          <div class="cl-feed" id="youFeed">${(m.youPlays || []).slice().reverse().map((p, i) => playCard(p, true, i)).join('') || '<div class="muted">Combine two cards to score.</div>'}</div>
+          ${(m.youPlays || []).slice().reverse().map((p) => playCard(p, false)).join('') || '<div class="muted">Combine two cards to score.</div>'}
         </div>
-        <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
-          <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
-          <div class="cl-acts">
-            <button class="btn clash-lg" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'?'disabled':''}>Combine</button>
-            <button class="pill-btn clash-lg ${attackMode?'on':''}" id="clAtk" ${!m.oppLatest?'disabled':''}>Attack</button>
-            <button class="mini-btn" id="clClear">Clear</button>
-            <button class="mini-btn" id="loFF">Forfeit</button>
+        <div class="rl-panel rl-mid">
+          <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
+          <div class="rl-acts">
+            <button class="rl-go" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'||inKick?'disabled':''}><span>Combine</span></button>
+            <button class="rl-atk" id="clAtk" ${!canAtk||m.status!=='playing'||inKick?'disabled':''}><span>Attack</span></button>
+            <button class="rl-burst${burstMode?' on':''}" id="clBurst" ${!canBurst?'disabled':''}>Burst ×2</button>
           </div>
-          ${m.oppLatest ? `<div class="cl-target">Opponent’s latest: ${m.oppLatest.emoji ? ico(m.oppLatest.emoji)+' ' : ''}<b>${esc(m.oppLatest.name)}</b> — attack to try a counter</div>` : ''}
+          <div class="rl-boost">
+            <div class="lab"><span>BOOST</span><span>${boost} / ${boostMax}</span></div>
+            <div class="bar"><i style="width:${Math.max(0, Math.min(100, boost))}%"></i></div>
+          </div>
         </div>
-        <div class="cl-col opp">
-          <h3><span class="live-dot" aria-hidden="true"></span> ${esc(m.opp.name)}’s creations <span class="live-lab">Live</span></h3>
-          <div class="cl-feed" id="oppFeed">${(m.oppPlays || []).slice().reverse().map((p, i) => playCard(p, false, i)).join('') || '<div class="muted">Waiting for their first combo…</div>'}</div>
+        <div class="rl-panel rl-col orange">
+          <h3>${esc(m.opp.name)}’s creations · Live</h3>
+          ${(m.oppPlays || []).slice().reverse().map((p) => playCard(p, true)).join('') || '<div class="muted">Waiting for their first combo…</div>'}
         </div>
       </div>
-      <div class="cl-hand" id="clHand">
-        ${hand.map((e) => `<button type="button" class="el lo-el ${rarityClass(e)}" data-tok="${esc(e.token)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
+      ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
+      ${inKick ? `<div class="rl-kick"><b>${kickWord}</b></div>` : ''}
+      <div class="rl-panel rl-hand" id="clHand">
+        ${hand.map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}" data-tok="${esc(e.token)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
+      </div>
+      <div class="rl-quick" id="clQuick">
+        ${['What a combo!','Nice one!','Close one!','Calculated.','Wow!'].map((q) => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join('')}
       </div>
     </div>`;
-
-  const keepPick = soft && document.getElementById('clHand');
-  const prevHand = keepPick ? document.getElementById('clHand').innerHTML : '';
-  const prevFeed = keepPick ? (document.getElementById('youFeed')?.innerHTML || '') : '';
   view.innerHTML = arena;
-  // If only scores/timer changed, we already replaced — that's ok; rebind always.
   bindArena(m, hand);
 }
 
 function bindArena(m, hand) {
-  const { api, toast, sfx } = ctx;
+  const { api, toast } = ctx;
   const byTok = Object.fromEntries(hand.map((e) => [e.token, e]));
   const handEl = document.getElementById('clHand');
   if (handEl) handEl.onclick = (e) => {
@@ -468,64 +527,143 @@ function bindArena(m, hand) {
     if (!pick[0] || !pick[1]) { attackMode = true; toast('Pick two cards, then Attack.'); return; }
     doPlay(m, true);
   };
-  const clr = document.getElementById('clClear');
-  if (clr) clr.onclick = () => { pick = [null, null]; paintArena(m, m.now, false); };
-  const ff = document.getElementById('loFF');
-  if (ff) ff.onclick = () => doForfeit(m.id);
+  const burst = document.getElementById('clBurst');
+  if (burst) burst.onclick = () => { burstMode = !burstMode; paintArena(m, m.now, false); };
+  const qk = document.getElementById('clQuick');
+  if (qk) qk.onclick = async (e) => {
+    const b = e.target.closest('[data-q]');
+    if (!b) return;
+    try { await api('clash/quick', { matchId: m.id, phrase: b.dataset.q }); toast(b.dataset.q); }
+    catch (err) { toast(err.message); }
+  };
 }
 
 async function doPlay(m, attack) {
   if (!pick[0] || !pick[1]) return;
   const { api, toast, sfx } = ctx;
   try {
-    const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: pick[1].token, attack });
+    const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: pick[1].token, attack, burst: burstMode });
     if (ctx.sfx) sfx(d.play?.breakdown?.attackWorks ? 'fanfare' : 'success');
-    pick = [d.play ? { token: d.play.token, name: d.play.name, emoji: d.play.emoji, rarity: d.play.rarity } : null, null];
-    // leave the new result in slot 0 so chains are easy
-    pick = [pick[0], null];
+    const pl = d.play;
+    if (pl) {
+      const kind = pl.breakdown?.attackWorks ? 'DEMOLISHED!' : (pl.breakdown?.chain ? 'CHAIN!' : 'COMBO!');
+      boom = { kind, sub: `${pl.a} + ${pl.b} = ${pl.name} · +${pl.score}` };
+      setTimeout(() => { if (boom && boom.sub.endsWith('+' + pl.score)) { boom = null; } }, 1800);
+    }
+    pick = [pl ? { token: pl.token, name: pl.name, emoji: pl.emoji, rarity: pl.rarity } : null, null];
+    burstMode = false;
     attackMode = false;
     paintMatch(d.match, d.now);
   } catch (e) { toast(e.message); }
 }
 
-function paintResults(m) {
-  stopMatchPoll();
+function rematchBox(rm) {
+  if (!rm || rm.status === 'idle' || (rm.need || 0) === 0) return '';
+  const left = rm.expiresAt ? Math.max(0, Math.ceil((rm.expiresAt - Date.now()) / 1000)) : 0;
+  const people = (rm.players || []).map((p) => `<li><span class="av" style="width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;background:#ffe9a8">${ctx.ico(p.avatar)}</span>${ctx.esc(p.name)}${p.you ? ' (you)' : ''}${p.ai ? ' · bot' : ''} <span class="${p.voted ? 'yes' : 'wait'}">${p.voted ? '✓' : '…'}</span></li>`).join('');
+  const msg = rm.message ? `<div class="msg">${ctx.esc(rm.message)}</div>` : '';
+  const clock = rm.status === 'open' && left ? `<span class="rl-clock">${left}s</span>` : '';
+  return `<div class="rl-panel rl-vote" id="rlVote"><h3>Rematch ${rm.yes}/${rm.need}${clock}</h3>
+    <div class="count">${rm.status === 'cancelled' ? 'Vote cancelled' : 'Everyone has to vote yes'}</div>
+    <ul>${people}</ul>${msg}</div>`;
+}
+
+async function voteRematch(matchId) {
+  const { api, toast, go } = ctx;
+  try {
+    const d = await api('clash/rematch', { matchId });
+    const rm = d.rematch || {};
+    if (rm.newMatchId) return go('clash/' + rm.newMatchId);
+    if (d.match && d.match.id && d.match.id !== matchId && !['finished', 'forfeit'].includes(d.match.status)) {
+      return go('clash/' + d.match.id);
+    }
+    if (d.match) paintMatch(d.match, d.now || d.match.now);
+  } catch (e) { toast(e.message); }
+}
+
+function paintResults(m, soft = false) {
   pick = [null, null];
   const { view, esc, ico, BASE, toast, go, api, state } = ctx;
+  const rm = m.rematch || {};
+  if (rm.newMatchId) { go('clash/' + rm.newMatchId); return; }
   const won = m.winnerId === m.you.id;
   const share = m.share || {};
   const best = share.best || m.youLatest;
   const headline = won
     ? (share.headline || `I beat @${m.opp.name} with ${best?.a || '?'} + ${best?.b || '?'} = ${best?.name || 'this'}`)
-    : (best?.name
-      ? `${m.opp.name} beat me with ${best.a || '?'} + ${best.b || '?'} = ${best.name}`
-      : `${m.opp.name} beat me in Combo Clash`);
-  const og = location.origin + BASE + 'og/clash/' + m.id + '.png';
-  const url = location.origin + BASE + 'clash/' + m.id;
+    : (share.headline || `${m.opp.name} beats ${m.you.name}`);
+  const url = (typeof location !== 'undefined' ? location.origin : '') + (BASE || '/combocraft/') + 'clash';
+  const stats = (m.stats || []).slice().sort((a, b) => b.score - a.score);
+  const mvp = stats.find((s) => s.mvp) || stats[0];
+  const rc = m.rankChange;
+  const after = rc?.after || (m.you && m.you.rank) || {};
+  const before = rc?.before || after;
+  const xpGain = rc?.xpGained || 0;
+
+  if (soft && document.getElementById('rlResults') && document.getElementById('rlVote')) {
+    document.getElementById('rlVote').outerHTML = rematchBox(rm) || '<div id="rlVote" hidden></div>';
+    const btn = document.getElementById('clRematch');
+    if (btn) {
+      btn.disabled = !!rm.youVoted && rm.status === 'open';
+      const lab = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
+      btn.querySelector('span').textContent = lab;
+    }
+    return;
+  }
+
+  const rows = (stats.length ? stats : [
+    { playerId: m.you.id, name: m.you.name, avatar: m.you.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: won },
+    { playerId: m.opp.id, name: m.opp.name, avatar: m.opp.avatar, score: 0, combos: 0, chains: 0, attacks: 0, mvp: false },
+  ]).map((s) => `<tr class="${s.playerId === m.you.id ? 'me' : ''}">
+    <td><div class="rl-p"><span class="av">${ico(s.avatar)}</span> ${esc(s.name)}</div></td>
+    <td class="n">${s.score}</td><td class="n">${s.combos || 0}</td><td class="n">${s.chains || 0}</td><td class="n">${s.attacks || 0}</td>
+    <td class="rl-mvp">${s.mvp ? '★ MVP' : ''}</td>
+  </tr>`).join('');
+
+  const voteLabel = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
   view.innerHTML = `
-    <div class="wrap clash-wrap results">
-      <div class="cl-res-kicker">${m.status === 'forfeit' ? (won ? 'They left the match' : 'You left the match') : 'Best of 3'}</div>
-      <h1>${won ? 'You win!' : 'Defeat'}</h1>
-      <div class="cl-final">${m.youWins}–${m.oppWins} vs ${esc(m.opp.name)}</div>
-      <div class="share-card cl-share ${best ? rarityClass(best) : ''}">
-        <div class="sc-brand">Combo Clash</div>
-        <div class="sc-head">${esc(headline)}</div>
-        ${best ? `<div class="sc-art">${best.emoji ? ico(best.emoji) : ''} <b>${esc(best.name)}</b></div>
-        <div class="sc-eq">${esc(best.a || '')} + ${esc(best.b || '')}</div>
-        <div class="rar-pill ${rarityClass(best)}">${esc(best.rarity || '')}</div>` : ''}
+    <div class="rl-results" id="rlResults">
+      <div class="rl-vic${won ? '' : ' defeat'}"><div class="word">${won ? 'VICTORY' : 'DEFEAT'}</div>
+        <div class="rl-subh">${esc(m.you.name)} ${won ? 'beats' : 'vs'} ${esc(m.opp.name)} · ${m.youWins}–${m.oppWins} · ${esc(headline)}</div>
       </div>
-      <div class="cl-acts">
-        <button class="btn clash-lg" id="clCopy">Copy share text</button>
-        <button class="pill-btn clash-lg" id="clShare">Share</button>
-        <button class="pill-btn clash-lg" id="clRevenge">Revenge</button>
-        <button class="pill-btn clash-lg" id="clRemix" ${best?.a ? '' : 'disabled'}>Remix the winner’s creation</button>
-        <button class="mini-btn" id="clLobby">Back to Clash</button>
+      <div class="rl-res-grid">
+        <div class="rl-panel rl-table">
+          <h2>Scoreboard</h2>
+          <table><thead><tr><th>Player</th><th class="n">Score</th><th class="n">Combos</th><th class="n">Chains</th><th class="n">Attacks</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table>
+        </div>
+        <div class="rl-side">
+          <div class="rl-panel rl-mvp-card">
+            <div class="big">${ico((mvp && mvp.avatar) || m.you.avatar)}</div>
+            <h3>${esc((mvp && mvp.name) || m.you.name)}</h3>
+            <p>Match MVP${best?.name ? ' · ' + esc(best.name) : ''}</p>
+          </div>
+          <div class="rl-panel rl-xp-card">
+            <h3>XP gained</h3>
+            <div class="rl-xp"><i style="width:${Math.round(((after.xpInto || 0) / (after.xpNext || 100)) * 100)}%"></i></div>
+            <div class="rl-gain">+${xpGain} XP</div>
+            <div style="font-size:13px;font-weight:700;color:var(--rl-muted);margin-top:2px">Level ${after.level || 1} · ${after.xpInto || 0} / ${after.xpNext || 100} to Level ${(after.level || 1) + 1}</div>
+          </div>
+          <div class="rl-panel rl-rank-card">
+            <h3>Rank</h3>
+            <div class="rankrow" style="display:flex;align-items:center;gap:12px">
+              <div class="rl-badge" style="width:58px;height:58px;font-size:18px">${esc(after.tierShort || 'B')}</div>
+              <div>
+                <div style="font-weight:800;font-size:18px">${esc(after.tier || 'Bronze')}</div>
+                <div style="font-weight:700;color:var(--rl-muted)">${before.mmr ?? after.mmr ?? 600} → ${after.mmr ?? 600} MMR · ${rc ? ((rc.mmrDelta||0) >= 0 ? '+' : '') + (rc.mmrDelta || 0) : ''}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+      <div class="rl-res-acts">
+        <button class="btn-rl rl-rev" id="clRematch" ${rm.youVoted && rm.status==='open' ? 'disabled' : ''}><span>${voteLabel}</span></button>
+        <button class="btn-rl rl-share" id="clShare"><span>Share</span></button>
+        <button class="btn-rl rl-back" id="clLobby"><span>Back to Clash</span></button>
+      </div>
+      ${rematchBox(rm)}
     </div>`;
-  $('#clCopy').onclick = async () => {
-    const text = headline + ' ' + url;
-    try { await navigator.clipboard.writeText(text); toast('Copied!'); } catch { toast(text); }
-  };
+  $('#clRematch').onclick = () => voteRematch(m.id);
   $('#clShare').onclick = async () => {
     const text = headline + ' ' + url;
     try {
@@ -533,15 +671,11 @@ function paintResults(m) {
       else { await navigator.clipboard.writeText(text); toast('Copied!'); }
     } catch {}
   };
-  $('#clRevenge').onclick = async () => {
-    try {
-      const d = await api('clash/revenge', { matchId: m.id });
-      if (d.match) go('clash/' + d.match.id);
-      else toast('Revenge challenge sent — they have 5 seconds to accept.');
-    } catch (e) { toast(e.message); }
+  $('#clLobby').onclick = async () => {
+    if (rm.status === 'open') { try { await api('clash/rematch', { matchId: m.id, cancel: true }); } catch {} }
+    go('clash');
   };
-  $('#clRemix').onclick = () => remixWinner(best);
-  $('#clLobby').onclick = () => { go('clash'); };
+  ensurePartyBar(ctx.state.clashInbox?.party);
 }
 
 function remixWinner(best) {
@@ -1016,19 +1150,26 @@ function ensurePartyBar(party) {
     return;
   }
   const { esc, ico, api, toast } = ctx;
+  const slots = 4;
+  const mems = party.members || [];
+  const members = mems.map((m) => `
+    <span class="slotp pb-mem${m.you ? ' you' : ''}${m.host ? ' host' : ''}">
+      <span class="av2">${ico(m.avatar)}</span><b>${esc(m.name)}</b>
+      ${party.queued ? '<span class="rdy">READY</span>' : ''}
+      ${party.youHost && !m.you ? `<button type="button" class="pb-boot" data-id="${m.id}" title="Boot">×</button>` : ''}
+    </span>`).join('');
+  const empties = Array.from({ length: Math.max(0, slots - mems.length) }, () =>
+    `<button type="button" class="slotp empty pb-invite">+ Invite</button>`).join('');
   const html = `
-    <div class="pb-members">${(party.members || []).map((m) => `
-      <span class="pb-mem${m.you ? ' you' : ''}${m.host ? ' host' : ''}" title="${esc(m.name)}${m.host ? ' · host' : ''}">
-        <span class="av">${ico(m.avatar)}</span><b>${esc(m.name)}</b>
-        ${party.youHost && !m.you ? `<button type="button" class="pb-boot" data-id="${m.id}" title="Boot">×</button>` : ''}
-      </span>`).join('')}</div>
-    <div class="pb-name">${party.name ? '@' + esc(party.name) : 'Unnamed party'}${party.queued ? ' · searching' : ''}</div>
+    <div class="lab">Party${party.name ? ' · @' + esc(party.name) : ''}</div>
+    ${members}${empties}
     <button type="button" class="mini-btn" id="pbChat">Chat</button>
-    <button type="button" class="mini-btn" id="pbLeave">Leave Party</button>`;
+    <button type="button" class="pb-leave" id="pbLeave">Leave Party</button>
+    <button type="button" class="pb-ready" id="pbReady"><span>${party.queued ? 'Searching…' : 'Ready'}</span></button>`;
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'ccPartyBar';
-    bar.className = 'cc-party-bar';
+    bar.className = 'cc-party-bar rl-party';
     document.body.appendChild(bar);
   }
   bar.innerHTML = html;
@@ -1040,6 +1181,9 @@ function ensurePartyBar(party) {
   bar.querySelector('#pbLeave').onclick = async () => {
     try { await api('clash/party/leave', {}); ensurePartyBar(null); toast('You left the party.'); } catch (e) { toast(e.message); }
   };
+  const ready = bar.querySelector('#pbReady');
+  if (ready) ready.onclick = () => party.queued ? cancelReady() : clickReady();
+  bar.querySelectorAll('.pb-invite').forEach((b) => { b.onclick = () => openPartyUp(ctx.state.clashInbox || { party, recentPeople: [] }); });
   bar.querySelectorAll('.pb-boot').forEach((b) => b.onclick = async () => {
     try {
       const d = await api('clash/party/boot', { playerId: b.dataset.id });
@@ -1180,78 +1324,83 @@ function paintPartyMatch(m) {
   const { view, esc, ico, go, api, toast } = ctx;
   ensureChatButton(m);
   if (m.status === 'intro') {
-    view.innerHTML = `<div class="wrap clash-wrap party-intro">
-      <div class="pi-kicker">Party vs Party</div>
-      <h1>${esc(m.headline)}</h1>
-      <div class="pi-sides">
-        <div>${(m.youMembers || []).map((p) => `<div class="avline"><span class="av">${ico(p.avatar)}</span>${esc(p.name)}</div>`).join('')}</div>
-        <div class="pi-vs">VS</div>
-        <div>${(m.oppMembers || []).map((p) => `<div class="avline"><span class="av">${ico(p.avatar)}</span>${esc(p.name)}</div>`).join('')}</div>
+    view.innerHTML = `<div class="rl-results">
+      <div class="rl-kicker" style="text-align:center;margin-top:12px">Party vs Party</div>
+      <h1 class="rl-title" style="text-align:center">${esc(m.headline)}</h1>
+      <div class="rl-panel" style="max-width:720px;margin:18px auto;padding:22px;display:flex;justify-content:space-around;align-items:center;gap:16px;flex-wrap:wrap">
+        <div>${(m.youMembers || []).map((p) => `<div class="rl-p"><span class="av">${ico(p.avatar)}</span>${esc(p.name)}</div>`).join('')}</div>
+        <div class="rl-plus">VS</div>
+        <div>${(m.oppMembers || []).map((p) => `<div class="rl-p"><span class="av">${ico(p.avatar)}</span>${esc(p.name)}</div>`).join('')}</div>
       </div>
-      <div class="muted">3 sessions · 90 seconds each · match the thing at the top</div>
+      <div class="rl-theme">3 sessions · 90 seconds · match the thing at the top</div>
     </div>`;
     return;
   }
   if (m.status === 'finished') {
-    stopPartyPoll();
-    view.innerHTML = `<div class="wrap clash-wrap results">
-      <div class="cl-res-kicker">Party Clash</div>
-      <h1>${m.youWon ? 'Your party wins!' : 'Defeat'}</h1>
-      <div class="cl-final">${esc(m.headline)}</div>
-      <div class="cl-final">Sessions ${m.youSession}–${m.oppSession}</div>
-      <div class="cl-acts">
-        <button class="btn clash-lg" id="pmReady">Ready</button>
-        <button class="pill-btn clash-lg" id="pmLobby">Exit to menu</button>
+    const rm = m.rematch || {};
+    if (rm.newMatchId) { go('clash/' + rm.newMatchId); return; }
+    const won = m.youWon;
+    const voteLabel = rm.status === 'open' ? `REMATCH ${rm.yes}/${rm.need}` : 'REMATCH';
+    view.innerHTML = `<div class="rl-results" id="rlResults">
+      <div class="rl-vic${won ? '' : ' defeat'}"><div class="word">${won ? 'VICTORY' : 'DEFEAT'}</div>
+        <div class="rl-subh">${esc(m.headline)} · Sessions ${m.youSession}–${m.oppSession}</div>
       </div>
+      <div class="rl-res-acts">
+        <button class="btn-rl rl-rev" id="clRematch" ${rm.youVoted && rm.status==='open' ? 'disabled' : ''}><span>${voteLabel}</span></button>
+        <button class="btn-rl rl-share" id="pmReady"><span>Ready</span></button>
+        <button class="btn-rl rl-back" id="pmLobby"><span>Back to Clash</span></button>
+      </div>
+      ${typeof rematchBox === 'function' ? rematchBox(rm) : ''}
     </div>`;
+    const rmBtn = document.getElementById('clRematch');
+    if (rmBtn) rmBtn.onclick = () => voteRematch(m.id);
     $('#pmReady').onclick = () => clickReady();
-    $('#pmLobby').onclick = async () => { try { await api('clash/party/exit', { matchId: m.id }); } catch {} go('clash'); };
+    $('#pmLobby').onclick = async () => { try { await api('clash/party/exit', { matchId: m.id }); if (rm.status === 'open') { try { await api('clash/rematch', { matchId: m.id, cancel: true }); } catch {} } } catch {} go('clash'); };
+    ensurePartyBar(ctx.state.clashInbox?.party);
     return;
   }
   const leftMs = Math.max(0, (m.endsAt || 0) - Date.now());
   const secs = Math.ceil(leftMs / 1000);
+  const mm = Math.floor(secs / 60);
+  const ss = String(secs % 60).padStart(2, '0');
   const target = m.target || {};
   const spectate = m.spectating;
   const slot = (i) => {
     const c = partyPick[i];
-    if (!c) return `<div class="cl-slot" data-s="${i}"><span>+</span></div>`;
-    return `<div class="cl-slot filled ${rarityClass(c)}"><span class="i">${ico(c.emoji)}</span><span class="n">${esc(c.name)}</span></div>`;
+    if (!c) return `<div class="rl-slot" data-s="${i}"><div>Drop an element</div></div>`;
+    return `<div class="rl-slot filled ${rarityClass(c)}"><div class="i">${ico(c.emoji)}</div><div>${esc(c.name)}</div></div>`;
   };
-  const card = (p) => `<div class="cl-play ${p.hit ? 'hit' : ''} ${rarityClass(p)}">
-    <div class="cp-eq">${esc(p.player?.name || '')} · ${esc(p.a)} + ${esc(p.b)}</div>
-    <div class="cp-name">${p.emoji ? ico(p.emoji) + ' ' : ''}<b>${esc(p.name)}</b>${p.hit ? ' · MATCH!' : ''}</div>
+  const card = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}${p.hit ? ' hit' : ''}">
+    <div class="eq">${esc(p.player?.name || '')} · ${esc(p.a)} + ${esc(p.b)}</div>
+    <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}${p.hit ? ' · MATCH!' : ''}</div>
   </div>`;
+  const sess = Math.min(3, m.session || (m.youAlive ? m.youSession + 1 : (m.oppSession + 1)) || 1);
   view.innerHTML = `
-    <div class="wrap clash-wrap arena party-arena${spectate ? ' spectating' : ''}">
-      <div class="cl-theme party-target">the thing · Session ${Math.min(3, m.session || (m.youAlive ? m.youSession + 1 : (m.oppSession + 1)) || 1)} / 3<br>
-        <b>${target.emoji ? ico(target.emoji) + ' ' : ''}${esc(target.name || '???')}</b>
+    <div class="rl-arena party-arena${spectate ? ' spectating' : ''}">
+      <div class="rl-scoreboard">
+        <div class="rl-sb-blue"><span class="rl-you-tag">YOU</span><span class="rl-sb-name">@${esc(m.youName)}</span><span class="rl-sb-pts">${m.youSession}</span></div>
+        <div class="rl-sb-mid"><div class="rl-sb-time">${mm}:${ss}</div><div class="rl-sb-bo">${esc(m.headline)}</div></div>
+        <div class="rl-sb-orange"><span class="rl-sb-pts">${m.oppSession}</span><span class="rl-sb-name">@${esc(m.oppName)}</span></div>
       </div>
-      <div class="cl-top">
-        <div class="cl-score you"><b>@${esc(m.youName)}</b> <em>${m.youSession}</em></div>
-        <div class="cl-timer"><div class="time ${secs <= 15 && !spectate ? 'low' : ''}">${formatTime(secs)}</div><div class="bo3">${esc(m.headline)}</div></div>
-        <div class="cl-score opp"><em>${m.oppSession}</em><b>@${esc(m.oppName)}</b></div>
-      </div>
-      ${spectate ? `<div class="inter-banner">Your team is out — spectating the rest of the match. You can leave the party or exit to the menu.</div>` : ''}
-      <div class="cl-stage party-stage">
-        <div class="cl-col"><h3>You</h3><div class="cl-feed">${(m.youPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Combine toward the thing.</div>'}</div></div>
+      <div class="rl-theme">the thing · Session ${sess} / 3<br><span class="tgt">${target.emoji ? ico(target.emoji) + ' ' : ''}${esc(target.name || '???')}</span></div>
+      ${spectate ? `<div class="rl-theme" style="margin-top:8px;background:#5a1a1a">Your team is out — spectating. You can leave the party or exit to the menu.</div>` : ''}
+      <div class="rl-grid">
+        <div class="rl-panel rl-col blue"><h3>You</h3>${(m.youPlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Combine toward the thing.</div>'}</div>
         ${spectate ? `
-        <div class="cl-col"><h3>Teammates</h3><div class="cl-feed">${(m.matePlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting on your party…</div>'}</div></div>
-        <div class="cl-col"><h3><span class="live-dot"></span> @${esc(m.oppName)} <span class="live-lab">Live</span></h3><div class="cl-feed">${(m.oppPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting for the other party…</div>'}</div></div>` : `
-        <div class="cl-work ${m.status !== 'playing' ? 'off' : ''}">
-          <div class="cl-slots">${slot(0)}<span class="plus">+</span>${slot(1)}</div>
-          <div class="cl-acts">
-            <button class="btn clash-lg" id="pmGo" ${!partyPick[0]||!partyPick[1]?'disabled':''}>Combine</button>
-            <button class="mini-btn" id="pmClear">Clear</button>
+        <div class="rl-panel rl-col"><h3>Teammates</h3>${(m.matePlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Waiting on your party…</div>'}</div>
+        <div class="rl-panel rl-col orange"><h3>@${esc(m.oppName)} · Live</h3>${(m.oppPlays || []).slice().reverse().map((p) => card(p, true)).join('') || '<div class="muted">Waiting…</div>'}</div>` : `
+        <div class="rl-panel rl-mid">
+          <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
+          <div class="rl-acts">
+            <button class="rl-go" id="pmGo" ${!partyPick[0]||!partyPick[1]||m.status!=='playing'?'disabled':''}><span>Combine</span></button>
           </div>
         </div>
-        <div class="cl-col"><h3>Teammates</h3><div class="cl-feed">${(m.matePlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting on your party…</div>'}</div></div>`}
+        <div class="rl-panel rl-col"><h3>Teammates</h3>${(m.matePlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Waiting on your party…</div>'}</div>`}
       </div>
-      ${spectate ? '' : `<div class="cl-col opp-strip"><h3><span class="live-dot"></span> @${esc(m.oppName)} <span class="live-lab">Live</span></h3>
-        <div class="cl-feed horiz">${(m.oppPlays || []).slice().reverse().map(card).join('') || '<div class="muted">Waiting for the other party…</div>'}</div>
-      </div>`}
-      ${spectate ? `<div class="cl-acts"><button class="pill-btn clash-lg" id="pmLeave">Leave Party</button><button class="mini-btn" id="pmExit">Exit to menu</button></div>` : `
-      <div class="cl-hand" id="pmHand">
-        ${(m.hand || []).slice(-24).map((e) => `<button type="button" class="el lo-el ${rarityClass(e)}" data-tok="${esc(e.token)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
+      ${spectate ? '' : `<div class="rl-panel rl-col orange" style="margin:12px 28px 0"><h3>@${esc(m.oppName)} · Live</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${(m.oppPlays || []).slice().reverse().map((p) => card(p, true)).join('') || '<div class="muted">Waiting for the other party…</div>'}</div></div>`}
+      ${spectate ? `<div class="rl-res-acts"><button class="btn-rl rl-back" id="pmLeave"><span>Leave Party</span></button><button class="btn-rl rl-back" id="pmExit"><span>Exit to menu</span></button></div>` : `
+      <div class="rl-panel rl-hand" id="pmHand">
+        ${(m.hand || []).slice(-24).map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}" data-tok="${esc(e.token)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
       </div>`}
     </div>`;
   if (!spectate) {
@@ -1269,14 +1418,13 @@ function paintPartyMatch(m) {
     };
     const goBtn = document.getElementById('pmGo');
     if (goBtn) goBtn.onclick = () => doPartyPlay(m);
-    const clr = document.getElementById('pmClear');
-    if (clr) clr.onclick = () => { partyPick = [null, null]; paintPartyMatch(m); };
   } else {
     const lv = document.getElementById('pmLeave');
     if (lv) lv.onclick = async () => { try { await api('clash/party/leave', {}); } catch {} ensurePartyBar(null); go('clash'); };
     const ex = document.getElementById('pmExit');
     if (ex) ex.onclick = async () => { try { await api('clash/party/exit', { matchId: m.id }); } catch {} go('clash'); };
   }
+  ensurePartyBar(ctx.state.clashInbox?.party);
 }
 
 async function doPartyPlay(m) {
@@ -1381,7 +1529,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=17');
+  const { createVoice } = await import('./voice.js?v=18');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

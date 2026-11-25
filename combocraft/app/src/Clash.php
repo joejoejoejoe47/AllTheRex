@@ -13,6 +13,13 @@ use Throwable;
 final class Clash
 {
     public const ROUND_SECS = 75;
+    public const KICKOFF_SECS = 3;
+    public const OT_SECS = 45;
+    public const BOOST_MAX = 100;
+    public const BOOST_ATTACK = 30;
+    public const BOOST_BURST = 50;
+    public const BOOST_COMBO = 22;
+    public const BOOST_CHAIN = 35;
     public const ACCEPT_SECS = 5;
     public const INVITE_ACCEPT_SECS = 8;
     public const OPEN_INVITE_SECS = 600;
@@ -69,6 +76,7 @@ final class Clash
             'incoming' => array_map(fn ($c) => self::challengeView($c, $p), $incoming),
             'outgoing' => array_map(fn ($c) => self::challengeView($c, $p), $outgoing),
             'match' => $match ? self::matchView($match, $p) : null,
+            'rank' => ClashRank::of($p['id']),
             'now' => Db::nowMs(),
         ];
         try {
@@ -323,7 +331,7 @@ final class Clash
     }
 
     /** @param array<string,mixed> $p */
-    public static function play(array $p, string $matchId, string $aTok, string $bTok, bool $attack, bool $internal = false): array
+    public static function play(array $p, string $matchId, string $aTok, string $bTok, bool $attack, bool $internal = false, bool $burst = false): array
     {
         if ($internal) {
             $m = self::getMatch($matchId);
@@ -346,6 +354,10 @@ final class Clash
             $m = self::tick(self::getMatch($matchId));
             throw new HttpError('Time is up.', 422);
         }
+        $kickoffUntil = strtotime((string) $round['started_at'] . ' UTC') + self::KICKOFF_SECS;
+        if (time() < $kickoffUntil) {
+            throw new HttpError('Kickoff — wait for GO!', 422);
+        }
         $lo = Db::one('SELECT * FROM cc_clash_loadouts WHERE match_id = ? AND player_id = ?', [$matchId, $p['id']]);
         $lastMs = (int) ($lo['last_play_ms'] ?? 0);
         $nowMs = Db::nowMs();
@@ -362,8 +374,33 @@ final class Clash
         $made = self::craft($ea, $eb);
         $chain = !empty($ea['temp']) || !empty($eb['temp']);
         $double = !empty($ea['temp']) && !empty($eb['temp']);
+        $boost = self::boostOf($matchId, $p['id'], (int) $round['n']);
+        if ($attack && $boost < self::BOOST_ATTACK) {
+            $attack = false;
+        }
+        if ($burst && $boost < self::BOOST_BURST) {
+            $burst = false;
+        }
+        if ($attack) {
+            $boost -= self::BOOST_ATTACK;
+        }
+        if ($burst) {
+            $boost -= self::BOOST_BURST;
+        }
         $oppLatest = self::latestPlay($round, self::oppId($m, $p['id']));
         $judge = self::judge((string) $round['theme'], $made, $ea, $eb, $chain, $double, $attack, $oppLatest, !$internal);
+        if ($burst) {
+            $judge['score'] = (int) $judge['score'] * 2;
+            $judge['burst'] = true;
+        }
+        $gain = $chain ? self::BOOST_CHAIN : self::BOOST_COMBO;
+        if ($double) {
+            $gain += 15;
+        }
+        $boost = min(self::BOOST_MAX, $boost + $gain);
+        self::setBoost($matchId, $p['id'], (int) $round['n'], $boost);
+        $judge['boost'] = $boost;
+        $judge['boostGain'] = $gain;
         $side = $m['a_id'] === $p['id'] ? 'a' : 'b';
         $newScore = (int) $round[$side . '_score'] + (int) $judge['score'];
         $oppSide = $side === 'a' ? 'b' : 'a';
@@ -625,7 +662,7 @@ final class Clash
                 $next = (int) $m['round'] + 1;
                 $a = (int) $m['a_wins'];
                 $b = (int) $m['b_wins'];
-                if ($a >= 2 || $b >= 2 || $next > 3) {
+                if ($a >= 2 || $b >= 2 || ($next > 3 && $a !== $b)) {
                     self::finishMatch($m, $a >= $b ? (string) $m['a_id'] : (string) $m['b_id']);
                 } else {
                     self::startRound($m, $next);
@@ -642,9 +679,10 @@ final class Clash
         $id = self::id('r');
         $theme = self::THEMES[abs(crc32($m['id'] . '|' . $n)) % count(self::THEMES)];
         $start = time();
+        $len = ($n >= 4 ? self::OT_SECS : self::ROUND_SECS) + self::KICKOFF_SECS;
         Db::run(
             'INSERT INTO cc_clash_rounds (id, match_id, n, theme, started_at, ends_at, a_score, b_score, a_latest, b_latest, winner_id, settled) VALUES (?,?,?,?,?,?,0,0,NULL,NULL,NULL,0)',
-            [$id, $m['id'], $n, $theme, gmdate('Y-m-d H:i:s', $start), gmdate('Y-m-d H:i:s', $start + self::ROUND_SECS)]
+            [$id, $m['id'], $n, $theme, gmdate('Y-m-d H:i:s', $start), gmdate('Y-m-d H:i:s', $start + $len)]
         );
         Db::run('UPDATE cc_clash_matches SET status = ?, round = ?, inter_until = NULL, updated_at = ? WHERE id = ?', ['playing', $n, Db::now(), $m['id']]);
     }
@@ -667,16 +705,17 @@ final class Clash
             $winner = (string) $m['b_id'];
             $bWins++;
         }
-        // Tie: no win awarded.
+        // Tie in regulation: no win awarded. Overtime rounds must produce a winner or go again.
         Db::run('UPDATE cc_clash_rounds SET settled = 1, winner_id = ? WHERE id = ?', [$winner, $round['id']]);
-        $done = $aWins >= 2 || $bWins >= 2 || (int) $m['round'] >= 3;
+        $n = (int) $m['round'];
+        if ($n >= 4 && $winner) {
+            Db::run('UPDATE cc_clash_matches SET a_wins = ?, b_wins = ?, updated_at = ? WHERE id = ?', [$aWins, $bWins, Db::now(), $m['id']]);
+            self::finishMatch(array_merge($m, ['a_wins' => $aWins, 'b_wins' => $bWins]), $winner);
+            return;
+        }
+        $done = $aWins >= 2 || $bWins >= 2 || ($n >= 3 && $aWins !== $bWins);
         if ($done) {
-            $mw = $aWins === $bWins ? null : ($aWins > $bWins ? (string) $m['a_id'] : (string) $m['b_id']);
-            // Tie match after 3: higher total score, else first player.
-            if ($mw === null) {
-                $tot = Db::one('SELECT COALESCE(SUM(a_score),0) AS a, COALESCE(SUM(b_score),0) AS b FROM cc_clash_rounds WHERE match_id = ?', [$m['id']]);
-                $mw = ((int) $tot['a'] >= (int) $tot['b']) ? (string) $m['a_id'] : (string) $m['b_id'];
-            }
+            $mw = $aWins > $bWins ? (string) $m['a_id'] : (string) $m['b_id'];
             Db::run('UPDATE cc_clash_matches SET a_wins = ?, b_wins = ?, updated_at = ? WHERE id = ?', [$aWins, $bWins, Db::now(), $m['id']]);
             self::finishMatch(array_merge($m, ['a_wins' => $aWins, 'b_wins' => $bWins]), $mw);
             return;
@@ -695,6 +734,11 @@ final class Clash
         self::awardDaily($m, $winnerId);
         Party::recordDuel(array_merge($m, ['winner_id' => $winnerId]));
         Db::run('DELETE FROM cc_clash_queue WHERE player_id IN (?,?)', [$m['a_id'], $m['b_id']]);
+        try {
+            ClashRank::applyMatch($m, $winnerId);
+        } catch (Throwable $e) {
+            error_log('[combocraft rank] ' . $e->getMessage());
+        }
     }
 
     /** @param array<string,mixed> $m */
@@ -710,6 +754,11 @@ final class Clash
         self::awardDaily(array_merge($m, ['status' => 'forfeit']), $winner);
         Party::recordDuel(array_merge($m, ['status' => 'forfeit', 'winner_id' => $winner]));
         Db::run('DELETE FROM cc_clash_queue WHERE player_id IN (?,?)', [$m['a_id'], $m['b_id']]);
+        try {
+            ClashRank::applyMatch(array_merge($m, ['status' => 'forfeit', 'winner_id' => $winner]), $winner);
+        } catch (Throwable $e) {
+            error_log('[combocraft rank forfeit] ' . $e->getMessage());
+        }
     }
 
     /** @param array<string,mixed> $m */
@@ -1127,11 +1176,17 @@ final class Clash
     private static function playerMini(string $id): array
     {
         $p = Db::one('SELECT id, nickname, avatar FROM cc_players WHERE id = ?', [$id]);
-        return [
+        $mini = [
             'id' => $id,
             'name' => $p['nickname'] ?? 'Player',
             'avatar' => Text::safeEmoji((string) (($p['avatar'] ?? '') ?: '🐱')),
         ];
+        try {
+            $mini['rank'] = ClashRank::of($id);
+        } catch (Throwable $e) {
+            // ranks table may not exist until schema catches up
+        }
+        return $mini;
     }
 
     /** @param array<string,mixed>|null $best */
@@ -1302,6 +1357,21 @@ final class Clash
             'now' => Db::nowMs(),
             'isAi' => self::isAiId(self::oppId($m, $p['id'])),
             'aiLevel' => self::aiLevelOf($m),
+            'youTeam' => $youAreA ? 'blue' : 'orange',
+            'oppTeam' => $youAreA ? 'orange' : 'blue',
+            'overtime' => (int) $m['round'] >= 4,
+            'kickoffUntil' => $startsAt ? $startsAt + (self::KICKOFF_SECS * 1000) : null,
+            'kickoffSecs' => self::KICKOFF_SECS,
+            'boost' => $round ? self::boostOf($m['id'], $p['id'], (int) $round['n']) : 0,
+            'boostMax' => self::BOOST_MAX,
+            'boostAttack' => self::BOOST_ATTACK,
+            'boostBurst' => self::BOOST_BURST,
+            'quick' => self::recentQuick($m['id']),
+            'stats' => in_array($m['status'], ['finished', 'forfeit'], true) ? ClashRank::matchStats($m['id']) : [],
+            'rankChange' => in_array($m['status'], ['finished', 'forfeit'], true) ? ClashRank::summaryFor($m['id'], $p['id']) : null,
+            'rematch' => in_array($m['status'], ['finished', 'forfeit'], true)
+                ? ClashRematch::publicView(ClashRematch::tick($m['id']), $p['id'])
+                : ClashRematch::idle(),
         ];
     }
 
@@ -1313,6 +1383,66 @@ final class Clash
             'Rare' => 2,
             default => 1,
         };
+    }
+
+
+    /** @param array<string,mixed> $p @return array<string,mixed> */
+    public static function rematchVote(array $p, string $matchId): array
+    {
+        self::requireName($p);
+        $m = self::getMatch($matchId);
+        if ($m['a_id'] !== $p['id'] && $m['b_id'] !== $p['id']) {
+            throw new HttpError('This is not your match.', 403);
+        }
+        if (!in_array($m['status'], ['finished', 'forfeit'], true)) {
+            throw new HttpError('Finish this match first.', 422);
+        }
+        if ($live = self::activeMatch($p)) {
+            return ['match' => self::matchView($live, $p), 'rematch' => ClashRematch::publicView(ClashRematch::tick($matchId), $p['id'])];
+        }
+        $a = (string) $m['a_id'];
+        $b = (string) $m['b_id'];
+        $seed = [];
+        if (self::isAiId($a)) {
+            $seed[$a] = true;
+        }
+        if (self::isAiId($b)) {
+            $seed[$b] = true;
+        }
+        $st = ClashRematch::open($matchId, 'duel', [$a, $b], $seed, $p['id']);
+        $st = ClashRematch::tick($matchId);
+        if (($st['status'] ?? '') === 'cancelled') {
+            return ['match' => self::matchView($m, $p), 'rematch' => ClashRematch::publicView($st, $p['id'])];
+        }
+        if (ClashRematch::allVoted($st)) {
+            $opp = self::oppId($m, $p['id']);
+            if (self::isAiId($opp)) {
+                $res = self::challengeAi($p, (string) self::levelFromId($opp));
+                $nid = $res['match']['id'] ?? null;
+                if (is_string($nid) && $nid !== '') {
+                    ClashRematch::markAccepted($matchId, $st, $nid);
+                }
+                $st = ClashRematch::load($matchId) ?: $st;
+                return $res + ['rematch' => ClashRematch::publicView($st, $p['id'])];
+            }
+            $nm = self::createMatch($a, $b);
+            ClashRematch::markAccepted($matchId, $st, (string) $nm['id']);
+            return ['match' => self::matchView($nm, $p), 'rematch' => ClashRematch::publicView(ClashRematch::load($matchId) ?: $st, $p['id']), 'challenged' => false];
+        }
+        return ['match' => self::matchView($m, $p), 'rematch' => ClashRematch::publicView($st, $p['id'])];
+    }
+
+    /** @return array{id:string,name:string,avatar:string} */
+    public static function playerPublic(string $id): array
+    {
+        if (self::isAiId($id)) {
+            foreach (self::AI as $ai) {
+                if ($ai['id'] === $id) {
+                    return ['id' => $id, 'name' => $ai['name'], 'avatar' => $ai['avatar']];
+                }
+            }
+        }
+        return self::playerMini($id);
     }
 
     public static function isAiId(string $id): bool
@@ -1431,6 +1561,9 @@ final class Clash
         if (!$round || (int) $round['settled'] || strtotime((string) $round['ends_at'] . ' UTC') <= time()) {
             return;
         }
+        if (time() < strtotime((string) $round['started_at'] . ' UTC') + self::KICKOFF_SECS) {
+            return;
+        }
         $lo = Db::one('SELECT * FROM cc_clash_loadouts WHERE match_id = ? AND player_id = ?', [$m['id'], $aiId]);
         if (!$lo) {
             return;
@@ -1483,6 +1616,69 @@ final class Clash
         } catch (Throwable $e) {
             error_log('[combocraft ai play] ' . $e->getMessage());
         }
+    }
+
+    public const QUICK_PHRASES = [
+        'What a combo!',
+        'Nice one!',
+        'Close one!',
+        'Calculated.',
+        'Wow!',
+    ];
+
+    /** @param array<string,mixed> $p */
+    public static function quick(array $p, string $matchId, string $phrase): array
+    {
+        $m = self::mine($p, $matchId);
+        if (!in_array($m['status'], ['playing', 'inter', 'loadout'], true)) {
+            throw new HttpError('The match is over.', 422);
+        }
+        $phrase = trim($phrase);
+        if (!in_array($phrase, self::QUICK_PHRASES, true)) {
+            throw new HttpError('Unknown quick chat.', 422);
+        }
+        Db::run(
+            'INSERT INTO cc_clash_quick (match_id, player_id, phrase, created_at) VALUES (?,?,?,?)',
+            [$matchId, $p['id'], $phrase, Db::now()]
+        );
+        return ['ok' => true, 'quick' => self::recentQuick($matchId), 'match' => self::matchView(self::getMatch($matchId), $p)];
+    }
+
+    /** @return list<array<string,mixed>> */
+    private static function recentQuick(string $matchId): array
+    {
+        $rows = Db::all(
+            'SELECT q.*, p.nickname, p.avatar FROM cc_clash_quick q LEFT JOIN cc_players p ON p.id = q.player_id WHERE q.match_id = ? ORDER BY q.id DESC LIMIT 8',
+            [$matchId]
+        );
+        $out = [];
+        foreach (array_reverse($rows) as $r) {
+            $out[] = [
+                'id' => (int) $r['id'],
+                'playerId' => (string) $r['player_id'],
+                'name' => $r['nickname'] ?? 'Player',
+                'avatar' => Text::safeEmoji((string) (($r['avatar'] ?? '') ?: '⚡')),
+                'phrase' => (string) $r['phrase'],
+                'at' => strtotime((string) $r['created_at'] . ' UTC') * 1000,
+            ];
+        }
+        return $out;
+    }
+
+    private static function boostKey(string $matchId, string $playerId, int $round): string
+    {
+        return 'cb:' . $matchId . ':' . $playerId . ':' . $round;
+    }
+
+    private static function boostOf(string $matchId, string $playerId, int $round): int
+    {
+        $v = Store::get(self::boostKey($matchId, $playerId, $round));
+        return max(0, min(self::BOOST_MAX, (int) $v));
+    }
+
+    private static function setBoost(string $matchId, string $playerId, int $round, int $n): void
+    {
+        Store::set(self::boostKey($matchId, $playerId, $round), (string) max(0, min(self::BOOST_MAX, $n)));
     }
 
     private static function id(string $p): string
