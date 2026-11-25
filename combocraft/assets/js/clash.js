@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass } from './features.js?v=19';
+import { rarityClass } from './features.js?v=20';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -85,7 +85,7 @@ async function renderLobby(inbox) {
     { id: 'duel', tag: 'Ranked', title: '1v1 Duel', blurb: 'Best of 3. Build a loadout and outscore a rival.' },
     { id: 'p2', tag: 'Party', title: '2v2 Party', blurb: 'Team up, hit the target, and advance together.' },
     { id: 'p3', tag: 'Party', title: '3v3 Party', blurb: 'Bigger parties, three 90-second sessions.' },
-    { id: 'ai', tag: 'Practice', title: 'vs AI', blurb: 'Easy, Medium or Hard bots. Jump in now.' },
+    { id: 'ai', tag: 'Practice', title: 'vs AI', blurb: '1v1 or Party vs AI. Easy, Medium or Hard — starts instantly.' },
     { id: 'priv', tag: 'Invite', title: 'Private Match', blurb: 'Send a challenge link. They have 5 seconds to accept.' },
   ];
   const row = (rows, line) => (rows || []).length
@@ -224,22 +224,48 @@ function clashOverlay(inner, extraClass = '') {
   return { o, box, close };
 }
 
-async function openAiPicker() {
+async function openAiPicker(preferParty = false) {
   const { api, toast, go } = ctx;
+  const party = ctx.state.clashInbox?.party;
+  const inParty = !!(party && (party.members || []).length);
+  // Party bar / explicit Party vs AI → party. Otherwise party members default to Party vs AI; solo players get 1v1.
+  let kind = preferParty || inParty ? 'party' : 'duel';
   const { box, close } = clashOverlay(`<button class="x" type="button" aria-label="Close">×</button>
     <h3>Challenge AI</h3>
-    <p>Play a best-of-3 against a bot. It builds a loadout and makes timed combos — Easy is slower, Hard chains and attacks.</p>
+    <div class="ai-kinds" role="tablist">
+      <button type="button" data-kind="duel" class="${kind === 'duel' ? 'on' : ''}">1v1 vs AI</button>
+      <button type="button" data-kind="party" class="${kind === 'party' ? 'on' : ''}">Party vs AI</button>
+    </div>
+    <p class="ai-copy">${kind === 'party'
+      ? 'Your whole party plays the 3×90s team-target match against a same-sized bot team. No waiting — it starts now.'
+      : 'Play a best-of-3 against a bot. Easy is slower, Hard chains and attacks.'}</p>
     <div class="ai-diffs">
       <button type="button" data-lvl="easy"><b>Easy</b><span>Slower mixes, a gentle start</span></button>
       <button type="button" data-lvl="medium"><b>Medium</b><span>A fair, timed fight</span></button>
       <button type="button" data-lvl="hard"><b>Hard</b><span>Fast chains and counter-attacks</span></button>
     </div>`, 'cc-ai-modal');
+  const copy = box.querySelector('.ai-copy');
+  const setKind = (next) => {
+    kind = next;
+    box.querySelectorAll('[data-kind]').forEach((b) => b.classList.toggle('on', b.dataset.kind === kind));
+    if (copy) {
+      copy.textContent = kind === 'party'
+        ? 'Your whole party plays the 3×90s team-target match against a same-sized bot team. No waiting — it starts now.'
+        : 'Play a best-of-3 against a bot. Easy is slower, Hard chains and attacks.';
+    }
+  };
+  box.querySelectorAll('[data-kind]').forEach((b) => { b.onclick = () => setKind(b.dataset.kind); });
   box.querySelectorAll('[data-lvl]').forEach((btn) => {
     btn.onclick = async () => {
       box.querySelectorAll('[data-lvl]').forEach((b) => { b.disabled = true; });
       try {
-        const d = await api('clash/ai', { level: btn.dataset.lvl });
+        const path = kind === 'party' ? 'clash/party/ai' : 'clash/ai';
+        const d = await api(path, { level: btn.dataset.lvl });
         close();
+        if (d.party) {
+          ctx.state.clashInbox = { ...(ctx.state.clashInbox || {}), party: d.party };
+          ensurePartyBar(d.party);
+        }
         if (d.match) go('clash/' + d.match.id);
         else toast('Could not start the bot match. Try again.');
       } catch (e) {
@@ -1164,6 +1190,7 @@ function ensurePartyBar(party) {
     <div class="lab">Party${party.name ? ' · @' + esc(party.name) : ''}</div>
     ${members}${empties}
     <button type="button" class="mini-btn" id="pbChat">Chat</button>
+    <button type="button" class="pb-ai" id="pbAi" ${party.queued ? 'disabled' : ''}><span>Party vs AI</span></button>
     <button type="button" class="pb-leave" id="pbLeave">Leave Party</button>
     <button type="button" class="pb-ready" id="pbReady"><span>${party.queued ? 'Searching…' : 'Ready'}</span></button>`;
   if (!bar) {
@@ -1183,6 +1210,8 @@ function ensurePartyBar(party) {
   };
   const ready = bar.querySelector('#pbReady');
   if (ready) ready.onclick = () => party.queued ? cancelReady() : clickReady();
+  const aiBtn = bar.querySelector('#pbAi');
+  if (aiBtn) aiBtn.onclick = () => openAiPicker(true);
   bar.querySelectorAll('.pb-invite').forEach((b) => { b.onclick = () => openPartyUp(ctx.state.clashInbox || { party, recentPeople: [] }); });
   bar.querySelectorAll('.pb-boot').forEach((b) => b.onclick = async () => {
     try {
@@ -1529,7 +1558,7 @@ async function toggleVoice(pan) {
   const room = inbox.party?.voiceRoom || inbox.partyMatch?.voiceRoom;
   const me = ctx.state.me;
   if (!room || !me?.id) { ctx.toast('Join a party to use live voice.'); return; }
-  const { createVoice } = await import('./voice.js?v=19');
+  const { createVoice } = await import('./voice.js?v=20');
   const base = (document.querySelector('base')?.href) || ctx.BASE;
   voiceCtl = createVoice({ apiBase: base, room, selfId: me.id, name: me.nickname || 'Player' });
   try {

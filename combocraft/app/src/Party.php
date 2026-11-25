@@ -330,6 +330,48 @@ final class Party
         return ['queued' => false, 'party' => $party ? self::partyView($party, $p) : null];
     }
 
+    /**
+     * Start a party-vs-party match against a same-sized AI team instantly.
+     * @param array<string,mixed> $p
+     * @return array<string,mixed>
+     */
+    public static function challengeAi(array $p, string $level): array
+    {
+        self::needName($p);
+        $level = Clash::normLevel($level);
+        if ($level === null) {
+            throw new HttpError('Pick Easy, Medium, or Hard.', 422);
+        }
+        $party = self::currentParty($p);
+        if (!$party) {
+            $party = self::createParty($p);
+            $solo = ($p['nickname'] ?: 'Solo');
+            Db::run('UPDATE cc_clash_parties SET name = ?, updated_at = ? WHERE id = ?', [$solo, Db::now(), $party['id']]);
+            $party = self::getParty($party['id']);
+        }
+        if ($live = self::livePartyMatch($party)) {
+            $live = self::tickMatch($live);
+            return [
+                'queued' => false,
+                'match' => self::matchView(self::getMatch($live['id']), $p),
+                'party' => self::partyView($party, $p),
+                'ai' => self::aiLevelOfMatch($live),
+            ];
+        }
+        Db::run('DELETE FROM cc_clash_party_queue WHERE party_id = ?', [$party['id']]);
+        $size = (int) Db::value('SELECT COUNT(*) FROM cc_clash_party_members WHERE party_id = ?', [$party['id']]);
+        $size = max(1, min(self::MAX_SIZE, $size));
+        $bots = self::ensureBotParty($level, $size);
+        $m = self::createMatch($party, $bots);
+        self::setAiLevel($m['id'], $level);
+        return [
+            'queued' => false,
+            'match' => self::matchView($m, $p),
+            'party' => self::partyView(self::getParty($party['id']), $p),
+            'ai' => $level,
+        ];
+    }
+
     /** @param array<string,mixed> $p */
     public static function match(array $p, string $id): array
     {
@@ -346,10 +388,12 @@ final class Party
     }
 
     /** @param array<string,mixed> $p */
-    public static function play(array $p, string $matchId, string $aTok, string $bTok): array
+    public static function play(array $p, string $matchId, string $aTok, string $bTok, bool $internal = false): array
     {
         $m = self::getMatch($matchId);
-        $m = self::tickMatch($m);
+        if (!$internal) {
+            $m = self::tickMatch($m);
+        }
         if (!self::inMatch($m, $p['id'])) {
             throw new HttpError('This is not your match.', 403);
         }
@@ -490,7 +534,13 @@ final class Party
         if (count($needed) < 2) {
             throw new HttpError('Both parties need at least one player for a rematch.', 422);
         }
-        $st = ClashRematch::open($matchId, 'party', $needed, [], $p['id']);
+        $seed = [];
+        foreach ($needed as $nid) {
+            if (Clash::isAiId($nid)) {
+                $seed[$nid] = true;
+            }
+        }
+        $st = ClashRematch::open($matchId, 'party', $needed, $seed, $p['id']);
         $st = ClashRematch::tick($matchId);
         if (($st['status'] ?? '') === 'cancelled') {
             return ['match' => self::matchView($m, $p), 'rematch' => ClashRematch::publicView($st, $p['id'])];
@@ -499,6 +549,10 @@ final class Party
             $a = self::getParty((string) $m['a_party']);
             $b = self::getParty((string) $m['b_party']);
             $nm = self::createMatch($a, $b);
+            $lvl = self::aiLevelOfMatch($m);
+            if ($lvl) {
+                self::setAiLevel($nm['id'], $lvl);
+            }
             ClashRematch::markAccepted($matchId, $st, (string) $nm['id']);
             return ['match' => self::matchView($nm, $p), 'rematch' => ClashRematch::publicView(ClashRematch::load($matchId) ?: $st, $p['id'])];
         }
@@ -678,6 +732,11 @@ final class Party
             }
             // One team out: the other keeps playing so the defeated side can spectate.
         }
+        self::touchAiMembers($m);
+        if ($m['status'] === 'playing') {
+            self::maybeAiTeamPlay($m);
+            $m = self::getMatch($m['id']);
+        }
         return $m;
     }
 
@@ -796,9 +855,16 @@ final class Party
     private static function hand(array $p, array $m, string $side): array
     {
         $out = [];
-        foreach (Game::collection($p) as $e) {
-            $tok = 'e:' . (int) $e['id'];
-            $out[$tok] = $e + ['token' => $tok, 'temp' => false];
+        if (Clash::isAiId((string) $p['id'])) {
+            foreach (Db::all('SELECT * FROM cc_elements WHERE is_base = 1 ORDER BY sort_order, id') as $e) {
+                $tok = 'e:' . (int) $e['id'];
+                $out[$tok] = $e + ['token' => $tok, 'temp' => false];
+            }
+        } else {
+            foreach (Game::collection($p) as $e) {
+                $tok = 'e:' . (int) $e['id'];
+                $out[$tok] = $e + ['token' => $tok, 'temp' => false];
+            }
         }
         $cur = (int) $m[$side . '_session'] + 1;
         $plays = Db::all(
@@ -1045,6 +1111,14 @@ final class Party
     /** @return array{id:string,name:string,avatar:string} */
     private static function mini(string $id): array
     {
+        if (Clash::isAiId($id)) {
+            $pub = Clash::playerPublic($id);
+            return [
+                'id' => $id,
+                'name' => $pub['name'],
+                'avatar' => Text::safeEmoji((string) ($pub['avatar'] ?: '🤖')),
+            ];
+        }
         $p = Db::one('SELECT id, nickname, avatar FROM cc_players WHERE id = ?', [$id]);
         return [
             'id' => $id,
@@ -1184,6 +1258,8 @@ final class Party
             'youWon' => $m['winner_party'] === $partyId,
             'voiceRoom' => 'party-' . $partyId,
             'partyId' => $partyId,
+            'vsAi' => self::aiLevelOfMatch($m) !== null,
+            'aiLevel' => self::aiLevelOfMatch($m),
             'now' => Db::nowMs(),
             'rematch' => $m['status'] === 'finished'
                 ? ClashRematch::publicView(ClashRematch::tick($m['id']), $p['id'])
@@ -1225,6 +1301,271 @@ final class Party
             Store::set('pt:' . $matchId, json_encode($all, JSON_UNESCAPED_UNICODE));
         } catch (Throwable $e) {
         }
+    }
+
+    /** @return array<string,mixed> */
+    private static function ensureBotParty(string $level, int $size): array
+    {
+        $id = self::id('y');
+        $now = Db::now();
+        $name = ucfirst($level) . ' Bots';
+        if (strlen($name) > 24) {
+            $name = substr($name, 0, 24);
+        }
+        $host = Clash::partyBotId($level, 1);
+        for ($n = 1; $n <= $size; $n++) {
+            Clash::ensurePartyBot($level, $n);
+        }
+        Db::run(
+            'INSERT INTO cc_clash_parties (id, name, host_id, status, created_at, updated_at) VALUES (?,?,?,?,?,?)',
+            [$id, $name, $host, 'open', $now, $now]
+        );
+        for ($n = 1; $n <= $size; $n++) {
+            $botId = Clash::partyBotId($level, $n);
+            Db::run(
+                'INSERT INTO cc_clash_party_members (party_id, player_id, role, joined_at, last_seen) VALUES (?,?,?,?,?)',
+                [$id, $botId, $n === 1 ? 'host' : 'member', $now, $now]
+            );
+        }
+        return self::getParty($id);
+    }
+
+    private static function setAiLevel(string $matchId, string $level): void
+    {
+        try {
+            Store::set('pai:' . $matchId, $level);
+        } catch (Throwable $e) {
+        }
+    }
+
+    private static function aiLevelOfMatch(array $m): ?string
+    {
+        try {
+            $v = Store::get('pai:' . $m['id']);
+            if (is_string($v) && Clash::normLevel($v)) {
+                return Clash::normLevel($v);
+            }
+        } catch (Throwable $e) {
+        }
+        foreach ([$m['a_party'] ?? '', $m['b_party'] ?? ''] as $pid) {
+            if (!$pid) {
+                continue;
+            }
+            $host = Db::value('SELECT host_id FROM cc_clash_parties WHERE id = ?', [$pid]);
+            $lvl = Clash::levelFromId((string) $host);
+            if ($lvl) {
+                return $lvl;
+            }
+        }
+        return null;
+    }
+
+    /** @param array<string,mixed> $m */
+    private static function touchAiMembers(array $m): void
+    {
+        $now = Db::now();
+        foreach ([$m['a_party'], $m['b_party']] as $pid) {
+            $rows = Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ?', [$pid]);
+            foreach ($rows as $row) {
+                if (Clash::isAiId((string) $row['player_id'])) {
+                    Db::run('UPDATE cc_clash_party_members SET last_seen = ? WHERE party_id = ? AND player_id = ?', [$now, $pid, $row['player_id']]);
+                    Db::run('UPDATE cc_players SET last_seen = ? WHERE id = ?', [$now, $row['player_id']]);
+                }
+            }
+        }
+    }
+
+    /** @param array<string,mixed> $m */
+    private static function maybeAiTeamPlay(array $m): void
+    {
+        if ($m['status'] !== 'playing') {
+            return;
+        }
+        $level = self::aiLevelOfMatch($m);
+        if (!$level) {
+            return;
+        }
+        $cfg = Clash::aiCfg($level);
+        if (!$cfg) {
+            return;
+        }
+        $botParty = null;
+        $botSide = null;
+        foreach (['a' => $m['a_party'], 'b' => $m['b_party']] as $side => $pid) {
+            $host = (string) (Db::value('SELECT host_id FROM cc_clash_parties WHERE id = ?', [$pid]) ?? '');
+            if (Clash::isAiId($host)) {
+                $botParty = $pid;
+                $botSide = $side;
+                break;
+            }
+        }
+        if (!$botParty || !$botSide) {
+            return;
+        }
+        if ((int) $m[$botSide . '_alive'] !== 1) {
+            return;
+        }
+        $ends = $m[$botSide . '_ends_at'] ?? null;
+        if ($ends && strtotime((string) $ends . ' UTC') <= time()) {
+            return;
+        }
+        $bots = Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ? ORDER BY joined_at', [$botParty]);
+        $nowMs = Db::nowMs();
+        $i = 0;
+        foreach ($bots as $row) {
+            $botId = (string) $row['player_id'];
+            if (!Clash::isAiId($botId)) {
+                continue;
+            }
+            $key = 'pp:' . $botId . ':' . $m['id'];
+            $last = 0;
+            try {
+                $last = (int) (Store::get($key) ?? 0);
+            } catch (Throwable $e) {
+            }
+            $stagger = $i * 700;
+            $wait = $last > 0 ? (int) $cfg['gapMs'] : ((int) $cfg['firstMs'] + $stagger);
+            $from = $last > 0 ? $last : (($m[$botSide . '_ends_at'] ? (strtotime((string) $m[$botSide . '_ends_at'] . ' UTC') - self::SESSION_SECS) * 1000 : $nowMs));
+            $i++;
+            if ($nowMs - $from < $wait) {
+                continue;
+            }
+            $bot = Db::one('SELECT * FROM cc_players WHERE id = ?', [$botId]);
+            if (!$bot) {
+                $bot = ['id' => $botId, 'nickname' => Clash::playerPublic($botId)['name']];
+            }
+            $hand = self::hand($bot, $m, $botSide);
+            $pick = self::aiPickCombo($hand, (string) (self::sideTarget($m, $botSide)[0] ?? $m['target_name']), $level, $m['id'] . '|' . $botId . '|' . $nowMs);
+            if (!$pick) {
+                continue;
+            }
+            try {
+                self::play($bot, (string) $m['id'], $pick[0], $pick[1], true);
+                $m = self::getMatch($m['id']);
+                if ($m['status'] !== 'playing' || (int) $m[$botSide . '_alive'] !== 1) {
+                    return;
+                }
+            } catch (Throwable $e) {
+                error_log('[combocraft party ai] ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * @param array<string,array<string,mixed>> $hand
+     * @return array{0:string,1:string}|null
+     */
+    private static function aiPickCombo(array $hand, string $targetName, string $level, string $salt): ?array
+    {
+        $toks = array_keys($hand);
+        if (count($toks) < 1) {
+            return null;
+        }
+        $want = Text::key($targetName);
+        $known = [];
+        $list = array_values($hand);
+        $n = count($list);
+        for ($i = 0; $i < $n; $i++) {
+            for ($j = $i; $j < $n; $j++) {
+                $res = self::knownCraftName($list[$i], $list[$j]);
+                if ($res === null) {
+                    continue;
+                }
+                $known[] = [$list[$i]['token'], $list[$j]['token'], Text::key($res), $res];
+            }
+        }
+        $hit = null;
+        $step = null;
+        foreach ($known as $k) {
+            if ($k[2] === $want) {
+                $hit = [$k[0], $k[1]];
+                break;
+            }
+        }
+        if (!$hit) {
+            $need = self::missingPathKeys($want, $hand);
+            foreach ($known as $k) {
+                if (in_array($k[2], $need, true)) {
+                    $step = [$k[0], $k[1]];
+                    break;
+                }
+            }
+        }
+        $acc = ['easy' => 0.28, 'medium' => 0.58, 'hard' => 0.9][$level] ?? 0.5;
+        $roll = (crc32($salt) % 1000) / 1000;
+        if ($hit && $roll < $acc + 0.15) {
+            return $hit;
+        }
+        if ($step && $roll < $acc) {
+            return $step;
+        }
+        if ($known) {
+            $k = $known[crc32($salt . '|r') % count($known)];
+            return [$k[0], $k[1]];
+        }
+        $a = $toks[crc32($salt) % count($toks)];
+        $b = $toks[(crc32($salt . '|b') + 1) % count($toks)];
+        return [$a, $b];
+    }
+
+    /** @param array<string,mixed> $ea @param array<string,mixed> $eb */
+    private static function knownCraftName(array $ea, array $eb): ?string
+    {
+        if (empty($ea['temp']) && empty($eb['temp']) && !empty($ea['id']) && !empty($eb['id'])) {
+            $x = min((int) $ea['id'], (int) $eb['id']);
+            $y = max((int) $ea['id'], (int) $eb['id']);
+            $recipe = Db::one('SELECT e.name FROM cc_recipes r JOIN cc_elements e ON e.id = r.result_id WHERE r.a_id = ? AND r.b_id = ?', [$x, $y]);
+            if ($recipe) {
+                return (string) $recipe['name'];
+            }
+        }
+        $seed = Seeds::RECIPES[Seeds::key((string) $ea['name'], (string) $eb['name'])] ?? null;
+        return $seed ? (string) $seed[0] : null;
+    }
+
+    /**
+     * Keys of intermediates the bot still needs on a shortest path to the target.
+     * @param array<string,array<string,mixed>> $hand
+     * @return list<string>
+     */
+    private static function missingPathKeys(string $want, array $hand): array
+    {
+        $have = [];
+        foreach ($hand as $e) {
+            $have[Text::key((string) $e['name'])] = true;
+        }
+        if ($want === '' || isset($have[$want])) {
+            return [];
+        }
+        try {
+            $g = Daily::graph();
+        } catch (Throwable $e) {
+            return [];
+        }
+        $nodes = $g['nodes'] ?? [];
+        if (!isset($nodes[$want])) {
+            return [];
+        }
+        $need = [];
+        $queue = [$want];
+        $seen = [$want => true];
+        while ($queue) {
+            $cur = array_shift($queue);
+            foreach ($nodes[$cur]['parents'] ?? [] as $pair) {
+                [$a, $b] = $pair;
+                if (!isset($have[$a]) && !isset($seen[$a])) {
+                    $need[] = $a;
+                    $seen[$a] = true;
+                    $queue[] = $a;
+                }
+                if (!isset($have[$b]) && !isset($seen[$b])) {
+                    $need[] = $b;
+                    $seen[$b] = true;
+                    $queue[] = $b;
+                }
+            }
+        }
+        return $need;
     }
 
     private static function id(string $p): string

@@ -1441,8 +1441,19 @@ final class Clash
                     return ['id' => $id, 'name' => $ai['name'], 'avatar' => $ai['avatar']];
                 }
             }
+            $level = self::levelFromId($id);
+            if ($level && preg_match('/_p(\d+)$/', $id, $m)) {
+                return ['id' => $id, 'name' => self::partyBotName($level, (int) $m[1]), 'avatar' => self::AI[$level]['avatar']];
+            }
         }
         return self::playerMini($id);
+    }
+
+    /** @return array<string,mixed>|null */
+    public static function aiCfg(string $level): ?array
+    {
+        $level = self::normLevel($level) ?? $level;
+        return self::AI[$level] ?? null;
     }
 
     public static function isAiId(string $id): bool
@@ -1477,7 +1488,44 @@ final class Clash
                 return $level;
             }
         }
+        if (preg_match('/^pai_(easy|medium|hard)_p\d+$/', $id, $m)) {
+            return $m[1];
+        }
         return null;
+    }
+
+    public static function partyBotId(string $level, int $n): string
+    {
+        return 'pai_' . $level . '_p' . $n;
+    }
+
+    public static function partyBotName(string $level, int $n): string
+    {
+        return ucfirst($level) . ' Bot ' . $n;
+    }
+
+    public static function ensurePartyBot(string $level, int $n): void
+    {
+        if (!isset(self::AI[$level])) {
+            return;
+        }
+        $id = self::partyBotId($level, $n);
+        $nick = self::partyBotName($level, $n);
+        $avatar = self::AI[$level]['avatar'];
+        $row = Db::one('SELECT * FROM cc_players WHERE id = ?', [$id]);
+        $now = Db::now();
+        $key = mb_strtolower($nick);
+        if ($row) {
+            if (($row['nickname'] ?? '') !== $nick) {
+                Db::run('UPDATE cc_players SET nickname = ?, nick_key = ?, avatar = ?, last_seen = ? WHERE id = ?', [$nick, $key, $avatar, $now, $id]);
+            }
+            return;
+        }
+        $hash = hash('sha256', 'cc-reserved-ai|' . $id);
+        Db::run(
+            'INSERT INTO cc_players (id, token_hash, nickname, nick_key, avatar, day, day_count, streak, last_day, firsts, combos, ip_hash, created_at, last_seen) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            [$id, $hash, $nick, $key, $avatar, '', 0, 0, '', 0, 0, 'ai-reserved', $now, $now]
+        );
     }
 
     /** @param array<string,mixed> $m */

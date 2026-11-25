@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=19';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=20';
 
 export function applyMe(state, d) {
   state.daily = d.daily || state.daily || null;
@@ -8,6 +8,34 @@ export function applyMe(state, d) {
   state.badges = d.badges || state.badges || [];
   state.referral = d.referral || state.referral || null;
   state.morse = d.morse || state.morse || null;
+  if (state.daily) cacheDaily(state.daily);
+  else {
+    const cached = readDailyCache();
+    if (cached) state.daily = cached;
+  }
+}
+
+function dailyCacheKey(day) {
+  return 'cc_daily_chain_' + (day || '');
+}
+
+function cacheDaily(d) {
+  if (!d?.day) return;
+  try {
+    localStorage.setItem(dailyCacheKey(d.day), JSON.stringify({
+      day: d.day, level: d.level, steps: d.steps, stepsLabel: d.stepsLabel,
+      target: d.target, solved: d.solved, cleared: d.cleared, score: d.score,
+      streak: d.streak, share: d.share, solvedKeys: d.solvedKeys, history: d.history,
+    }));
+  } catch {}
+}
+
+function readDailyCache() {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const raw = localStorage.getItem(dailyCacheKey(day));
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
 }
 
 export function rarityClass(el) {
@@ -20,18 +48,22 @@ export function playChrome(state) {
   const h = state.hints || { left: 3 };
   const p = state.progress || { unlocked: 0, world: 0, pct: 0 };
   const target = d?.target;
-  const solved = d?.solved;
+  const cleared = !!(d?.cleared || (d?.solved && !d?.level));
+  const level = d?.level || 1;
+  const stepsLab = d?.stepsLabel || (d?.steps ? ('about ' + d.steps + ' combo' + (d.steps === 1 ? '' : 's')) : '');
   return `
-    <div class="daily-bar${solved ? ' solved' : ''}" id="dailyBar">
+    <div class="daily-bar rl-daily${cleared ? ' solved' : ''}" id="dailyBar">
       <div class="db-main">
         <div class="db-kicker">Daily Challenge${d?.day ? ' · ' + d.day : ''}</div>
+        <div class="db-level">Level ${level}${stepsLab ? ' · ' + esc(stepsLab) : ''}${cleared ? ' · Chain complete' : ''}</div>
         <div class="db-target">${target ? `${ico(target.emoji)} <b>Make ${esc(target.name)}</b>` : 'Loading today’s target…'}
-          ${solved ? '<span class="db-done">Solved</span>' : ''}</div>
+          ${cleared ? '<span class="db-done">Solved</span>' : ''}</div>
       </div>
       <div class="db-meta">
         <span class="db-streak" title="Daily streak">🔥 ${d?.streak || 0}</span>
+        <span class="db-score" title="Daily score">★ ${d?.score || 0}</span>
         <button class="mini-btn" id="hintBtn" ${h.left <= 0 ? 'disabled' : ''}>Hint · ${h.left}</button>
-        <button class="mini-btn" id="dailyShare" ${solved ? '' : 'hidden'}>Share</button>
+        <button class="mini-btn" id="dailyShare" ${(d?.score || cleared) ? '' : 'hidden'}>Share</button>
       </div>
     </div>
     <div class="world-bar" id="worldBar" title="How much of the known world you’ve unlocked">
@@ -85,8 +117,15 @@ export function onCombineExtras(res, { state, toast, shake, burst }) {
   if (res.coins?.justGranted) {
     toast(`+${res.coins.justGranted} Morse coins for your First Discovery!`);
   }
+  if (res.daily) cacheDaily(res.daily);
   if (res.daily?.justSolved) {
-    setTimeout(() => dailyWin(state, toast), 600);
+    paintDailyBar(state);
+    const d = res.daily;
+    if (d.clearedAll) {
+      setTimeout(() => dailyWin(state, toast), 600);
+    } else {
+      popDailyLevel(d, toast);
+    }
   }
   const bar = document.querySelector('#worldBar span');
   if (bar && state.progress) {
@@ -94,16 +133,60 @@ export function onCombineExtras(res, { state, toast, shake, burst }) {
     const i = document.querySelector('#worldBar .wb-track i');
     if (i) i.style.width = (state.progress.pct || 0) + '%';
   }
+}
+
+function paintDailyBar(state) {
   const db = document.querySelector('#dailyBar');
-  if (db && res.daily?.justSolved) {
-    db.classList.add('solved');
-    const done = db.querySelector('.db-done') || document.createElement('span');
-    done.className = 'db-done';
-    done.textContent = 'Solved';
-    db.querySelector('.db-target')?.appendChild(done);
-    const sh = document.querySelector('#dailyShare');
-    if (sh) sh.hidden = false;
+  if (!db) return;
+  const d = state.daily;
+  if (!d) return;
+  const cleared = !!d.cleared;
+  const level = d.level || 1;
+  const stepsLab = d.stepsLabel || '';
+  const target = d.target;
+  db.classList.toggle('solved', cleared);
+  db.classList.add('rl-daily');
+  const kicker = db.querySelector('.db-kicker');
+  if (kicker) kicker.textContent = 'Daily Challenge' + (d.day ? ' · ' + d.day : '');
+  let lvl = db.querySelector('.db-level');
+  if (!lvl) {
+    lvl = document.createElement('div');
+    lvl.className = 'db-level';
+    db.querySelector('.db-main')?.insertBefore(lvl, db.querySelector('.db-target'));
   }
+  lvl.textContent = 'Level ' + level + (stepsLab ? ' · ' + stepsLab : '') + (cleared ? ' · Chain complete' : '');
+  const tgt = db.querySelector('.db-target');
+  if (tgt && target) {
+    tgt.innerHTML = `${ico(target.emoji)} <b>Make ${esc(target.name)}</b>${cleared ? '<span class="db-done">Solved</span>' : ''}`;
+  }
+  const st = db.querySelector('.db-streak');
+  if (st) st.textContent = '🔥 ' + (d.streak || 0);
+  let sc = db.querySelector('.db-score');
+  if (!sc) {
+    sc = document.createElement('span');
+    sc.className = 'db-score';
+    sc.title = 'Daily score';
+    db.querySelector('.db-meta')?.insertBefore(sc, db.querySelector('#hintBtn'));
+  }
+  sc.textContent = '★ ' + (d.score || 0);
+  const sh = document.querySelector('#dailyShare');
+  if (sh) sh.hidden = !(d.score || cleared);
+}
+
+function popDailyLevel(d, toast) {
+  const db = document.querySelector('#dailyBar');
+  if (db) {
+    db.classList.remove('daily-pop');
+    void db.offsetWidth;
+    db.classList.add('daily-pop');
+    setTimeout(() => db.classList.remove('daily-pop'), 1400);
+  }
+  try { confetti(); } catch {}
+  const name = d.target?.name || 'the next target';
+  const lab = d.stepsLabel || '';
+  const gain = d.scoreGain ? ' +' + d.scoreGain + ' pts.' : '';
+  const just = d.justName ? 'Solved ' + d.justName + '!' : 'Solved!';
+  toast(`${just} Level ${d.level} — Make ${name}${lab ? ' · ' + lab : ''}.${gain}`, 3600);
 }
 
 function mergeBadges(all, added) {
@@ -314,9 +397,9 @@ export function dailyWin(state, toast) {
   wrap.className = 'overlay';
   wrap.innerHTML = `<div class="modal daily-win">
     <button class="x" aria-label="Close">${svg.close}</button>
-    <div class="dw-kicker">Daily Challenge cleared</div>
+    <div class="dw-kicker">${d.cleared || d.clearedAll ? 'Daily chain complete' : 'Daily Challenge cleared'}</div>
     <h3>${d.target ? `${ico(d.target.emoji)} ${esc(d.target.name)}` : 'Nice!'}</h3>
-    <p>${d.combos} combo${d.combos === 1 ? '' : 's'} · 🔥 ${d.streak} day streak</p>
+    <p>Level ${d.level || 1} · ★ ${d.score || 0} · 🔥 ${d.streak} day streak</p>
     <pre class="dw-share">${esc(d.share || '')}</pre>
     <div class="cel-actions" style="margin-top:14px">
       <button class="act share" data-a="copy"><span class="bx">${svg.link}</span>Copy result</button>
