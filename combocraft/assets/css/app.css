@@ -338,7 +338,6 @@ main { min-height: calc(100vh - 64px); }
 .ribbon { position: relative; z-index: 2; margin-top: 14px; width: min(600px, 92vw); animation: ribbonIn .8s cubic-bezier(.2, 1.4, .4, 1); }
 .ribbon svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 8px 14px rgba(150, 100, 20, .25)); }
 .ribbon .rt { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-46%); text-align: center; font-family: var(--serif); font-weight: 800; color: #3a2405; font-size: clamp(21px, 3.55vw, 40px); letter-spacing: -.01em; text-shadow: 0 1px 0 rgba(255, 240, 200, .6); }
-.ribbon .crown { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); width: 46px; }
 @keyframes ribbonIn { 0% { transform: scale(.3) rotate(-6deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
 .cel-sub { position: relative; z-index: 2; color: #403a4a; font-size: 14.5px; margin: 6px 0 14px; text-align: center; padding: 0 16px; }
 [data-theme="dark"] .cel-sub { color: #cfc8dd; }
@@ -358,7 +357,6 @@ main { min-height: calc(100vh - 64px); }
 .cel-card .pic img.artimg { width: 100%; height: 100%; object-fit: contain; transform: scale(1.08); filter: drop-shadow(0 10px 20px rgba(0,0,0,.4)); }
 .cel-card .pic .big3d { width: 70%; max-width: 230px; filter: drop-shadow(0 16px 24px rgba(0,0,0,.45)); animation: wiggle 2.6s ease-in-out infinite; }
 .cel-card .pic .bigtxt { font-size: 150px; }
-.cel-card .pic .crownon { position: absolute; top: 16%; left: 50%; transform: translateX(-30%) rotate(10deg); width: 70px; }
 .cel-card .streaks { position: absolute; inset: 0; background: repeating-linear-gradient(160deg, transparent 0 22px, rgba(255,255,255,.035) 22px 24px); }
 .cel-actions { position: relative; z-index: 2; display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; justify-content: center; }
 .act { width: 166px; height: 54px; border-radius: 14px; border: 1px solid #e3dfe6; background: #fff; display: flex; align-items: center; gap: 12px; padding: 0 16px; font-weight: 600; font-size: 16.5px; color: #1e1b26; box-shadow: 0 2px 6px rgba(0,0,0,.05); transition: transform .15s, box-shadow .15s; }

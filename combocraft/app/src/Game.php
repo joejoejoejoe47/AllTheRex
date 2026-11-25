@@ -12,6 +12,7 @@ final class Game
     /** Seed base elements and featured gallery picks (idempotent). */
     public static function ensureBase(): void
     {
+        self::scrubCrowns();
         $flag = Config::storagePath('base-' . substr(sha1(json_encode([Seeds::BASE, Seeds::FEATURED]) . Db::driver()), 0, 12) . '.ok');
         if (is_file($flag) && Db::value('SELECT COUNT(*) FROM cc_elements WHERE is_base = 1') >= count(Seeds::BASE)) {
             return;
@@ -60,6 +61,24 @@ final class Game
         @file_put_contents($flag, gmdate('c'));
     }
 
+
+    /** Replace any stored crown emoji so it cannot appear on a card. */
+    private static function scrubCrowns(): void
+    {
+        $flag = Config::storagePath('scrub-crowns.ok');
+        if (is_file($flag)) {
+            return;
+        }
+        try {
+            Db::run("UPDATE cc_elements SET emoji = ? WHERE name_key = ?", ['💰', 'dragon hoard']);
+            Db::run("UPDATE cc_elements SET emoji = ? WHERE name_key = ?", ['🐱', 'cat overlords']);
+            Db::run("UPDATE cc_elements SET emoji = REPLACE(emoji, '👑', '⭐') WHERE emoji LIKE ?", ['%👑%']);
+            @file_put_contents($flag, gmdate('c'));
+        } catch (Throwable $e) {
+            error_log('[combocraft scrub-crowns] ' . $e->getMessage());
+        }
+    }
+
     /** @param array<string,mixed> $row */
     private static function insertIgnore(string $table, array $row): void
     {
@@ -80,7 +99,7 @@ final class Game
         $v = [
             'id' => (int) $e['id'],
             'name' => (string) $e['name'],
-            'emoji' => (string) $e['emoji'],
+            'emoji' => Text::safeEmoji((string) $e['emoji']),
             'tagline' => (string) ($e['tagline'] ?? ''),
             'art' => $e['art'] ?: null,
             'label' => $e['label'] ?: null,
@@ -113,7 +132,7 @@ final class Game
     /** @param array<string,mixed> $e @return array<string,mixed> */
     public static function mini(array $e): array
     {
-        return ['id' => (int) $e['id'], 'name' => (string) $e['name'], 'emoji' => (string) $e['emoji']];
+        return ['id' => (int) $e['id'], 'name' => (string) $e['name'], 'emoji' => Text::safeEmoji((string) $e['emoji'])];
     }
 
     public static function rarity(int $depth, int $uses): string
@@ -259,6 +278,7 @@ final class Game
         if ($emoji === null || !Text::emojiKnown($emoji)) {
             $emoji = Remix::emojiFor($data['name'], $ea, $eb);
         }
+        $emoji = Text::safeEmoji((string) $emoji);
         $depth = max((int) $ea['depth'], (int) $eb['depth']) + 1;
         $key = Text::key($data['name']);
         $now = Db::now();

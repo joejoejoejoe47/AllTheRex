@@ -129,6 +129,12 @@ final class Text
         return $k !== '' && isset(self::fluent()[$k]);
     }
 
+    /** Crowns are never shown in ComboCraft (owner t424u). */
+    public static function safeEmoji(?string $e): string
+    {
+        return str_replace('👑', '⭐', (string) $e);
+    }
+
     /** First emoji in the text that has artwork, or null. */
     public static function pickEmoji(string $text): ?string
     {
@@ -137,17 +143,17 @@ final class Text
             return null;
         }
         if (self::emojiKnown($text)) {
-            return $text;
+            return self::safeEmoji($text);
         }
         // Try progressively: grapheme clusters
         if (preg_match_all('/\X/u', $text, $m)) {
             foreach ($m[0] as $g) {
                 if (self::emojiKnown($g)) {
-                    return $g;
+                    return self::safeEmoji($g);
                 }
                 $first = mb_substr($g, 0, 1);
                 if (self::emojiKnown($first)) {
-                    return $first;
+                    return self::safeEmoji($first);
                 }
             }
         }

@@ -552,7 +552,7 @@ function celebrate(el, inputs) {
       <span><img class="logo-light" src="${BASE}assets/logo/logo.png" alt="ComboCraft"><img class="logo-dark" src="${BASE}assets/logo/logo-dark.png" alt="ComboCraft"></span>
       <span style="display:flex;align-items:center"><span class="streak">You're on a ${streak}-day streak ${ico('🔥')}</span><button class="x" aria-label="Close">${svg.close}</button></span>
     </div>
-    <div class="ribbon"><img class="crown" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.crownGold)}" alt="">${svg.ribbon}<div class="rt">You discovered it first!</div></div>
+    <div class="ribbon">${svg.ribbon}<div class="rt">You discovered it first!</div></div>
     <div class="cel-sub">This combo was never seen before. You beat everyone to it. ✨</div>
     <div class="cel-card">
       <div class="streaks"></div>
@@ -563,7 +563,7 @@ function celebrate(el, inputs) {
         <div class="ds">${esc(inputs[0].name)} + ${esc(inputs[1].name)}.<br>${esc(desc)}</div>
         <div class="rar">✦ ${rarity}</div>
       </div>
-      <div class="pic">${artHtml(el, BASE)}${el.art ? '' : `<img class="crownon" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.crownGold)}" alt="">`}</div>
+      <div class="pic">${artHtml(el, BASE)}</div>
     </div>
     <div class="cel-actions">
       <button class="act share" data-a="share"><span class="bx">${svg.arrowShare}</span>Share</button>
@@ -793,13 +793,12 @@ async function pageLeaderboard() {
     const combo = best ? (best.recipe ? `${esc(best.recipe[0].name)} + ${esc(best.recipe[1].name)} = ${esc(best.name)}` : esc(best.name)) : '—';
     const cls = i < 3 ? ` r${i + 1}` : '';
     const ti = i === 0 ? svg.trophy : i === 1 ? svg.trophyGray : i === 2 ? svg.trophyBronze : svg.star;
-    const ci = i === 0 ? svg.crown('#d9a521') : i === 1 ? svg.crown('#9a9ca3') : i === 2 ? svg.crown('#c47a3a') : svg.star;
     return `<div class="lb-row${cls}${r.id === d.me ? ' me' : ''}" data-i="${i}">
       ${i < 3 ? svg.medal(medal[i]) : '<span></span>'}
       <div class="rk">${r.rank}.</div>
       <div class="who"><b>${esc(r.nickname)}</b><span>${ti}<b>${r.firsts}</b> first discover${r.firsts === 1 ? 'y' : 'ies'}</span></div>
       <div class="vr"></div>
-      <div class="best"><div class="lbl">${ci} best combo:</div><div class="cb">${combo}</div></div>
+      <div class="best"><div class="lbl">best combo:</div><div class="cb">${combo}</div></div>
     </div>`;
   }).join('');
   view.innerHTML = `<div class="wrap lb">
@@ -967,7 +966,7 @@ function pagePricing() {
       </div>
       <div class="plan pro">
         <div class="rec">${svg.starWhite} Recommended</div>
-        <div class="pi">${svg.crownBlue}</div><h2>Premium</h2><hr><div class="price">$4<small>/mo</small></div><hr>
+        <h2>Premium</h2><hr><div class="price">$4<small>/mo</small></div><hr>
         <ul><li>${svg.check}Unlimited combinations</li><li>${svg.check}No ads</li><li>${svg.check}Exclusive themes</li><li>${svg.check}Custom elements</li><li>${svg.check}Private rooms</li></ul>
         <button class="cta" id="upgrade">Upgrade</button>
       </div>

@@ -97,8 +97,13 @@ export function iconUrl(emoji, style = '3d') {
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+/** Swap the crown emoji for a star so it never appears in the UI. */
+export function safeEmoji(emoji) {
+  return String(emoji ?? '').replaceAll('👑', '⭐');
+}
 /** Small inline icon: Fluent 3D picture with the native emoji as fallback. */
 export function ico(emoji, cls = 'ico') {
+  emoji = safeEmoji(emoji);
   const u = iconUrl(emoji);
   if (!u) return `<span class="emo">${esc(emoji)}</span>`;
   return `<img class="${cls}" src="${u}" alt="${esc(emoji)}" loading="lazy" decoding="async" onerror="this.outerHTML='<span class=&quot;emo&quot;>'+this.alt+'</span>'">`;
@@ -106,9 +111,10 @@ export function ico(emoji, cls = 'ico') {
 /** Big illustration: bundled art if the element has one, else a large 3D emoji. */
 export function artHtml(el, base) {
   if (el.art) return `<img class="artimg" src="${base}assets/art/${esc(el.art)}.webp" alt="${esc(el.name)}" decoding="async">`;
-  const u = iconUrl(el.emoji);
-  if (u) return `<img class="big3d" src="${u}" alt="${esc(el.emoji)}" decoding="async" crossorigin="anonymous" onerror="this.outerHTML='<span class=&quot;emo bigtxt&quot;>'+this.alt+'</span>'">`;
-  return `<span class="emo bigtxt">${esc(el.emoji)}</span>`;
+  const emoji = safeEmoji(el.emoji);
+  const u = iconUrl(emoji);
+  if (u) return `<img class="big3d" src="${u}" alt="${esc(emoji)}" decoding="async" crossorigin="anonymous" onerror="this.outerHTML='<span class=&quot;emo bigtxt&quot;>'+this.alt+'</span>'">`;
+  return `<span class="emo bigtxt">${esc(emoji)}</span>`;
 }
 
 // ---------- Confetti ----------
@@ -181,9 +187,7 @@ export const svg = {
   trophyGray: '<svg class="ix" viewBox="0 0 24 24" fill="#8a8c93"><path d="M7 3h10v2h3v2a4 4 0 01-4 4h-.3A5 5 0 0113 13.9V17h3v3H8v-3h3v-3.1A5 5 0 018.3 11H8a4 4 0 01-4-4V5h3zm-1 4a2 2 0 002 2V7zm12 0h-2v2a2 2 0 002-2z"/></svg>',
   trophyBronze: '<svg class="ix" viewBox="0 0 24 24" fill="#b8682c"><path d="M7 3h10v2h3v2a4 4 0 01-4 4h-.3A5 5 0 0113 13.9V17h3v3H8v-3h3v-3.1A5 5 0 018.3 11H8a4 4 0 01-4-4V5h3zm-1 4a2 2 0 002 2V7zm12 0h-2v2a2 2 0 002-2z"/></svg>',
   star: '<svg class="ix" viewBox="0 0 24 24" fill="#7e8088"><path d="M12 2.8l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.6l-5.4 2.9 1.1-6.1L3.2 9.2l6.1-.8z"/></svg>',
-  crown: (c) => `<svg class="ix" viewBox="0 0 24 24" fill="${c}"><path d="M3 8l4.5 3.6L12 5l4.5 6.6L21 8l-1.8 10.5H4.8z"/></svg>`,
   gift: '<svg viewBox="0 0 24 24" fill="none" stroke="#5a5d66" stroke-width="1.6" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-1.5-3.5-5-4-5.2-1.8C6.6 8 10 8 12 8zm0 0c1.5-3.5 5-4 5.2-1.8C17.4 8 14 8 12 8z"/></svg>',
-  crownBlue: '<svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.6" stroke-linejoin="round"><path d="M3.5 8.5l4.3 3.6L12 5.5l4.2 6.6 4.3-3.6-1.7 9.5H5.2z"/><circle cx="3.5" cy="8" r="1.2"/><circle cx="12" cy="4.8" r="1.2"/><circle cx="20.5" cy="8" r="1.2"/></svg>',
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="#3b3d44" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
   megaphone: '<svg viewBox="0 0 24 24" fill="none" stroke="#3b3d44" stroke-width="1.7" stroke-linejoin="round"><path d="M4 10v4h3l7 4V6L7 10zM17 9.5a3.5 3.5 0 010 5M7 14l1.5 5h2.5L10 14"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="#1670ef" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -198,5 +202,4 @@ export const svg = {
   },
   seal: `<svg viewBox="0 0 160 140" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1b3"/><stop offset=".45" stop-color="#f1c14e"/><stop offset="1" stop-color="#c58a17"/></linearGradient><linearGradient id="sr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6cf63"/><stop offset="1" stop-color="#b7800f"/></linearGradient></defs><path d="M10 88l22-12 4 24-22 6 8-10z" fill="#c38d1a"/><path d="M150 88l-22-12-4 24 22 6-8-10z" fill="#c38d1a"/>${Array.from({ length: 24 }, (_, i) => { const a = (i / 24) * Math.PI * 2; return `<circle cx="${80 + Math.cos(a) * 52}" cy="${60 + Math.sin(a) * 52}" r="9" fill="url(#sg)"/>`; }).join('')}<circle cx="80" cy="60" r="52" fill="url(#sg)"/><circle cx="80" cy="60" r="43" fill="#f7dd8a" stroke="#c9921d" stroke-width="2.5"/><path d="M20 76h120l-6 14 6 14H20l6-14z" fill="url(#sr)" stroke="#a46f0a" stroke-width="1.5"/><path d="M80 24l3 6.3 7 .9-5.1 4.8 1.3 6.8L80 39.6l-6.2 3.2 1.3-6.8L70 31.2l7-.9z" fill="#8a5a07"/><text x="80" y="64" text-anchor="middle" font-family="Georgia,serif" font-size="17" font-weight="700" fill="#3a2405">First</text><text x="80" y="95" text-anchor="middle" font-family="Georgia,serif" font-size="17.5" font-weight="700" fill="#3a2405">Discovery</text></svg>`,
   ribbon: '<svg viewBox="0 0 620 100" preserveAspectRatio="none"><defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbe7a6"/><stop offset=".5" stop-color="#efc65a"/><stop offset="1" stop-color="#d9a336"/></linearGradient><linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2ad3d"/><stop offset="1" stop-color="#b98318"/></linearGradient></defs><path d="M0 30h70v62H0l22-31z" fill="url(#rg2)"/><path d="M620 30h-70v62h70l-22-31z" fill="url(#rg2)"/><path d="M50 82l20 10V80z" fill="#9c6c10"/><path d="M570 82l-20 10V80z" fill="#9c6c10"/><rect x="50" y="10" width="520" height="72" rx="4" fill="url(#rg)" stroke="#c79227" stroke-width="2"/><path d="M84 46l3.5-9 3.5 9 9 3.5-9 3.5-3.5 9-3.5-9-9-3.5zM536 46l3.5-9 3.5 9 9 3.5-9 3.5-3.5 9-3.5-9-9-3.5z" fill="#fff6d6"/></svg>',
-  crownGold: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48"><defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#d49512"/></linearGradient></defs><path d="M6 14l13 12 13-20 13 20 13-12-5 28H11z" fill="url(#cg)" stroke="#a8730b" stroke-width="2" stroke-linejoin="round"/><circle cx="6" cy="13" r="4" fill="#ffd34d"/><circle cx="32" cy="6" r="4" fill="#ffd34d"/><circle cx="58" cy="13" r="4" fill="#ffd34d"/><rect x="11" y="36" width="42" height="6" rx="2" fill="#c08710"/></svg>',
 };
