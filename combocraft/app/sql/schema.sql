@@ -84,3 +84,182 @@ CREATE INDEX IF NOT EXISTS cc_elements_disc ON cc_elements (discovered_by);
 CREATE INDEX IF NOT EXISTS cc_elements_at ON cc_elements (discovered_at);
 CREATE INDEX IF NOT EXISTS cc_recipes_result ON cc_recipes (result_id);
 CREATE INDEX IF NOT EXISTS cc_chat_at ON cc_chat (created_at);
+
+-- Viral features (additive cc_* tables only)
+CREATE TABLE IF NOT EXISTS cc_daily (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  target_id INT NOT NULL,
+  solved TINYINT NOT NULL DEFAULT 0,
+  combos INT NOT NULL DEFAULT 0,
+  path TEXT NULL,
+  solved_at DATETIME NULL,
+  PRIMARY KEY (player_id, day)
+);
+CREATE INDEX IF NOT EXISTS cc_daily_day ON cc_daily (day);
+
+CREATE TABLE IF NOT EXISTS cc_daily_stats (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  streak INT NOT NULL DEFAULT 0,
+  best_streak INT NOT NULL DEFAULT 0,
+  last_day CHAR(10) NOT NULL DEFAULT '',
+  wins INT NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS cc_achievements (
+  player_id VARCHAR(24) NOT NULL,
+  badge VARCHAR(32) NOT NULL,
+  unlocked_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, badge)
+);
+
+CREATE TABLE IF NOT EXISTS cc_hints (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  used INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (player_id, day)
+);
+
+CREATE TABLE IF NOT EXISTS cc_speedruns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id VARCHAR(24) NOT NULL,
+  target_id INT NOT NULL,
+  combos INT NOT NULL,
+  ms INT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_speedruns_best ON cc_speedruns (target_id, combos, ms);
+CREATE INDEX IF NOT EXISTS cc_speedruns_player ON cc_speedruns (player_id, target_id);
+
+CREATE TABLE IF NOT EXISTS cc_speedrun_live (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  player_id VARCHAR(24) NOT NULL,
+  target_id INT NOT NULL,
+  started_at DATETIME NOT NULL,
+  combos INT NOT NULL DEFAULT 0,
+  inv TEXT NOT NULL,
+  done TINYINT NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS cc_speedrun_live_player ON cc_speedrun_live (player_id);
+
+CREATE TABLE IF NOT EXISTS cc_referrals (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  code CHAR(8) NOT NULL,
+  referred_by VARCHAR(24) NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cc_referrals_code ON cc_referrals (code);
+
+CREATE TABLE IF NOT EXISTS cc_morse_links (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  morse_user_id VARCHAR(36) NOT NULL,
+  morse_name VARCHAR(64) NOT NULL DEFAULT '',
+  linked_at DATETIME NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cc_morse_links_user ON cc_morse_links (morse_user_id);
+
+CREATE TABLE IF NOT EXISTS cc_coin_grants (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id VARCHAR(24) NOT NULL,
+  morse_user_id VARCHAR(36) NOT NULL,
+  element_id INT NOT NULL,
+  amount INT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS cc_coin_grants_once ON cc_coin_grants (morse_user_id, element_id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_queue (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  queued_at DATETIME NOT NULL,
+  last_seen DATETIME NOT NULL,
+  pair VARCHAR(32) NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS cc_clash_q_pair ON cc_clash_queue (pair, queued_at);
+
+CREATE TABLE IF NOT EXISTS cc_clash_challenges (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  from_id VARCHAR(24) NOT NULL,
+  to_id VARCHAR(24) NULL,
+  created_at DATETIME NOT NULL,
+  expires_at DATETIME NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  match_id VARCHAR(24) NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_ch_to ON cc_clash_challenges (to_id, status);
+CREATE INDEX IF NOT EXISTS cc_clash_ch_from ON cc_clash_challenges (from_id, status);
+
+CREATE TABLE IF NOT EXISTS cc_clash_matches (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  a_id VARCHAR(24) NOT NULL,
+  b_id VARCHAR(24) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  round INTEGER NOT NULL DEFAULT 0,
+  a_wins INTEGER NOT NULL DEFAULT 0,
+  b_wins INTEGER NOT NULL DEFAULT 0,
+  winner_id VARCHAR(24) NULL,
+  forfeit_id VARCHAR(24) NULL,
+  inter_until DATETIME NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_m_live ON cc_clash_matches (status, a_id);
+CREATE INDEX IF NOT EXISTS cc_clash_m_live_b ON cc_clash_matches (status, b_id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_loadouts (
+  match_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  ids TEXT NOT NULL,
+  ready INTEGER NOT NULL DEFAULT 0,
+  last_play_ms INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (match_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS cc_clash_rounds (
+  id VARCHAR(24) NOT NULL PRIMARY KEY,
+  match_id VARCHAR(24) NOT NULL,
+  n INTEGER NOT NULL,
+  theme VARCHAR(180) NOT NULL,
+  started_at DATETIME NOT NULL,
+  ends_at DATETIME NOT NULL,
+  a_score INTEGER NOT NULL DEFAULT 0,
+  b_score INTEGER NOT NULL DEFAULT 0,
+  a_latest TEXT NULL,
+  b_latest TEXT NULL,
+  winner_id VARCHAR(24) NULL,
+  settled INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS cc_clash_r_match ON cc_clash_rounds (match_id, n);
+
+CREATE TABLE IF NOT EXISTS cc_clash_plays (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  round_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  a_name VARCHAR(80) NOT NULL,
+  b_name VARCHAR(80) NOT NULL,
+  a_emoji VARCHAR(32) NOT NULL DEFAULT '',
+  b_emoji VARCHAR(32) NOT NULL DEFAULT '',
+  result_name VARCHAR(80) NOT NULL,
+  result_emoji VARCHAR(32) NOT NULL DEFAULT '',
+  result_tagline VARCHAR(160) NOT NULL DEFAULT '',
+  rarity VARCHAR(16) NOT NULL,
+  score INTEGER NOT NULL,
+  breakdown TEXT NOT NULL,
+  is_attack INTEGER NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_p_round ON cc_clash_plays (round_id, player_id, id);
+
+CREATE TABLE IF NOT EXISTS cc_clash_seen (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  last_poll DATETIME NOT NULL,
+  match_id VARCHAR(24) NULL
+);
+
+CREATE TABLE IF NOT EXISTS cc_clash_daily (
+  day CHAR(10) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  wins INTEGER NOT NULL DEFAULT 0,
+  points INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, player_id)
+);
+CREATE INDEX IF NOT EXISTS cc_clash_daily_pts ON cc_clash_daily (day, points);

@@ -65,6 +65,10 @@ final class Api
                 }
                 Http::json(['ok' => true, 'element' => Game::view($e, true)]);
             }
+            if (preg_match('#^/api/recipe/(\d+)$#', $path, $m)) {
+                self::get();
+                Http::json(['ok' => true] + Book::about((int) $m[1], Player::current()));
+            }
 
             match ($path) {
                 '/api/me' => self::me(),
@@ -75,6 +79,29 @@ final class Api
                 '/api/gallery' => self::galleryRoute(),
                 '/api/chat' => Http::method() === 'POST' ? self::mutating(fn () => self::chatPost()) : self::chatList(),
                 '/api/chat/react' => self::mutating(fn () => Http::json(Chat::react((int) (Http::jsonBody()['id'] ?? 0), (string) (Http::jsonBody()['emoji'] ?? '')))),
+                '/api/daily' => self::dailyRoute(),
+                '/api/hint' => self::mutating(fn () => Http::json(['ok' => true] + Hint::give(Player::require()))),
+                '/api/achievements' => self::goalsRoute(),
+                '/api/speedrun' => self::speedrunGet(),
+                '/api/speedrun/start' => self::mutating(fn () => Http::json(['ok' => true] + Speedrun::start(Player::require(), isset(Http::jsonBody()['targetId']) ? (int) Http::jsonBody()['targetId'] : null))),
+                '/api/speedrun/combine' => self::mutating(fn () => self::speedrunCombine()),
+                '/api/speedrun/board' => self::speedrunBoard(),
+                '/api/morse' => self::morseGet(),
+                '/api/morse/link' => self::mutating(fn () => Http::json(['ok' => true] + MorseLink::link(Player::require()))),
+                '/api/clash/inbox' => self::clashInbox(),
+                '/api/clash/queue' => self::mutating(fn () => Http::json(['ok' => true] + Clash::queue(Player::require(), (string) (Http::jsonBody()['pair'] ?? '')))),
+                '/api/clash/queue/cancel' => self::mutating(fn () => Http::json(['ok' => true] + Clash::cancelQueue(Player::require()))),
+                '/api/clash/challenge' => self::mutating(fn () => Http::json(['ok' => true] + Clash::challenge(Player::require(), (string) (Http::jsonBody()['nickname'] ?? '')))),
+                '/api/clash/invite' => self::mutating(fn () => Http::json(['ok' => true] + Clash::makeInvite(Player::require()))),
+                '/api/clash/invite/open' => self::mutating(fn () => Http::json(['ok' => true] + Clash::openInvite(Player::require(), (string) (Http::jsonBody()['id'] ?? '')))),
+                '/api/clash/respond' => self::mutating(fn () => Http::json(['ok' => true] + Clash::respond(Player::require(), (string) (Http::jsonBody()['id'] ?? ''), !empty(Http::jsonBody()['accept'])))),
+                '/api/clash/match' => self::clashMatch(),
+                '/api/clash/loadout' => self::mutating(fn () => Http::json(['ok' => true] + Clash::setLoadout(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), is_array(Http::jsonBody()['ids'] ?? null) ? Http::jsonBody()['ids'] : []))),
+                '/api/clash/ready' => self::mutating(fn () => Http::json(['ok' => true] + Clash::ready(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
+                '/api/clash/play' => self::mutating(fn () => Http::json(['ok' => true] + Clash::play(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['a'] ?? ''), (string) (Http::jsonBody()['b'] ?? ''), !empty(Http::jsonBody()['attack'])))),
+                '/api/clash/forfeit' => self::mutating(fn () => Http::json(['ok' => true] + Clash::forfeit(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
+                '/api/clash/revenge' => self::mutating(fn () => Http::json(['ok' => true] + Clash::revenge(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
+                '/api/clash/board' => self::clashBoard(),
                 default => throw new HttpError('Not found', 404),
             };
         } catch (HttpError $e) {
@@ -132,11 +159,18 @@ final class Api
     {
         self::get();
         $p = Player::require();
+        Referral::remember();
         Http::json([
             'ok' => true,
             'me' => Player::publicView($p),
             'elements' => Game::collection($p),
             'recent' => self::recent($p),
+            'daily' => Daily::status($p),
+            'hints' => Hint::remaining($p),
+            'progress' => Goals::progress($p),
+            'badges' => Goals::all($p),
+            'referral' => Referral::for($p),
+            'morse' => MorseLink::status($p),
         ]);
     }
 
@@ -173,7 +207,12 @@ final class Api
     {
         $b = Http::jsonBody();
         $content = isset($b['content']) && is_string($b['content']) ? mb_substr($b['content'], 0, 8000) : null;
-        Http::json(['ok' => true] + Game::resolve((string) ($b['ticket'] ?? ''), $content));
+        $out = Game::resolve((string) ($b['ticket'] ?? ''), $content);
+        $runId = isset($b['runId']) && is_string($b['runId']) ? $b['runId'] : '';
+        if ($runId !== '') {
+            $out = Speedrun::afterResolve(Player::require(), $runId, $out);
+        }
+        Http::json(['ok' => true] + $out);
     }
 
     private static function leaderboardRoute(): never
@@ -205,6 +244,88 @@ final class Api
     private static function chatPost(): never
     {
         $b = Http::jsonBody();
-        Http::json(Chat::post((string) ($b['body'] ?? ''), isset($b['elementId']) ? (int) $b['elementId'] : null));
+        $out = Chat::post((string) ($b['body'] ?? ''), isset($b['elementId']) ? (int) $b['elementId'] : null);
+        try {
+            $p = Player::require();
+            $new = Goals::unlock($p, 'chatty');
+            if ($new) {
+                $out['badges'] = $new;
+            }
+        } catch (Throwable $e) {
+        }
+        Http::json($out);
+    }
+
+    private static function dailyRoute(): never
+    {
+        self::get();
+        $p = Player::current() ?? Player::require();
+        Http::json(['ok' => true] + Daily::status($p));
+    }
+
+    private static function goalsRoute(): never
+    {
+        self::get();
+        $p = Player::require();
+        Http::json(['ok' => true, 'badges' => Goals::all($p), 'progress' => Goals::progress($p)]);
+    }
+
+    private static function speedrunGet(): never
+    {
+        self::get();
+        $p = Player::require();
+        $id = (string) ($_GET['id'] ?? '');
+        if ($id !== '') {
+            Http::json(['ok' => true] + Speedrun::viewRun($id, $p));
+        }
+        Http::json(['ok' => true, 'targets' => Speedrun::targets()]);
+    }
+
+    private static function speedrunCombine(): never
+    {
+        $b = Http::jsonBody();
+        try {
+            Http::json(['ok' => true] + Speedrun::combine(Player::require(), (string) ($b['runId'] ?? ''), (int) ($b['a'] ?? 0), (int) ($b['b'] ?? 0)));
+        } catch (HttpError $e) {
+            if ($e->status === 429 && $e->getMessage() === 'limit') {
+                Http::json(['ok' => false, 'limit' => true, 'error' => 'You used all ' . Player::FREE_DAILY . ' free combinations for today. Come back tomorrow!', 'status' => 429], 429);
+            }
+            throw $e;
+        }
+    }
+
+    private static function speedrunBoard(): never
+    {
+        self::get();
+        $tid = isset($_GET['target']) ? (int) $_GET['target'] : null;
+        Http::json(['ok' => true] + Speedrun::board($tid ?: null));
+    }
+
+    private static function morseGet(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + MorseLink::status(Player::require()));
+    }
+
+    private static function clashInbox(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + Clash::inbox(Player::require()));
+    }
+
+    private static function clashMatch(): never
+    {
+        self::get();
+        Http::json(['ok' => true] + Clash::match(Player::require(), (string) ($_GET['id'] ?? '')));
+    }
+
+    private static function clashBoard(): never
+    {
+        self::get();
+        $kind = (string) ($_GET['kind'] ?? 'wins');
+        if (!in_array($kind, ['wins', 'rare', 'daily'], true)) {
+            $kind = 'wins';
+        }
+        Http::json(['ok' => true] + Clash::board($kind));
     }
 }

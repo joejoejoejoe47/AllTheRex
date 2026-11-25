@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fredoka:wght@500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="assets/css/app.css?v=3" />
+<link rel="stylesheet" href="assets/css/app.css?v=4" />
 <script>try{var t=localStorage.getItem('cc_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -26,6 +26,7 @@
   <div class="page-title" id="pageTitle"></div>
   <nav class="nav" id="nav">
     <a href="play" data-link data-r="play">Play</a>
+    <a href="clash" data-link data-r="clash">Clash</a>
     <a href="discoveries" data-link data-r="discoveries">Discoveries</a>
     <a href="leaderboard" data-link data-r="leaderboard">Leaderboard</a>
     <a href="chat" data-link data-r="chat">Chat</a>
@@ -43,12 +44,13 @@
 <main id="view"></main>
 <nav class="tabs" id="tabs">
   <a href="play" data-link data-r="play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><path d="M17 13.5v7M13.5 17h7"/></svg>Play</a>
+  <a href="clash" data-link data-r="clash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 19L15 5M9 5h6v6M19 5L9 19M15 19H9v-6"/></svg>Clash</a>
   <a href="discoveries" data-link data-r="discoveries"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>Discoveries</a>
   <a href="leaderboard" data-link data-r="leaderboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h10v4a5 5 0 01-10 0zM7 6H4v1a3 3 0 003 3M17 6h3v1a3 3 0 01-3 3M12 13v4M8 20h8M9.5 17h5"/></svg>Leaders</a>
   <a href="chat" data-link data-r="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v11H9l-5 4z"/></svg>Chat</a>
   <a href="pricing" data-link data-r="pricing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>Premium</a>
 </nav>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script type="module" src="assets/js/app.js?v=3"></script>
+<script type="module" src="assets/js/app.js?v=4"></script>
 </body>
 </html>
