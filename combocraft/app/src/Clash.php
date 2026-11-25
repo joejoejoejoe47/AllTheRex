@@ -483,12 +483,17 @@ final class Clash
                 if (self::isHiddenFromBoards((string) $r['player_id'], (string) ($r['nickname'] ?? ''))) {
                     continue;
                 }
+                $wins = (int) $r['wins'];
+                $points = (int) $r['points'];
+                if ($wins === 0 && $points === 0) {
+                    continue;
+                }
                 $out[] = [
                     'rank' => count($out) + 1,
                     'name' => $r['nickname'] ?: 'Player',
                     'avatar' => Text::safeEmoji((string) ($r['avatar'] ?: '🐱')),
-                    'wins' => (int) $r['wins'],
-                    'points' => (int) $r['points'],
+                    'wins' => $wins,
+                    'points' => $points,
                 ];
                 if (count($out) >= 25) {
                     break;
@@ -511,9 +516,12 @@ final class Clash
             $out = [];
             $seen = [];
             foreach ($rows as $r) {
-                if (self::isHiddenFromBoards((string) ($r['winner_id'] ?? ''), (string) ($r['winner'] ?? ''))
-                    || self::isHiddenFromBoards((string) ($r['loser_id'] ?? ''), (string) ($r['loser'] ?? ''))) {
+                if (self::isHiddenFromBoards((string) ($r['winner_id'] ?? ''), (string) ($r['winner'] ?? ''))) {
                     continue;
+                }
+                $loserName = (string) ($r['loser'] ?? 'Player');
+                if (self::isHiddenFromBoards((string) ($r['loser_id'] ?? ''), $loserName)) {
+                    $loserName = Clash::isAiId((string) ($r['loser_id'] ?? '')) ? 'Bot' : 'Player';
                 }
                 $k = mb_strtolower((string) $r['result_name']);
                 if (isset($seen[$k])) {
@@ -526,7 +534,7 @@ final class Clash
                     'rarity' => $r['rarity'],
                     'recipe' => $r['a_name'] . ' + ' . $r['b_name'],
                     'winner' => $r['winner'] ?: 'Player',
-                    'loser' => $r['loser'] ?: 'Player',
+                    'loser' => $loserName,
                     'matchId' => $r['match_id'],
                 ];
                 if (count($out) >= 15) {

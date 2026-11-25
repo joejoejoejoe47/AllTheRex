@@ -18,12 +18,13 @@ final class Party
     public const DISCONNECT_SECS = 35;
 
     private const TARGETS = [
-        ['Ocean', '🌊'], ['Steam', '💨'], ['Tsunami', '🌊'], ['Storm', '⛈️'],
-        ['Mud', '🟤'], ['Lava', '🌋'], ['Dragon', '🐉'], ['Plant', '🌱'],
-        ['Rain', '🌧️'], ['Cloud', '☁️'], ['Energy', '⚡'], ['Wave', '🌊'],
-        ['Cat Army', '🐱'], ['Zoomies Apocalypse', '🌀'], ['Inferno Feline', '🔥'],
-        ['Wood-Fired Pizza', '🍕'], ['Tears of Joy', '😂'], ['Hot Take', '🔥'],
-        ['Meme Overload', '😂'], ['Life', '🌱'], ['Dust', '💨'], ['Brick', '🧱'],
+        ['Ocean', '🌊'], ['Steam', '☁️'], ['Tsunami', '🌊'], ['Storm', '⛈️'],
+        ['Mud Pie', '🥧'], ['Lava', '🌋'], ['Dragon', '🐉'], ['Cat Army', '🐈'],
+        ['Zoomies Apocalypse', '🌀'], ['Inferno Feline', '😼'],
+        ['Wood-Fired Pizza', '🪵'], ['Tears of Joy', '😭'], ['Hot Take', '🎤'],
+        ['Meme Overload', '🤯'], ['Dumpster Fire', '🗑️'], ['Fat Cat', '😺'],
+        ['Dust Storm', '🏜️'], ['This Is Fine', '☕'], ['True Love', '💞'],
+        ['Mountain', '⛰️'],
     ];
 
     /** @param array<string,mixed> $p @return array<string,mixed> */
@@ -75,10 +76,32 @@ final class Party
         $out = [];
         foreach ($rows as $r) {
             $p = json_decode((string) $r['payload'], true);
-            if (is_array($p)) {
-                $p['kind'] = $r['kind'];
-                $out[] = $p;
+            if (!is_array($p)) {
+                continue;
             }
+            $p['kind'] = $r['kind'];
+            $aName = (string) ($p['a']['name'] ?? $p['aName'] ?? '');
+            $bName = (string) ($p['b']['name'] ?? $p['bName'] ?? '');
+            $aId = (string) ($p['a']['id'] ?? '');
+            $bId = (string) ($p['b']['id'] ?? '');
+            $hideA = Clash::isHiddenFromBoards($aId, $aName);
+            $hideB = Clash::isHiddenFromBoards($bId, $bName);
+            if ($hideA && $hideB) {
+                continue;
+            }
+            if ($hideA) {
+                if (isset($p['a']['name'])) {
+                    $p['a']['name'] = 'Player';
+                }
+                $p['aName'] = 'Player';
+            }
+            if ($hideB) {
+                if (isset($p['b']['name'])) {
+                    $p['b']['name'] = 'Player';
+                }
+                $p['bName'] = 'Player';
+            }
+            $out[] = $p;
         }
         return $out;
     }
@@ -359,7 +382,8 @@ final class Party
         $session = (int) $m[$side . '_session'] + 1; // current attempt session number
         // a_session is completed sessions; current is a_session+1 while alive
         $cur = (int) $m[$side . '_session'] + 1;
-        $hit = Text::key($made['name']) === Text::key((string) $m['target_name']);
+        $want = self::sideTarget($m, $side);
+        $hit = Text::key($made['name']) === Text::key((string) ($want[0] ?? $m['target_name']));
         Db::run(
             'INSERT INTO cc_clash_party_plays (match_id, session, party_id, player_id, a_name, b_name, result_name, result_emoji, result_tagline, rarity, is_hit, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
             [$matchId, $cur, $partyId, $p['id'], $ea['name'], $eb['name'], $made['name'], $made['emoji'], $made['tagline'], $made['rarity'], $hit ? 1 : 0, Db::now()]
@@ -569,6 +593,8 @@ final class Party
             'INSERT INTO cc_clash_party_matches (id, a_party, b_party, a_name, b_name, status, session, target_name, target_emoji, a_session, b_session, a_alive, b_alive, a_ends_at, b_ends_at, intro_until, winner_party, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [$id, $a['id'], $b['id'], $aName, $bName, 'intro', 1, $target[0], $target[1], 0, 0, 1, 1, null, null, $intro, null, Db::now(), Db::now()]
         );
+        self::bootTargets($id, $target);
+
         Db::run("UPDATE cc_clash_parties SET status = 'playing', updated_at = ? WHERE id IN (?,?)", [Db::now(), $a['id'], $b['id']]);
         return self::getMatch($id);
     }
@@ -602,24 +628,17 @@ final class Party
             $m = self::getMatch($m['id']);
             $aA = (int) $m['a_alive'];
             $bA = (int) $m['b_alive'];
-            if ($aA === 0 || $bA === 0) {
-                $winner = null;
-                if ($aA && !$bA) {
-                    $winner = $m['a_party'];
-                } elseif ($bA && !$aA) {
-                    $winner = $m['b_party'];
-                } else {
-                    // both dead this tick: higher session wins, else a
-                    $winner = ((int) $m['a_session'] >= (int) $m['b_session']) ? $m['a_party'] : $m['b_party'];
-                }
-                self::finishMatch($m, (string) $winner);
-                return self::getMatch($m['id']);
-            }
             if ((int) $m['a_session'] >= 3 || (int) $m['b_session'] >= 3) {
                 $winner = ((int) $m['a_session'] >= (int) $m['b_session']) ? $m['a_party'] : $m['b_party'];
                 self::finishMatch($m, (string) $winner);
                 return self::getMatch($m['id']);
             }
+            if ($aA === 0 && $bA === 0) {
+                $winner = ((int) $m['a_session'] >= (int) $m['b_session']) ? $m['a_party'] : $m['b_party'];
+                self::finishMatch($m, (string) $winner);
+                return self::getMatch($m['id']);
+            }
+            // One team out: the other keeps playing so the defeated side can spectate.
         }
         return $m;
     }
@@ -637,13 +656,10 @@ final class Party
         // Next session: new target, new 90s. Opponent keeps their own clock.
         $nextN = $done + 1;
         $target = self::TARGETS[abs(crc32($m['id'] . '|' . $nextN . '|' . $side)) % count(self::TARGETS)];
-        // If the other team is still on an earlier session, keep the displayed
-        // global target as the trailing team's target; the advancing team
-        // stores their next target in target_name when both are in sync, else
-        // we keep per-side by updating target when this side is the 'session' leader.
         $end = gmdate('Y-m-d H:i:s', time() + self::SESSION_SECS);
         $other = $side === 'a' ? 'b' : 'a';
         $otherSess = (int) $m[$other . '_session'];
+        self::setSideTarget($m['id'], $side, $target);
         if ($done > $otherSess) {
             Db::run(
                 "UPDATE cc_clash_party_matches SET {$side}_session = ?, session = ?, target_name = ?, target_emoji = ?, {$side}_ends_at = ?, updated_at = ? WHERE id = ?",
@@ -655,11 +671,12 @@ final class Party
                 [$done, $end, Db::now(), $m['id']]
             );
         }
-        // When both complete the same session, bump shared target.
         $m2 = self::getMatch($m['id']);
         if ((int) $m2['a_session'] === (int) $m2['b_session'] && (int) $m2['a_session'] === $done) {
             $t = self::TARGETS[abs(crc32($m['id'] . '|' . ($done + 1) . '|both')) % count(self::TARGETS)];
             $end2 = gmdate('Y-m-d H:i:s', time() + self::SESSION_SECS);
+            self::setSideTarget($m['id'], 'a', $t);
+            self::setSideTarget($m['id'], 'b', $t);
             Db::run(
                 'UPDATE cc_clash_party_matches SET session = ?, target_name = ?, target_emoji = ?, a_ends_at = ?, b_ends_at = ?, updated_at = ? WHERE id = ?',
                 [$done + 1, $t[0], $t[1], $end2, $end2, Db::now(), $m['id']]
@@ -731,9 +748,7 @@ final class Party
                     Db::run("UPDATE cc_clash_party_matches SET {$side}_alive = 0, updated_at = ? WHERE id = ?", [Db::now(), $m['id']]);
                     $m = self::getMatch($m['id']);
                     $other = $side === 'a' ? 'b' : 'a';
-                    if ((int) $m[$other . '_alive']) {
-                        self::finishMatch($m, (string) $m[$other . '_party']);
-                    }
+                    // Leave the other party playing so they can finish their sessions.
                 }
             }
         }
@@ -1053,8 +1068,10 @@ final class Party
         $oppAlive = (int) $m[$other . '_alive'] === 1;
         $youSess = (int) $m[$side . '_session'];
         $oppSess = (int) $m[$other . '_session'];
-        $cur = $youAlive ? $youSess + 1 : $youSess;
-        $endsAt = $m[$side . '_ends_at'] ? strtotime((string) $m[$side . '_ends_at'] . ' UTC') * 1000 : null;
+        $cur = $youAlive ? $youSess + 1 : ($oppAlive ? $oppSess + 1 : max($youSess, $oppSess, 1));
+        $endsSrc = $youAlive ? $m[$side . '_ends_at'] : ($oppAlive ? $m[$other . '_ends_at'] : $m[$side . '_ends_at']);
+        $endsAt = $endsSrc ? strtotime((string) $endsSrc . ' UTC') * 1000 : null;
+        $want = self::sideTarget($m, $youAlive ? $side : ($oppAlive ? $other : $side));
         $members = function (string $pid) use ($p): array {
             $out = [];
             foreach (Db::all('SELECT player_id FROM cc_clash_party_members WHERE party_id = ? ORDER BY joined_at', [$pid]) as $r) {
@@ -1109,7 +1126,7 @@ final class Party
             'headline' => $headline,
             'youName' => $m[$side . '_name'],
             'oppName' => $m[$other . '_name'],
-            'target' => ['name' => $m['target_name'], 'emoji' => Text::safeEmoji((string) $m['target_emoji'])],
+            'target' => ['name' => $want[0] ?? $m['target_name'], 'emoji' => Text::safeEmoji((string) ($want[1] ?? $m['target_emoji']))],
             'session' => (int) $m['session'],
             'youSession' => $youSess,
             'oppSession' => $oppSess,
@@ -1131,6 +1148,42 @@ final class Party
             'partyId' => $partyId,
             'now' => Db::nowMs(),
         ];
+    }
+
+    /** @param array{0:string,1:string} $target */
+    private static function bootTargets(string $matchId, array $target): void
+    {
+        try {
+            Store::set('pt:' . $matchId, json_encode(['a' => $target, 'b' => $target], JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $e) {
+        }
+    }
+
+    /** @return array{0:string,1:string} */
+    private static function sideTarget(array $m, string $side): array
+    {
+        try {
+            $all = json_decode((string) (Store::get('pt:' . $m['id']) ?: ''), true);
+            if (is_array($all) && isset($all[$side][0])) {
+                return [(string) $all[$side][0], (string) ($all[$side][1] ?? '')];
+            }
+        } catch (Throwable $e) {
+        }
+        return [(string) $m['target_name'], (string) $m['target_emoji']];
+    }
+
+    /** @param array{0:string,1:string} $target */
+    private static function setSideTarget(string $matchId, string $side, array $target): void
+    {
+        try {
+            $all = json_decode((string) (Store::get('pt:' . $matchId) ?: ''), true);
+            if (!is_array($all)) {
+                $all = [];
+            }
+            $all[$side] = $target;
+            Store::set('pt:' . $matchId, json_encode($all, JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $e) {
+        }
     }
 
     private static function id(string $p): string
