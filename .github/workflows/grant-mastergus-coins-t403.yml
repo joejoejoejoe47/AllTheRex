@@ -1,0 +1,65 @@
+name: One-shot MasterGus coin grant (t403u)
+
+# Temporary owner-requested grant (t403u). Uploads a one-shot PHP file to
+# Plesk, runs it, then deletes it. Does not touch deploy-chess or game files.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: grant-mastergus-coins-t403u
+  cancel-in-progress: false
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    env:
+      FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+      FTP_USER: ${{ secrets.PLESK_FTP_USER }}
+      FTP_PASS: ${{ secrets.PLESK_FTP_PASSWORD }}
+      SITE: https://alltherex.com/chess
+      GRANT_PHP_B64: PD9waHAKZGVjbGFyZShzdHJpY3RfdHlwZXM9MSk7CmhlYWRlcignQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi9qc29uOyBjaGFyc2V0PXV0Zi04Jyk7CmhlYWRlcignWC1Db250ZW50LVR5cGUtT3B0aW9uczogbm9zbmlmZicpOwpoZWFkZXIoJ0NhY2hlLUNvbnRyb2w6IG5vLXN0b3JlJyk7CiR3YW50ID0gJ1RPS0VOX1BMQUNFSE9MREVSJzsKJGdvdCA9IChzdHJpbmcpICgkX0dFVFsnayddID8/ICcnKTsKaWYgKCRnb3QgPT09ICcnIHx8ICFoYXNoX2VxdWFscygkd2FudCwgJGdvdCkpIHsKICAgIGh0dHBfcmVzcG9uc2VfY29kZSg0MDQpOwogICAgZWNobyAneyJvayI6ZmFsc2V9JzsKICAgIGV4aXQ7Cn0KJGFwcERpciA9IGlzX2RpcihfX0RJUl9fIC4gJy9hcHAvc3JjJykgPyBfX0RJUl9fIC4gJy9hcHAnIDogZGlybmFtZShfX0RJUl9fKTsKcmVxdWlyZSAkYXBwRGlyIC4gJy9zcmMvYm9vdHN0cmFwLnBocCc7CiRtZXRhID0gXE1vcnNlXERiOjpvbmUoIlNIT1cgQ09MVU1OUyBGUk9NIHByb2ZpbGVzIExJS0UgJ2NvaW5zJyIpOwokdHlwZSA9IHN0cnRvbG93ZXIoKHN0cmluZykgKCRtZXRhWydUeXBlJ10gPz8gJG1ldGFbJ3R5cGUnXSA/PyAnJykpOwokaW50Q2FwID0gMjE0NjQ4MzY0NzsKJGpzQ2FwID0gOTAwNzE5OTI1Mzc0MDk5MTsKJGNhcCA9IChzdHJfY29udGFpbnMoJHR5cGUsICdiaWdpbnQnKSA/ICRqc0NhcCA6ICRpbnRDYXApOwokcm93ID0gXE1vcnNlXERiOjpvbmUoIlNFTEVDVCB1c2VybmFtZSwgY29pbnMgRlJPTSBwcm9maWxlcyBXSEVSRSB1c2VybmFtZV9sYyA9ICdtYXN0ZXJndXMnIExJTUlUIDEiKTsKaWYgKCRyb3cgPT09IG51bGwpIHsKICAgIGVjaG8ganNvbl9lbmNvZGUoWydvaycgPT4gZmFsc2UsICdlcnJvcicgPT4gJ01hc3Rlckd1cyBwcm9maWxlIG5vdCBmb3VuZCcsICdjb2x1bW5UeXBlJyA9PiAkdHlwZSwgJ2NhcCcgPT4gJGNhcF0sIEpTT05fVU5FU0NBUEVEX1NMQVNIRVMpOwogICAgZXhpdDsKfQokYmVmb3JlID0gKGludCkgJHJvd1snY29pbnMnXTsKJHVwZGF0ZWQgPSAwOwppZiAoJGJlZm9yZSA8ICRjYXApIHsKICAgICR1cGRhdGVkID0gXE1vcnNlXERiOjpydW4oCiAgICAgICAgIlVQREFURSBwcm9maWxlcyBTRVQgY29pbnMgPSA/IFdIRVJFIHVzZXJuYW1lX2xjID0gJ21hc3Rlcmd1cycgQU5EIGNvaW5zIDwgPyIsCiAgICAgICAgWyRjYXAsICRjYXBdCiAgICApOwp9CiRhZnRlciA9IChpbnQpIFxNb3JzZVxEYjo6dmFsdWUoIlNFTEVDVCBjb2lucyBGUk9NIHByb2ZpbGVzIFdIRVJFIHVzZXJuYW1lX2xjID0gJ21hc3Rlcmd1cycgTElNSVQgMSIpOwplY2hvIGpzb25fZW5jb2RlKFsKICAgICdvaycgPT4gdHJ1ZSwKICAgICd1c2VybmFtZScgPT4gKHN0cmluZykgJHJvd1sndXNlcm5hbWUnXSwKICAgICdiZWZvcmUnID0+ICRiZWZvcmUsCiAgICAnYWZ0ZXInID0+ICRhZnRlciwKICAgICd1cGRhdGVkUm93cycgPT4gJHVwZGF0ZWQsCiAgICAnY29sdW1uVHlwZScgPT4gJHR5cGUsCiAgICAnY2FwJyA9PiAkY2FwLAogICAgJ3BocEludFNpemUnID0+IFBIUF9JTlRfU0laRSwKXSwgSlNPTl9VTkVTQ0FQRURfU0xBU0hFUyk7Cg==
+    steps:
+      - name: Upload, run, and delete the one-shot grant
+        run: |
+          set -euo pipefail
+          if [ -z "${FTP_HOST:-}" ] || [ -z "${FTP_USER:-}" ] || [ -z "${FTP_PASS:-}" ]; then
+            echo "missing PLESK_FTP secrets" >&2
+            exit 1
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+          TOKEN=$(openssl rand -hex 24)
+          NAME="t403u_${TOKEN}.php"
+          TOKEN="$TOKEN" python3 -c "import os,base64; d=base64.b64decode(os.environ['GRANT_PHP_B64']); open('/tmp/grant.php','wb').write(d.replace(b'TOKEN_PLACEHOLDER', os.environ['TOKEN'].encode()))"
+          lftp_cmd() {
+            lftp -u "$FTP_USER","$FTP_PASS" -e "set ftp:ssl-allow no; set net:max-retries 4; set net:reconnect-interval-base 5; set cmd:fail-exit yes; $1 bye" "$FTP_HOST"
+          }
+          cleanup() {
+            set +e
+            for dest in chess alltherex/chess; do
+              lftp_cmd "rm -f $dest/$NAME;" >/dev/null 2>&1 || true
+            done
+          }
+          trap cleanup EXIT
+          for dest in chess alltherex/chess; do
+            echo "uploading to $dest"
+            lftp_cmd "put /tmp/grant.php -o $dest/$NAME;"
+          done
+          echo "running grant"
+          set +e
+          resp=$(curl -sS -m 60 -w '\nHTTP:%{http_code}' "$SITE/$NAME?k=$TOKEN")
+          code=$?
+          set -e
+          echo "$resp"
+          if [ $code -ne 0 ] || ! echo "$resp" | tail -1 | grep -q 'HTTP:200'; then
+            echo "grant request failed" >&2
+            exit 1
+          fi
+          if ! echo "$resp" | grep -q '"ok":true'; then
+            echo "grant did not report ok" >&2
+            exit 1
+          fi
+          echo "grant ok"
