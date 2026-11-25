@@ -47,8 +47,17 @@ final class Hint
     public static function find(array $player): ?array
     {
         $owned = [];
+        $byKey = [];
         foreach (Game::collection($player) as $e) {
             $owned[(int) $e['id']] = $e;
+            $byKey[Text::key((string) $e['name'])] = $e;
+        }
+        try {
+            $daily = Daily::nextHint($player, $byKey);
+            if ($daily) {
+                return $daily;
+            }
+        } catch (\Throwable $e) {
         }
         if (count($owned) < 2) {
             return null;

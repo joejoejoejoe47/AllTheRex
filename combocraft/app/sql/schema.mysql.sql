@@ -401,3 +401,18 @@ CREATE TABLE IF NOT EXISTS cc_clash_quick (
   created_at DATETIME NOT NULL,
   KEY cc_clash_qck_match (match_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_daily_chain (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  level INT NOT NULL DEFAULT 1,
+  score INT NOT NULL DEFAULT 0,
+  solved_keys TEXT NOT NULL,
+  target_key VARCHAR(80) NOT NULL DEFAULT '',
+  target_name VARCHAR(160) NOT NULL DEFAULT '',
+  steps INT NOT NULL DEFAULT 1,
+  combos INT NOT NULL DEFAULT 0,
+  path TEXT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

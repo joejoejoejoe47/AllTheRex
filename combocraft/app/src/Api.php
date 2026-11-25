@@ -121,6 +121,7 @@ final class Api
                 '/api/clash/party/boot' => self::mutating(fn () => Http::json(['ok' => true] + Party::boot(Player::require(), (string) (Http::jsonBody()['playerId'] ?? '')))),
                 '/api/clash/party/ready' => self::mutating(fn () => Http::json(['ok' => true] + Party::ready(Player::require(), (string) (Http::jsonBody()['pair'] ?? '')))),
                 '/api/clash/party/cancel' => self::mutating(fn () => Http::json(['ok' => true] + Party::cancelReady(Player::require()))),
+                '/api/clash/party/ai' => self::mutating(fn () => Http::json(['ok' => true] + Party::challengeAi(Player::require(), (string) (Http::jsonBody()['level'] ?? '')))),
                 '/api/clash/party/match' => self::partyMatch(),
                 '/api/clash/party/play' => self::mutating(fn () => Http::json(['ok' => true] + Party::play(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['a'] ?? ''), (string) (Http::jsonBody()['b'] ?? '')))),
                 '/api/clash/party/chat' => Http::method() === 'POST' ? self::mutating(fn () => Http::json(['ok' => true] + Party::chatPost(Player::require(), (string) (Http::jsonBody()['body'] ?? '')))) : self::partyChat(),
