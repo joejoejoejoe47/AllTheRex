@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=17';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=18';
 
 export function applyMe(state, d) {
   state.daily = d.daily || state.daily || null;

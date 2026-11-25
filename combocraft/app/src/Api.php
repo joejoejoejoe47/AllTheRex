@@ -99,9 +99,19 @@ final class Api
                 '/api/clash/match' => self::clashMatch(),
                 '/api/clash/loadout' => self::mutating(fn () => Http::json(['ok' => true] + Clash::setLoadout(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), is_array(Http::jsonBody()['ids'] ?? null) ? Http::jsonBody()['ids'] : []))),
                 '/api/clash/ready' => self::mutating(fn () => Http::json(['ok' => true] + Clash::ready(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
-                '/api/clash/play' => self::mutating(fn () => Http::json(['ok' => true] + Clash::play(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['a'] ?? ''), (string) (Http::jsonBody()['b'] ?? ''), !empty(Http::jsonBody()['attack'])))),
+                '/api/clash/play' => self::mutating(fn () => Http::json(['ok' => true] + Clash::play(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['a'] ?? ''), (string) (Http::jsonBody()['b'] ?? ''), !empty(Http::jsonBody()['attack']), false, !empty(Http::jsonBody()['burst'])))),
+                '/api/clash/quick' => self::mutating(fn () => Http::json(['ok' => true] + Clash::quick(Player::require(), (string) (Http::jsonBody()['matchId'] ?? ''), (string) (Http::jsonBody()['phrase'] ?? '')))),
                 '/api/clash/forfeit' => self::mutating(fn () => Http::json(['ok' => true] + Clash::forfeit(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
                 '/api/clash/revenge' => self::mutating(fn () => Http::json(['ok' => true] + Clash::revenge(Player::require(), (string) (Http::jsonBody()['matchId'] ?? '')))),
+                '/api/clash/rematch' => self::mutating(function () {
+                    $body = Http::jsonBody();
+                    $p = Player::require();
+                    $id = (string) ($body['matchId'] ?? '');
+                    if (!empty($body['cancel']) || !empty($body['decline'])) {
+                        return Http::json(['ok' => true] + ClashRematch::decline($p, $id));
+                    }
+                    return Http::json(['ok' => true] + ClashRematch::vote($p, $id));
+                }),
                 '/api/clash/board' => self::clashBoard(),
                 '/api/clash/replays' => self::clashReplays(),
                 '/api/clash/party/invite' => self::mutating(fn () => Http::json(['ok' => true] + Party::invite(Player::require(), (string) (Http::jsonBody()['nickname'] ?? '')))),
