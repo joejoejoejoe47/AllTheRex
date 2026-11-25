@@ -1070,3 +1070,72 @@ body:has(.lobby-has-replay) { background: #f6f7fb; }
   .play-activity { position: static; max-height: none; }
   .play-main { overflow: visible; }
 }
+
+/* ---------- Bright arena backdrop ---------- */
+body {
+  background-color: #8ecfff;
+  background-image: none;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #8ecfff url("../art/arena-bg.webp") center / cover no-repeat;
+  pointer-events: none;
+}
+[data-theme="dark"] body { background-color: #0b1230; }
+[data-theme="dark"] body::before {
+  background-color: #0b1230;
+  background-image: url("../art/arena-bg-dark.webp");
+}
+.topbar {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+}
+body.hero-mode .topbar { background: transparent; }
+.hero { background: transparent; }
+[data-theme="dark"] .hero { background: transparent; }
+.hero-inner {
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, #fff 55%, transparent);
+  border-radius: 28px;
+  padding: 36px 40px 32px;
+  box-shadow: var(--shadow);
+}
+.tabs {
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.play-activity, .play-main .daily-bar, .play-main .world-bar, .menu, .sheet, .overlay .modal {
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.chat-main, .op {
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.combine h2, .gal-head h1, .pricing h1, .lb h1, .epage h1, .chat-empty, .lb-empty b {
+  text-shadow: 0 1px 0 rgba(255,255,255,.85), 0 6px 18px rgba(255,255,255,.55);
+}
+[data-theme="dark"] .combine h2,
+[data-theme="dark"] .gal-head h1,
+[data-theme="dark"] .pricing h1,
+[data-theme="dark"] .lb h1,
+[data-theme="dark"] .epage h1,
+[data-theme="dark"] .chat-empty,
+[data-theme="dark"] .lb-empty b {
+  text-shadow: 0 1px 0 rgba(0,0,0,.45), 0 8px 20px rgba(0,0,0,.4);
+}
+.gal-head p, .pricing .pr-sub, .lb-mine {
+  text-shadow: 0 1px 0 rgba(255,255,255,.7);
+}
+[data-theme="dark"] .gal-head p, [data-theme="dark"] .pricing .pr-sub, [data-theme="dark"] .lb-mine {
+  text-shadow: 0 1px 0 rgba(0,0,0,.4);
+}
