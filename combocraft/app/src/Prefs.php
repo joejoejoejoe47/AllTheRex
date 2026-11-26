@@ -14,7 +14,7 @@ use Throwable;
  */
 final class Prefs
 {
-    public const BACKGROUNDS = ['stadium', 'beach', 'candy', 'space', 'jungle', 'snow', 'coral'];
+    public const BACKGROUNDS = ['stadium', 'beach', 'candy', 'space', 'jungle', 'snow', 'coral', 'volcano'];
     public const MAX_BYTES = 5242880;
     public const MAX_EDGE = 2560;
 

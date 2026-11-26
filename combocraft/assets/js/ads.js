@@ -2,7 +2,7 @@
 // Add more entries to HOUSE_ADS. A real network tag can be dropped into
 // the [data-ad-slot] placeholder in the right-hand panel.
 
-import { esc } from './fx.js?v=43';
+import { esc, sfx } from './fx.js?v=48';
 
 /** @typedef {{ id:string, title:string, kicker?:string, blurb:string, cta:string, href:string, external?:boolean, youtube?:string, start?:number, image?:string }} Ad */
 
@@ -149,10 +149,12 @@ export function showSideAd() {
   if (remaining <= 0) sideUntil = now + SIDE_MS;
   clearTimeout(sideHideTimer);
   sideOpen = true;
-  if (!root.classList.contains('is-on')) {
+  const justOpened = !root.classList.contains('is-on');
+  if (justOpened) {
     root.classList.remove('is-on');
     void root.offsetWidth;
     root.classList.add('is-on');
+    try { sfx('ad'); } catch {}
   }
   root.setAttribute('aria-hidden', 'false');
   sideHideTimer = setTimeout(() => hideSideAd(), Math.max(50, sideUntil - Date.now()));

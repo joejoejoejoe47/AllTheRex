@@ -1,9 +1,9 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=43';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst, preloadSfx, bindClickSfx } from './fx.js?v=48';
 import { storyHtml, storyPng } from './share.js?v=43';
 import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=43';
 import { initBg, syncPrefs } from './bg.js?v=43';
-import { initAds, renderAdRail, hideSideAd } from './ads.js?v=45';
+import { initAds, renderAdRail, hideSideAd } from './ads.js?v=46';
 import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=43';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
@@ -378,7 +378,7 @@ function pickElement(el, slotIndex = null) {
   renderSlots();
   const s = $(`.slot[data-slot="${i}"]`);
   s?.classList.add('fill-anim');
-  sfx('pop');
+  sfx('pick');
   if (state.slots[0] && state.slots[1]) combineNow();
 }
 
@@ -442,13 +442,24 @@ async function combineNow() {
   }
   showResult(state.lastResult, true, res.daily);
   onCombineExtras(res, { state, toast, shake, burst });
-  if (res.result?.rarity === 'Legendary' && res.newForYou) {
-    sfx('fanfare');
-    legendaryPop(el, res.inputs);
-  } else if (res.first) {
+  sfx('pop');
+  const rar = res.result?.rarity;
+  if (res.first) {
     sfx('fanfare');
     setTimeout(() => celebrate(el, res.inputs), 750);
-  } else sfx(res.newForYou ? 'success' : 'known');
+  } else if (res.newForYou) {
+    sfx('success');
+  } else {
+    sfx('known');
+  }
+  if (!res.first) {
+    if (rar === 'Legendary') sfx('legendary');
+    else if (rar === 'Epic') sfx('epic');
+    else if (rar === 'Rare') sfx('rare');
+  }
+  if (res.result?.rarity === 'Legendary' && res.newForYou) {
+    legendaryPop(el, res.inputs);
+  }
 }
 
 // Browser relay: the free AI is per-IP rate limited, so when the server's turn
@@ -922,7 +933,8 @@ $('#btnGear').onclick = async (e) => {
     ${state.morse?.available && !state.morse.signedIn ? `<div class="row btnrow" data-go="signin">Sign in with Morse Chess <span class="small">username + password</span></div>` : ''}
     <div class="row btnrow" data-go="signout">Sign out <span class="small">End this session</span></div>
     ${state.morse?.available && state.morse.signedIn && !state.morse.linked ? `<div class="row btnrow" data-go="morse">Link Morse Chess <span class="small">ready to link</span></div>` : ''}
-    <div class="row btnrow" data-go="pricing">Premium <span class="small" style="color:var(--blue)">Coming soon</span></div>`);
+    <div class="row btnrow" data-go="pricing">Premium <span class="small" style="color:var(--blue)">Coming soon</span></div>
+    <p class="sfx-cred">Sounds: Kenney.nl, wubitog &amp; farfadet46 (CC0)</p>`);
   if (!m) return;
   m.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-t]');
@@ -1251,11 +1263,13 @@ function openRecipePicker() {
 }
 
 // ---------------- Boot ----------------
+preloadSfx(BASE);
+bindClickSfx();
 loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=44').then((m) => {
+import('./clash.js?v=45').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1282,7 +1296,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=44');
+    const m = window.__ccClashMod || await import('./clash.js?v=45');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);

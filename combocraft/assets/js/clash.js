@@ -500,6 +500,17 @@ function paintLoadout(m, soft) {
   }
 }
 
+function heatMeterExact(src) {
+  const { esc } = ctx;
+  if (!src) return '';
+  const c = src.closeness != null ? src.closeness : src.breakdown?.closeness;
+  const pct = c == null ? 0 : Math.max(0, Math.min(100, Math.round(Number(c) * 100)));
+  return `<div class="rl-ex-heat" style="--pct:${pct}%">
+    <div class="rl-ex-heat-track"><i class="rl-ex-heat-ptr" aria-hidden="true"></i></div>
+    <div class="rl-ex-heat-labs"><span>Cold</span><span>Warm</span><span>Hot</span><span>On Fire</span></div>
+  </div>`;
+}
+
 function paintArena(m, now, soft) {
   const { view, esc, ico } = ctx;
   const kickLeft = m.kickoffUntil ? Math.max(0, m.kickoffUntil - Date.now()) : 0;
@@ -510,57 +521,88 @@ function paintArena(m, now, soft) {
   const secs = Math.ceil(leftMs / 1000);
   const mm = Math.floor(Math.max(0, secs) / 60);
   const ss = String(Math.max(0, secs) % 60).padStart(2, '0');
-  const clock = `${mm}:${ss}`;
-  const youBlue = (m.youTeam || 'blue') === 'blue';
-  const left = youBlue
-    ? { name: m.you.name, pts: m.status === 'inter' ? (m.lastRound?.you ?? m.youWins) : m.youWins, you: true }
-    : { name: m.opp.name, pts: m.status === 'inter' ? (m.lastRound?.opp ?? m.oppWins) : m.oppWins, you: false };
-  const right = youBlue
-    ? { name: m.opp.name, pts: m.status === 'inter' ? (m.lastRound?.opp ?? m.oppWins) : m.oppWins, you: false }
-    : { name: m.you.name, pts: m.status === 'inter' ? (m.lastRound?.you ?? m.youWins) : m.youWins, you: true };
-  // scoreboard shows round wins (best of 3), like the mockup
-  left.pts = youBlue ? m.youWins : m.oppWins;
-  right.pts = youBlue ? m.oppWins : m.youWins;
-  const hand = [...(m.loadout || []).map((e) => ({ ...e, token: e.token || ('e:' + e.id) })), ...(m.youPlays || [])];
+  const clock = m.status === 'inter' ? 'NEXT' : `${mm}:${ss}`;
+  if (m.status === 'playing' && !inKick && secs >= 1 && secs <= 3) {
+    if (paintArena._tick !== secs) {
+      paintArena._tick = secs;
+      try { ctx.sfx?.('tick'); } catch {}
+    }
+  } else if (secs > 3) {
+    paintArena._tick = 0;
+  }
+  const youPts = m.status === 'inter' && m.lastRound ? (m.lastRound.you ?? m.youScore ?? 0) : (m.youScore || 0);
+  const oppPts = m.status === 'inter' && m.lastRound ? (m.lastRound.opp ?? m.oppScore ?? 0) : (m.oppScore || 0);
+  const oppLabel = m.isAi ? 'BOT' : (m.opp?.name || 'RIVAL');
+  const themeRaw = (m.status === 'inter' && m.lastRound?.theme) ? m.lastRound.theme : (m.theme || '');
+  const themeText = String(themeRaw || '…').toUpperCase();
+  const seen = new Set();
+  const hand = [];
+  const pushCard = (e) => {
+    if (!e) return;
+    const token = e.token || (e.id != null ? ('e:' + e.id) : '');
+    if (!token || seen.has(token)) return;
+    seen.add(token);
+    hand.push({ ...e, token });
+  };
+  (m.loadout || []).forEach((e) => pushCard({ ...e, token: e.token || ('e:' + e.id) }));
+  (m.youPlays || []).forEach((e) => pushCard({ ...e, token: e.token || ('p:' + (e.id || e.name)) }));
   const slot = (i) => {
     const c = pick[i];
-    if (!c) return `<div class="rl-slot" data-s="${i}"><span class="dot"></span><div>Drop an element</div></div>`;
-    return `<div class="rl-slot filled ${rarityClass(c)}" data-s="${i}"><div class="i">${ico(c.emoji)}</div><div>${esc(c.name)}</div></div>`;
+    if (!c) return `<button type="button" class="rl-slot" data-s="${i}" aria-label="Card slot ${i + 1}"></button>`;
+    return `<button type="button" class="rl-slot filled ${rarityClass(c)}" data-s="${i}" aria-label="${esc(c.name)}"><div class="i">${ico(c.emoji)}</div><div class="nm">${esc(c.name)}</div></button>`;
   };
-  const playCard = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}">
-    <div class="eq">${esc(p.a)} + ${esc(p.b)}</div>
-    <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}</div>
-    <div class="pts">+${p.score}${p.breakdown?.heat ? ' · ' + p.breakdown.heat : ''}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
-  </div>`;
   const boost = m.boost || 0;
   const boostMax = m.boostMax || 100;
   const canAtk = boost >= (m.boostAttack || 30) && m.oppLatest;
   const canBurst = boost >= (m.boostBurst || 50);
   const kickN = inKick ? Math.ceil(kickLeft / 1000) : 0;
   const kickWord = kickN >= 3 ? '3' : kickN === 2 ? '2' : kickN === 1 ? '1' : 'GO';
-  const themeText = m.status === 'inter' && m.lastRound
-    ? `Round ${m.lastRound.n} ${m.lastRound.winner ? (m.lastRound.winner.id === m.you.id ? 'you win' : esc(m.lastRound.winner.name) + ' wins') : 'is a tie'} · ${m.lastRound.you}–${m.lastRound.opp}`
-    : (m.theme || '');
-  const boLine = m.overtime ? 'OVERTIME' : `Best of 3 · Round ${m.round || 1}`;
+  const latest = (m.youPlays || []).length ? (m.youPlays || [])[(m.youPlays || []).length - 1] : null;
+  const playCard = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}">
+    <div class="eq">${esc(p.a)} + ${esc(p.b)}</div>
+    <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}</div>
+    <div class="pts">+${p.score}${p.breakdown?.heat ? ' · ' + p.breakdown.heat : ''}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
+  </div>`;
+  const result = latest ? `<div class="rl-ex-result">
+      <div class="rl-ex-result-top">
+        <span class="rl-ex-ico">${latest.emoji ? ico(latest.emoji) : ''}</span>
+        <b class="rl-ex-name">${esc(latest.name)}</b>
+        ${latest.rarity ? `<span class="rl-ex-rar ${rarityClass(latest)}">${esc(String(latest.rarity).toUpperCase())}</span>` : ''}
+        <span class="rl-ex-pts">+${latest.score ?? 0}</span>
+      </div>
+      ${heatMeterExact(latest)}
+    </div>` : '';
 
   const arena = `
-    <div class="rl-arena">
-      <div class="rl-scoreboard">
-        <div class="rl-sb-blue">${left.you ? '<span class="rl-you-tag">YOU</span>' : ''}<span class="rl-sb-name">${esc(left.name)}</span><span class="rl-sb-pts">${left.pts}</span></div>
-        <div class="rl-sb-mid"><div class="rl-sb-time">${m.status === 'inter' ? 'NEXT' : clock}</div><div class="rl-sb-bo">${boLine}</div></div>
-        <div class="rl-sb-orange"><span class="rl-sb-pts">${right.pts}</span><span class="rl-sb-name">${esc(right.name)}</span>${right.you ? '<span class="rl-you-tag">YOU</span>' : ''}</div>
-      </div>
-      <div class="rl-theme">${m.status === 'inter' ? themeText : `Theme: <b>${esc(themeText)}</b>`}</div>
-      ${heatMeter(lastHeat(m.youPlays))}
-      <div class="rl-grid">
-        <div class="rl-panel rl-col blue">
-          <h3>Your creations</h3>
-          ${(m.youPlays || []).slice().reverse().map((p) => playCard(p, false)).join('') || '<div class="muted">Combine two cards to score.</div>'}
+    <div class="rl-arena rl-exact">
+      <div class="rl-exact-col">
+        <h1 class="rl-ex-theme">Theme: ${esc(themeText)}</h1>
+        <div class="rl-ex-steps" aria-label="How to play">
+          <span class="rl-ex-chip"><i>1</i> Pick 2 cards</span>
+          <span class="rl-ex-chip"><i>2</i> Combine</span>
+          <span class="rl-ex-chip"><i>3</i> Closer to the theme = more points</span>
         </div>
-        <div class="rl-panel rl-mid">
+        <div class="rl-scoreboard">
+          <div class="rl-sb-blue"><div class="rl-sb-stack"><span class="rl-sb-lab">YOU</span><span class="rl-sb-pts">${youPts}</span></div></div>
+          <div class="rl-sb-mid"><div class="rl-sb-time">${clock}</div></div>
+          <div class="rl-sb-orange"><div class="rl-sb-stack"><span class="rl-sb-lab">${esc(oppLabel)}</span><span class="rl-sb-pts">${oppPts}</span></div></div>
+        </div>
+        <div class="rl-ex-board">
           <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
+          <button class="rl-go" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'||inKick?'disabled':''}><span>Combine</span></button>
+        </div>
+        ${result}
+      </div>
+      <div class="rl-panel rl-hand" id="clHand">
+        ${hand.map((e) => {
+          const on = pick.some((p) => p && p.token === e.token);
+          return `<button type="button" class="el lo-el rl-el ${rarityClass(e)}${nameClass(e.name)}${on ? ' picked' : ''}" data-tok="${esc(e.token)}" style="${nameVars(e.name)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`;
+        }).join('')}
+      </div>
+      <details class="rl-ex-more">
+        <summary>Attack, Burst &amp; Boost</summary>
+        <div class="rl-ex-more-body">
           <div class="rl-acts">
-            <button class="rl-go" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'||inKick?'disabled':''}><span>Combine</span></button>
             <button class="rl-atk" id="clAtk" ${!canAtk||m.status!=='playing'||inKick?'disabled':''}><span>Attack</span></button>
             <button class="rl-burst${burstMode?' on':''}" id="clBurst" ${!canBurst?'disabled':''}>Burst ×2</button>
           </div>
@@ -568,20 +610,17 @@ function paintArena(m, now, soft) {
             <div class="lab"><span>BOOST</span><span>${boost} / ${boostMax}</span></div>
             <div class="bar"><i style="width:${Math.max(0, Math.min(100, boost))}%"></i></div>
           </div>
+          <div class="rl-ex-logs">
+            <div class="rl-col blue"><h3>Your creations</h3>${(m.youPlays || []).slice().reverse().map((p) => playCard(p, false)).join('') || '<div class="muted">Combine two cards to score.</div>'}</div>
+            <div class="rl-col orange"><h3>${esc(m.opp.name)}’s creations</h3>${(m.oppPlays || []).slice().reverse().map((p) => playCard(p, true)).join('') || '<div class="muted">Waiting for their first combo…</div>'}</div>
+          </div>
+          <div class="rl-quick" id="clQuick">
+            ${['What a combo!','Nice one!','Close one!','Calculated.','Wow!'].map((q) => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join('')}
+          </div>
         </div>
-        <div class="rl-panel rl-col orange">
-          <h3>${esc(m.opp.name)}’s creations · Live</h3>
-          ${(m.oppPlays || []).slice().reverse().map((p) => playCard(p, true)).join('') || '<div class="muted">Waiting for their first combo…</div>'}
-        </div>
-      </div>
+      </details>
       ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
       ${inKick ? `<div class="rl-kick"><b>${kickWord}</b></div>` : ''}
-      <div class="rl-panel rl-hand" id="clHand">
-        ${hand.map((e) => `<button type="button" class="el lo-el rl-el ${rarityClass(e)}${nameClass(e.name)}" data-tok="${esc(e.token)}" style="${nameVars(e.name)}" title="${esc(e.name)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span></button>`).join('')}
-      </div>
-      <div class="rl-quick" id="clQuick">
-        ${['What a combo!','Nice one!','Close one!','Calculated.','Wow!'].map((q) => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join('')}
-      </div>
     </div>`;
   view.innerHTML = arena;
   bindArena(m, hand);
@@ -590,6 +629,12 @@ function paintArena(m, now, soft) {
 function bindArena(m, hand) {
   const { api, toast } = ctx;
   const byTok = Object.fromEntries(hand.map((e) => [e.token, e]));
+  document.querySelectorAll('.rl-slot[data-s]').forEach((el) => {
+    el.onclick = () => {
+      pick[+el.dataset.s] = null;
+      paintArena(m, m.now, false);
+    };
+  });
   const handEl = document.getElementById('clHand');
   if (handEl) handEl.onclick = (e) => {
     const b = e.target.closest('[data-tok]');
@@ -624,7 +669,17 @@ async function doPlay(m, attack) {
   const { api, toast, sfx } = ctx;
   try {
     const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: pick[1].token, attack, burst: burstMode });
-    if (ctx.sfx) sfx(d.play?.breakdown?.attackWorks ? 'fanfare' : 'success');
+    if (ctx.sfx) {
+      const pl = d.play || {};
+      const heat = pl.breakdown?.heat || pl.heat;
+      const exact = pl.breakdown?.exact || pl.exact;
+      if (exact) ctx.sfx('exact');
+      else if (heat === 'On Fire') ctx.sfx('heat-fire');
+      else if (heat === 'Hot') ctx.sfx('heat-hot');
+      else if (heat === 'Warm') ctx.sfx('heat-warm');
+      else ctx.sfx('pop');
+      if (pl.score) ctx.sfx('points');
+    }
     const pl = d.play;
     if (pl) {
       const heat = pl.breakdown?.heat || pl.heat;
@@ -702,6 +757,11 @@ function paintResults(m, soft = false) {
   const xpGain = rc?.xpGained || 0;
   const word = draw ? 'DRAW' : (won ? 'VICTORY' : 'DEFEAT');
   const vicClass = draw ? ' draw' : (won ? '' : ' defeat');
+
+  if (!soft && paintResults._played !== m.id) {
+    paintResults._played = m.id;
+    try { ctx.sfx?.(draw ? 'pop' : (won ? 'victory' : 'defeat')); } catch {}
+  }
 
   if (soft && document.getElementById('rlResults') && document.getElementById('clRematch')) {
     const btn = document.getElementById('clRematch');
@@ -1529,7 +1589,16 @@ async function doPartyPlay(m) {
   if (!partyPick[0] || !partyPick[1]) return;
   try {
     const d = await ctx.api('clash/party/play', { matchId: m.id, a: partyPick[0].token, b: partyPick[1].token });
-    if (ctx.sfx) ctx.sfx(d.play?.hit ? 'fanfare' : 'success');
+    if (ctx.sfx) {
+      const pl = d.play || {};
+      const heat = pl.heat || pl.breakdown?.heat;
+      if (pl.hit || pl.exact) ctx.sfx('exact');
+      else if (heat === 'On Fire') ctx.sfx('heat-fire');
+      else if (heat === 'Hot') ctx.sfx('heat-hot');
+      else if (heat === 'Warm') ctx.sfx('heat-warm');
+      else ctx.sfx('pop');
+      if (pl.score) ctx.sfx('points');
+    }
     const pl = d.play;
     if (pl) {
       const heat = pl.heat;

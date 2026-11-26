@@ -1,5 +1,5 @@
 // Double-click the empty background to pick a bright scene or upload your own.
-import { esc } from './fx.js?v=43';
+import { esc } from './fx.js?v=48';
 
 const BGS = [
   { id: 'stadium', name: 'Stadium', file: 'assets/art/arena-bg.webp', thumb: 'assets/art/bg-stadium-thumb.webp' },
@@ -9,6 +9,7 @@ const BGS = [
   { id: 'jungle', name: 'Jungle', file: 'assets/art/bg-jungle.webp', thumb: 'assets/art/bg-jungle-thumb.webp' },
   { id: 'snow', name: 'Snowy Rink', file: 'assets/art/bg-snow.webp', thumb: 'assets/art/bg-snow-thumb.webp' },
   { id: 'coral', name: 'Coral Reef', file: 'assets/art/bg-coral.webp', thumb: 'assets/art/bg-coral-thumb.webp' },
+  { id: 'volcano', name: 'Volcano Arena', file: 'assets/art/bg-volcano.webp', thumb: 'assets/art/bg-volcano-thumb.webp' },
 ];
 
 let ctx = { api: null, toast: null, state: null, BASE: '/' };

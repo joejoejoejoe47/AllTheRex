@@ -1281,6 +1281,11 @@ html[data-bg="space"] body::before { background-color: #1a0a3c; background-image
 html[data-bg="jungle"] body::before { background-color: #1e6b3a; background-image: url("../art/bg-jungle.webp"); }
 html[data-bg="snow"] body::before { background-color: #c5e8ff; background-image: url("../art/bg-snow.webp"); }
 html[data-bg="coral"] body::before { background-color: #0a6b8a; background-image: url("../art/bg-coral.webp"); }
+html[data-bg="volcano"] body::before { background-color: #5a3a78; background-image: url("../art/bg-volcano.webp"); }
+body:has(.rl-arena)::before {
+  background-color: #5a3a78 !important;
+  background-image: url("../art/bg-volcano.webp") !important;
+}
 html[data-bg="stadium"] body::before { background-image: url("../art/arena-bg.webp"); }
 html[data-bg="stadium"][data-theme="dark"] body::before { background-image: url("../art/arena-bg-dark.webp"); }
 html[data-bg="custom"] body::before {
@@ -1633,4 +1638,12 @@ html, body, * {
   display: none;
   width: 0;
   height: 0;
+}
+
+.sfx-cred {
+  margin: 8px 12px 4px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted);
+  font-weight: 600;
 }
