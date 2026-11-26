@@ -38,6 +38,7 @@ let pending = false;
 let sideOpen = false;
 let sideShowTimer = 0;
 let sideHideTimer = 0;
+let sideUntil = 0;
 let railMq = null;
 
 function isPremium() {
@@ -125,10 +126,11 @@ function markAdShown() {
   saveStore(s);
 }
 
-export function hideSideAd() {
+export function hideSideAd({ clearSchedule = true } = {}) {
   clearTimeout(sideHideTimer);
   sideHideTimer = 0;
   sideOpen = false;
+  if (clearSchedule) sideUntil = 0;
   const root = document.getElementById('playAds');
   if (root) {
     root.classList.remove('is-on');
@@ -142,13 +144,18 @@ export function showSideAd() {
   const root = document.getElementById('playAds');
   if (!root || root.hidden || !root.querySelector('.ad-card')) return false;
   if (popupOpen) return false;
+  const now = Date.now();
+  const remaining = sideUntil - now;
+  if (remaining <= 0) sideUntil = now + SIDE_MS;
   clearTimeout(sideHideTimer);
   sideOpen = true;
-  root.classList.remove('is-on');
-  void root.offsetWidth;
-  root.classList.add('is-on');
+  if (!root.classList.contains('is-on')) {
+    root.classList.remove('is-on');
+    void root.offsetWidth;
+    root.classList.add('is-on');
+  }
   root.setAttribute('aria-hidden', 'false');
-  sideHideTimer = setTimeout(() => hideSideAd(), SIDE_MS);
+  sideHideTimer = setTimeout(() => hideSideAd(), Math.max(50, sideUntil - Date.now()));
   return true;
 }
 
@@ -169,12 +176,12 @@ function scheduleSideAd(delay = FIRST_DELAY_MS) {
 
 export function renderAdRail(root) {
   if (!root) return;
-  hideSideAd();
   clearTimeout(sideShowTimer);
-  if (isPremium()) { root.hidden = true; root.innerHTML = ''; return; }
+  if (isPremium()) { hideSideAd(); root.hidden = true; root.innerHTML = ''; return; }
   root.hidden = false;
-  root.setAttribute('aria-hidden', 'true');
-  root.classList.remove('is-on');
+  const resume = sideUntil > Date.now();
+  root.setAttribute('aria-hidden', resume ? 'false' : 'true');
+  root.classList.toggle('is-on', resume);
   const first = HOUSE_ADS[0];
   root.innerHTML = `
     <div class="act-head">
@@ -198,7 +205,8 @@ export function renderAdRail(root) {
   if (feat && first?.youtube) {
     root.querySelector('.ad-card.featured .ad-media')?.addEventListener('click', () => showPopup(first, { fromRail: true }));
   }
-  scheduleSideAd(FIRST_DELAY_MS);
+  if (resume) showSideAd();
+  else scheduleSideAd(FIRST_DELAY_MS);
 }
 
 function postYt(iframe, func, args = []) {
