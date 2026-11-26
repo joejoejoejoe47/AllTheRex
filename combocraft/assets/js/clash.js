@@ -9,6 +9,14 @@ let attackMode = false;
 let burstMode = false;
 let pick = [null, null];
 let selectedMode = 'duel';
+const EXTRA_MODE_LIVE = ['gift'];
+const EXTRA_MODES = [
+  { id: 'gift', tag: 'New', title: 'Poison Gift', blurb: 'Every combine makes two cards. Keep one. The other goes to your opponent, aimed at you.' },
+  { id: 'pile', tag: 'New', title: 'The Pile', blurb: 'One shared card mutates by itself. Slap a card on it to steer. Theme hits score. Sludge hurts whoever touched it last.' },
+  { id: 'telephone', tag: 'New', title: 'Telephone', blurb: 'Four seats, one card. You only see the last pass, add one ingredient, and send it on. The full chain is read out at the end.' },
+  { id: 'boss', tag: 'New', title: 'World Boss', blurb: 'Both sides feed the same giant card. Whoever lands the killing combine keeps that boss in their book forever.' },
+  { id: 'shelf', tag: 'New', title: 'Stolen Shelf', blurb: "You don't play your twelve cards. You get twenty seconds with a stranger's collection from yesterday." },
+].filter((m) => EXTRA_MODE_LIVE.includes(m.id));
 let boom = null;
 function heatMeter(src) {
   const { esc } = ctx;
@@ -107,6 +115,7 @@ async function renderLobby(inbox) {
     { id: 'p3', tag: 'Party', title: '3v3 Party', blurb: 'Bigger parties, three 90-second sessions.' },
     { id: 'ai', tag: 'Practice', title: 'vs AI', blurb: '1v1 or Party vs AI. Easy, Medium or Hard — starts instantly.' },
     { id: 'priv', tag: 'Invite', title: 'Private Match', blurb: 'Send a challenge link. They have 5 seconds to accept.' },
+    ...EXTRA_MODES,
   ];
   const row = (rows, line) => (rows || []).length
     ? `<ol>${rows.slice(0, 6).map((r, i) => `<li><span><i class="rk">${r.rank || i + 1}</i> ${line(r)}</span><span>${r._right || ''}</span></li>`).join('')}</ol>`
@@ -172,6 +181,7 @@ async function renderLobby(inbox) {
     if (selectedMode === 'duel') return joinQueue();
     if (selectedMode === 'ai') return openAiPicker();
     if (selectedMode === 'priv') return makeInvite();
+    if (EXTRA_MODE_LIVE.includes(selectedMode)) return openAiPicker(false, selectedMode);
     // party modes
     if (!party) return openPartyUp(inbox);
     return clickReady();
@@ -244,21 +254,22 @@ function clashOverlay(inner, extraClass = '') {
   return { o, box, close };
 }
 
-async function openAiPicker(preferParty = false) {
+async function openAiPicker(preferParty = false, mode = '') {
   const { api, toast, go } = ctx;
   const party = ctx.state.clashInbox?.party;
   const inParty = !!(party && (party.members || []).length);
+  const extra = EXTRA_MODES.find((m) => m.id === mode);
   // Party bar / explicit Party vs AI → party. Otherwise party members default to Party vs AI; solo players get 1v1.
-  let kind = preferParty || inParty ? 'party' : 'duel';
+  let kind = extra ? 'duel' : (preferParty || inParty ? 'party' : 'duel');
   const { box, close } = clashOverlay(`<button class="x" type="button" aria-label="Close">×</button>
-    <h3>Challenge AI</h3>
-    <div class="ai-kinds" role="tablist">
+    <h3>${extra ? esc(extra.title) + ' vs AI' : 'Challenge AI'}</h3>
+    ${extra ? `<p class="ai-copy">${esc(extra.blurb)} Pick a difficulty — it starts now.</p>` : `<div class="ai-kinds" role="tablist">
       <button type="button" data-kind="duel" class="${kind === 'duel' ? 'on' : ''}">1v1 vs AI</button>
       <button type="button" data-kind="party" class="${kind === 'party' ? 'on' : ''}">Party vs AI</button>
     </div>
     <p class="ai-copy">${kind === 'party'
       ? 'Your whole party plays the 3×90s team-target match against a same-sized bot team. No waiting — it starts now.'
-      : 'Play a best-of-3 against a bot. Easy is slower, Hard chains and attacks.'}</p>
+      : 'Play a best-of-3 against a bot. Easy is slower, Hard chains and attacks.'}</p>`}
     <div class="ai-diffs">
       <button type="button" data-lvl="easy"><b>Easy</b><span>Slower mixes, a gentle start</span></button>
       <button type="button" data-lvl="medium"><b>Medium</b><span>A fair, timed fight</span></button>
@@ -279,8 +290,8 @@ async function openAiPicker(preferParty = false) {
     btn.onclick = async () => {
       box.querySelectorAll('[data-lvl]').forEach((b) => { b.disabled = true; });
       try {
-        const path = kind === 'party' ? 'clash/party/ai' : 'clash/ai';
-        const d = await api(path, { level: btn.dataset.lvl });
+        const path = (!extra && kind === 'party') ? 'clash/party/ai' : 'clash/ai';
+        const d = await api(path, { level: btn.dataset.lvl, mode: extra ? extra.id : undefined });
         close();
         if (d.party) {
           ctx.state.clashInbox = { ...(ctx.state.clashInbox || {}), party: d.party };
@@ -410,8 +421,11 @@ function paintLoadout(m, soft) {
         <div class="cv-opp"><span class="av">${ico(m.opp.avatar)}</span><b>${esc(m.opp.name)}</b>${m.oppReady ? ' · ready' : (m.oppLoadoutCount ? ' · picking' : ' · joining')}</div>
       </div>
       <div class="clash-lo-head">
-        <h2>Build your loadout</h2>
-        <p>Pick 8–12 discoveries. Rarer cards hit harder in scoring.</p>
+        <h2>${m.mode === 'shelf' ? "Yesterday's shelf" : (m.modeTitle ? esc(m.modeTitle) + ' — build your loadout' : 'Build your loadout')}</h2>
+        <p>${m.mode === 'shelf'
+          ? "These are not your cards. You have " + (m.shelf?.peekLeft ?? 20) + " seconds to figure out a deck you have never seen. Pick 8–12, or they will be picked for you."
+          : 'Pick 8–12 discoveries. Rarer cards hit harder in scoring.'}</p>
+        ${m.mode === 'shelf' && m.shelf ? `<div class="lo-peek" id="loPeek">${m.shelf.peekLeft || 0}s left</div>` : ''}
         <div class="lo-count"><b id="loN">${picked.size}</b> / 12 selected <span class="muted">(min 8)</span></div>
       </div>
       <div class="lo-tools" id="loTools">
@@ -511,6 +525,91 @@ function heatMeterExact(src) {
   </div>`;
 }
 
+
+function oneSlotMode(m) {
+  return m && (m.mode === 'pile' || m.mode === 'telephone' || m.mode === 'boss');
+}
+function modeSteps(m) {
+  if (m.mode === 'gift') return `<span class="rl-ex-chip"><i>1</i> Combine two cards</span><span class="rl-ex-chip"><i>2</i> Keep one</span><span class="rl-ex-chip"><i>3</i> The other goes to them</span>`;
+  if (m.mode === 'pile') return `<span class="rl-ex-chip"><i>1</i> Watch the pile</span><span class="rl-ex-chip"><i>2</i> Slap a card on it</span><span class="rl-ex-chip"><i>3</i> Theme scores. Sludge hurts.</span>`;
+  if (m.mode === 'telephone') return `<span class="rl-ex-chip"><i>1</i> See the last card</span><span class="rl-ex-chip"><i>2</i> Add one ingredient</span><span class="rl-ex-chip"><i>3</i> Pass it on</span>`;
+  if (m.mode === 'boss') return `<span class="rl-ex-chip"><i>1</i> Feed the boss</span><span class="rl-ex-chip"><i>2</i> It mutates</span><span class="rl-ex-chip"><i>3</i> Land the killing hit, keep it forever</span>`;
+  return `<span class="rl-ex-chip"><i>1</i> Pick 2 cards</span><span class="rl-ex-chip"><i>2</i> Combine</span><span class="rl-ex-chip"><i>3</i> Closer to the theme = more points</span>`;
+}
+function modeBoard(m, slot, inKick) {
+  const canTwo = !!pick[0] && !!pick[1] && m.status === 'playing' && !inKick && !m.pendingGift;
+  const canOne = !!pick[0] && m.status === 'playing' && !inKick;
+  if (m.mode === 'pile') {
+    const pile = m.pile || {};
+    return `<div class="rl-ex-board rl-mode-pile">
+      <div class="rl-pile-card">${pile.emoji ? ctx.ico(pile.emoji) : '🫠'}<b>${ctx.esc(pile.name || 'The Pile')}</b><span>${m.pileMine ? 'You touched it last' : (m.pilePulseIn != null ? 'Mutates in ' + m.pilePulseIn + 's' : '')}</span></div>
+      <div class="rl-plus">+</div>
+      <div class="rl-slots">${slot(0)}</div>
+      <button class="rl-go" id="clGo" ${!canOne?'disabled':''}><span>Slap</span></button>
+    </div>`;
+  }
+  if (m.mode === 'telephone') {
+    const t = m.telephone || {};
+    const cur = t.current || {};
+    const seats = (t.seats || []).map((s) => `<li class="${s.n === t.turn ? 'on' : ''}${s.you ? ' you' : ''}">${s.n}. ${ctx.esc(s.label)}</li>`).join('');
+    return `<div class="rl-ex-board rl-mode-tel">
+      <ol class="rl-tel-seats">${seats}</ol>
+      <div class="rl-tel-card">${cur.emoji ? ctx.ico(cur.emoji) : '📝'}<b>${ctx.esc(cur.name || '…')}</b><span>${t.yourTurn ? 'Your turn — add one ingredient' : 'Waiting for the next seat'}</span></div>
+      <div class="rl-plus">+</div>
+      <div class="rl-slots">${slot(0)}</div>
+      <button class="rl-go" id="clGo" ${!canOne || !t.yourTurn?'disabled':''}><span>Pass</span></button>
+    </div>`;
+  }
+  if (m.mode === 'boss') {
+    const b = m.boss || {};
+    const pct = b.maxHp ? Math.max(0, Math.min(100, Math.round((b.hp / b.maxHp) * 100))) : 0;
+    return `<div class="rl-ex-board rl-mode-boss">
+      <div class="rl-boss-card">
+        <div class="i">${b.emoji ? ctx.ico(b.emoji) : '🏢'}</div>
+        <b>${ctx.esc(b.name || 'World Boss')}</b>
+        <div class="rl-boss-hp"><i style="width:${pct}%"></i><span>${b.hp ?? 0} / ${b.maxHp ?? 0}</span></div>
+        <em>${ctx.esc(b.tagline || '')}</em>
+      </div>
+      <div class="rl-plus">+</div>
+      <div class="rl-slots">${slot(0)}</div>
+      <button class="rl-go" id="clGo" ${!canOne?'disabled':''}><span>Feed</span></button>
+    </div>`;
+  }
+  return `<div class="rl-ex-board">
+    <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
+    <button class="rl-go" id="clGo" ${!canTwo?'disabled':''}><span>Combine</span></button>
+  </div>`;
+}
+function modeExtras(m, ico, esc) {
+  if (m.mode === 'gift' && m.pendingGift && m.pendingGift.a && m.pendingGift.b) {
+    const card = (c, which) => `<button type="button" class="rl-gift-pick" data-gift="${which}">
+      <span class="i">${c.emoji ? ico(c.emoji) : ''}</span>
+      <b>${esc(c.name)}</b>
+      <em>${esc(c.tagline || '')}</em>
+      <span class="pts">+${c.score ?? 0}${c.heat ? ' · ' + esc(c.heat) : ''}</span>
+      <strong>Keep this</strong>
+    </button>`;
+    return `<div class="rl-gift-overlay">
+      <h2>A combine, and a poison gift</h2>
+      <p>Keep one. The other goes into their hand, aimed at you.</p>
+      <div class="rl-gift-row">${card(m.pendingGift.a, 'a')}${card(m.pendingGift.b, 'b')}</div>
+    </div>`;
+  }
+  if (m.mode === 'telephone' && m.telephone?.revealed && (m.telephone.chain || []).length) {
+    return `<ol class="rl-tel-chain">${m.telephone.chain.map((c) => `<li><span>${c.n}. ${esc(c.label)}</span> added <b>${c.ingredientEmoji ? ico(c.ingredientEmoji) + ' ' : ''}${esc(c.ingredient)}</b> → ${c.result?.emoji ? ico(c.result.emoji) : ''} <b>${esc(c.result?.name || '')}</b></li>`).join('')}</ol>`;
+  }
+  return '';
+}
+async function chooseGift(m, keep) {
+  const { api, toast } = ctx;
+  try {
+    const d = await api('clash/gift', { matchId: m.id, keep });
+    try { ctx.sfx?.(d.kept && d.given ? 'whoosh' : 'pop'); if (d.play?.score) ctx.sfx?.('points'); } catch {}
+    pick = d.play ? [{ token: d.play.token, name: d.play.name, emoji: d.play.emoji, rarity: d.play.rarity }, null] : [null, null];
+    paintMatch(d.match, d.now);
+  } catch (e) { toast(e.message); }
+}
+
 function paintArena(m, now, soft) {
   const { view, esc, ico } = ctx;
   const kickLeft = m.kickoffUntil ? Math.max(0, m.kickoffUntil - Date.now()) : 0;
@@ -545,6 +644,7 @@ function paintArena(m, now, soft) {
     hand.push({ ...e, token });
   };
   (m.loadout || []).forEach((e) => pushCard({ ...e, token: e.token || ('e:' + e.id) }));
+  (m.gifts || []).forEach((e) => pushCard({ ...e, token: e.token, gift: true }));
   (m.youPlays || []).forEach((e) => pushCard({ ...e, token: e.token || ('p:' + (e.id || e.name)) }));
   const slot = (i) => {
     const c = pick[i];
@@ -578,20 +678,16 @@ function paintArena(m, now, soft) {
       <div class="rl-exact-col">
         <h1 class="rl-ex-theme">Theme: ${esc(themeText)}</h1>
         <div class="rl-ex-steps" aria-label="How to play">
-          <span class="rl-ex-chip"><i>1</i> Pick 2 cards</span>
-          <span class="rl-ex-chip"><i>2</i> Combine</span>
-          <span class="rl-ex-chip"><i>3</i> Closer to the theme = more points</span>
+          ${modeSteps(m)}
         </div>
         <div class="rl-scoreboard">
           <div class="rl-sb-blue"><div class="rl-sb-stack"><span class="rl-sb-lab">YOU</span><span class="rl-sb-pts">${youPts}</span></div></div>
           <div class="rl-sb-mid"><div class="rl-sb-time">${clock}</div></div>
           <div class="rl-sb-orange"><div class="rl-sb-stack"><span class="rl-sb-lab">${esc(oppLabel)}</span><span class="rl-sb-pts">${oppPts}</span></div></div>
         </div>
-        <div class="rl-ex-board">
-          <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
-          <button class="rl-go" id="clGo" ${!pick[0]||!pick[1]||m.status!=='playing'||inKick?'disabled':''}><span>Combine</span></button>
-        </div>
+        ${modeBoard(m, slot, inKick)}
         ${result}
+        ${modeExtras(m, ico, esc)}
       </div>
       <div class="rl-panel rl-hand" id="clHand">
         ${hand.map((e) => {
@@ -641,13 +737,18 @@ function bindArena(m, hand) {
     if (!b || m.status !== 'playing') return;
     const card = byTok[b.dataset.tok];
     if (!card) return;
-    if (!pick[0]) pick[0] = card;
+    const one = oneSlotMode(m);
+    if (one) pick = [card, null];
+    else if (!pick[0]) pick[0] = card;
     else if (!pick[1]) pick[1] = card;
     else { pick = [card, null]; }
     paintArena(m, m.now, false);
   };
   const go = document.getElementById('clGo');
   if (go) go.onclick = () => doPlay(m, false);
+  document.querySelectorAll('[data-gift]').forEach((b) => {
+    b.onclick = () => chooseGift(m, b.dataset.gift);
+  });
   const atk = document.getElementById('clAtk');
   if (atk) atk.onclick = () => {
     if (!pick[0] || !pick[1]) { attackMode = true; toast('Pick two cards, then Attack.'); return; }
@@ -665,10 +766,17 @@ function bindArena(m, hand) {
 }
 
 async function doPlay(m, attack) {
-  if (!pick[0] || !pick[1]) return;
+  const one = oneSlotMode(m);
+  if (!pick[0] || (!one && !pick[1])) return;
   const { api, toast, sfx } = ctx;
   try {
-    const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: pick[1].token, attack, burst: burstMode });
+    const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: one ? (pick[0].token) : pick[1].token, attack, burst: burstMode });
+    if (d.pendingGift) {
+      try { ctx.sfx?.('pop'); } catch {}
+      pick = [null, null];
+      paintMatch(d.match, d.now);
+      return;
+    }
     if (ctx.sfx) {
       const pl = d.play || {};
       const heat = pl.breakdown?.heat || pl.heat;
@@ -790,6 +898,9 @@ function paintResults(m, soft = false) {
       <div class="rl-kicker" style="text-align:center">COMBO CLASH</div>
       <div class="rl-vic${vicClass}"><div class="word">${word}</div>
         <div class="rl-subh">${esc(headline)}</div>
+        ${m.mode === 'telephone' && m.telephone?.chain?.length ? `<ol class="rl-tel-chain end">${m.telephone.chain.map((c) => `<li><span>${c.n}. ${esc(c.label)}</span> added <b>${c.ingredientEmoji ? ico(c.ingredientEmoji) + ' ' : ''}${esc(c.ingredient)}</b> → ${c.result?.emoji ? ico(c.result.emoji) : ''} <b>${esc(c.result?.name || '')}</b></li>`).join('')}</ol>` : ''}
+        ${m.mode === 'boss' && m.bossKilledByYou ? `<p class="rl-boss-won">${m.boss?.emoji ? ico(m.boss.emoji) : ''} You kept ${esc(m.boss?.name || 'the boss')} in your book forever.</p>` : ''}
+        ${m.modeTitle ? `<div class="rl-mode-tag">${esc(m.modeTitle)}</div>` : ''}
       </div>
       <div class="rl-res-grid">
         <div class="rl-panel rl-table">

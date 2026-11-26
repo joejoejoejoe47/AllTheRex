@@ -481,3 +481,46 @@ CREATE TABLE IF NOT EXISTS cc_hint_buys (
   created_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS cc_hint_buys_player ON cc_hint_buys (player_id, day);
+
+CREATE TABLE IF NOT EXISTS cc_clash_mode_state (
+  match_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  mode VARCHAR(32) NOT NULL,
+  data TEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_mode_mode ON cc_clash_mode_state (mode);
+
+CREATE TABLE IF NOT EXISTS cc_clash_ranks (
+  player_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  mmr INTEGER NOT NULL DEFAULT 600,
+  xp INTEGER NOT NULL DEFAULT 0,
+  level INTEGER NOT NULL DEFAULT 1,
+  wins INTEGER NOT NULL DEFAULT 0,
+  losses INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cc_clash_quick (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  match_id VARCHAR(24) NOT NULL,
+  player_id VARCHAR(24) NOT NULL,
+  phrase VARCHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cc_clash_qck_match ON cc_clash_quick (match_id, id);
+
+CREATE TABLE IF NOT EXISTS cc_daily_chain (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  level INTEGER NOT NULL DEFAULT 1,
+  score INTEGER NOT NULL DEFAULT 0,
+  solved_keys TEXT NOT NULL,
+  target_key VARCHAR(80) NOT NULL DEFAULT '',
+  target_name VARCHAR(160) NOT NULL DEFAULT '',
+  steps INTEGER NOT NULL DEFAULT 1,
+  combos INTEGER NOT NULL DEFAULT 0,
+  path TEXT NULL,
+  updated_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day)
+);

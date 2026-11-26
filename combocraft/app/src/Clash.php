@@ -129,7 +129,7 @@ final class Clash
     }
 
     /** Start a best-of-3 against a timed bot. @param array<string,mixed> $p @return array<string,mixed> */
-    public static function challengeAi(array $p, string $level): array
+    public static function challengeAi(array $p, string $level, string $mode = ''): array
     {
         self::requireName($p);
         $level = self::normLevel($level);
@@ -137,12 +137,15 @@ final class Clash
             throw new HttpError('Pick Easy, Medium, or Hard.', 422);
         }
         if ($live = self::activeMatch($p)) {
-            return ['match' => self::matchView($live, $p), 'ai' => self::aiLevelOf($live)];
+            return ['match' => self::matchView($live, $p), 'ai' => self::aiLevelOf($live), 'mode' => ClashModes::of($live)];
         }
         self::ensureAiPlayer($level);
         $m = self::createMatch($p['id'], self::AI[$level]['id']);
+        if ($mode !== '') {
+            ClashModes::attach($m, $mode);
+        }
         self::prepareAiLoadout($m, $level);
-        return ['match' => self::matchView(self::getMatch($m['id']), $p), 'ai' => $level];
+        return ['match' => self::matchView(self::getMatch($m['id']), $p), 'ai' => $level, 'mode' => ClashModes::of($m)];
     }
 
     /** @param array<string,mixed> $p @return array<string,mixed> */
@@ -294,10 +297,17 @@ final class Clash
         if ($n < self::MIN_LOADOUT || $n > self::MAX_LOADOUT) {
             throw new HttpError('Pick 8 to 12 elements you have already discovered.', 422);
         }
-        $own = self::ownedIds($p);
-        foreach ($ids as $id) {
-            if (!isset($own[$id])) {
-                throw new HttpError('Every loadout card has to be one you have discovered.', 422);
+        if (ClashModes::skipOwnedCheck($m)) {
+            $ids = ClashModes::allowLoadoutIds($p, $m, $ids);
+            if (count($ids) < self::MIN_LOADOUT || count($ids) > self::MAX_LOADOUT) {
+                throw new HttpError('Pick 8 to 12 cards from this stolen shelf.', 422);
+            }
+        } else {
+            $own = self::ownedIds($p);
+            foreach ($ids as $id) {
+                if (!isset($own[$id])) {
+                    throw new HttpError('Every loadout card has to be one you have discovered.', 422);
+                }
             }
         }
         Db::upsert(
@@ -363,6 +373,9 @@ final class Clash
         $nowMs = Db::nowMs();
         if ($lastMs && ($nowMs - $lastMs) < self::PLAY_GAP_MS) {
             throw new HttpError('A little slower — combos need a beat.', 429);
+        }
+        if ($hit = ClashModes::interceptPlay($p, $m, $round, $aTok, $bTok, $internal)) {
+            return $hit;
         }
         $hand = self::hand($p, $m, $round);
         $ea = $hand[$aTok] ?? null;
@@ -631,6 +644,8 @@ final class Clash
             $m = self::getMatch($m['id']);
         }
         if ($m['status'] === 'loadout') {
+            ClashModes::tick($m);
+            $m = self::getMatch($m['id']);
             $ready = Db::all('SELECT player_id, ready FROM cc_clash_loadouts WHERE match_id = ?', [$m['id']]);
             $ok = 0;
             foreach ($ready as $r) {
@@ -646,12 +661,21 @@ final class Clash
         }
         if ($m['status'] === 'playing') {
             $round = self::currentRound($m);
+            ClashModes::tick($m);
+            $m = self::getMatch($m['id']);
+            $round = self::currentRound($m);
             if ($round && strtotime((string) $round['ends_at'] . ' UTC') <= time() && !(int) $round['settled']) {
                 self::settleRound($m, $round);
                 return self::getMatch($m['id']);
             }
             if (self::aiLevelOf($m)) {
-                self::maybeAiPlay($m);
+                $mode = ClashModes::of($m);
+                if ($mode === ClashModes::GIFT) {
+                    ClashModes::maybeAiGift($m);
+                    self::maybeAiPlay($m);
+                } elseif ($mode === null) {
+                    self::maybeAiPlay($m);
+                }
                 return self::getMatch($m['id']);
             }
             return $m;
@@ -685,6 +709,7 @@ final class Clash
             [$id, $m['id'], $n, $theme, gmdate('Y-m-d H:i:s', $start), gmdate('Y-m-d H:i:s', $start + $len)]
         );
         Db::run('UPDATE cc_clash_matches SET status = ?, round = ?, inter_until = NULL, updated_at = ? WHERE id = ?', ['playing', $n, Db::now(), $m['id']]);
+        ClashModes::onRoundStart(self::getMatch($m['id']), $n, $id);
     }
 
     /** @param array<string,mixed> $m @param array<string,mixed> $round */
@@ -714,8 +739,17 @@ final class Clash
             return;
         }
         $done = $aWins >= 2 || $bWins >= 2 || ($n >= 3 && $aWins !== $bWins);
+        if (ClashModes::isSingleRound($m)) {
+            $done = true;
+        }
         if ($done) {
-            $mw = $aWins > $bWins ? (string) $m['a_id'] : (string) $m['b_id'];
+            if (ClashModes::isSingleRound($m) && $as !== $bs) {
+                $mw = $as > $bs ? (string) $m['a_id'] : (string) $m['b_id'];
+            } elseif (ClashModes::isSingleRound($m) && $as === $bs) {
+                $mw = '';
+            } else {
+                $mw = $aWins > $bWins ? (string) $m['a_id'] : (string) $m['b_id'];
+            }
             Db::run('UPDATE cc_clash_matches SET a_wins = ?, b_wins = ?, updated_at = ? WHERE id = ?', [$aWins, $bWins, Db::now(), $m['id']]);
             self::finishMatch(array_merge($m, ['a_wins' => $aWins, 'b_wins' => $bWins]), $mw);
             return;
@@ -727,17 +761,22 @@ final class Clash
     /** @param array<string,mixed> $m */
     private static function finishMatch(array $m, string $winnerId): void
     {
+        $winnerId = (string) $winnerId;
         Db::run(
             'UPDATE cc_clash_matches SET status = ?, winner_id = ?, updated_at = ? WHERE id = ? AND status <> ?',
-            ['finished', $winnerId, Db::now(), $m['id'], 'finished']
+            ['finished', $winnerId !== '' ? $winnerId : null, Db::now(), $m['id'], 'finished']
         );
-        self::awardDaily($m, $winnerId);
-        Party::recordDuel(array_merge($m, ['winner_id' => $winnerId]));
+        if ($winnerId !== '') {
+            self::awardDaily($m, $winnerId);
+            Party::recordDuel(array_merge($m, ['winner_id' => $winnerId]));
+        }
         Db::run('DELETE FROM cc_clash_queue WHERE player_id IN (?,?)', [$m['a_id'], $m['b_id']]);
-        try {
-            ClashRank::applyMatch($m, $winnerId);
-        } catch (Throwable $e) {
-            error_log('[combocraft rank] ' . $e->getMessage());
+        if ($winnerId !== '') {
+            try {
+                ClashRank::applyMatch($m, $winnerId);
+            } catch (Throwable $e) {
+                error_log('[combocraft rank] ' . $e->getMessage());
+            }
         }
     }
 
@@ -821,7 +860,7 @@ final class Clash
                 'depth' => self::depthFromRarity((string) $pl['rarity']) + 1,
             ];
         }
-        return $out;
+        return ClashModes::extendHand($p, $m, $round, $out);
     }
 
     /** @param array<string,mixed> $ea @param array<string,mixed> $eb @return array{name:string,emoji:string,tagline:string,rarity:string,depth:int} */
@@ -1347,7 +1386,7 @@ final class Clash
                 ];
             }
         }
-        return [
+        $view = [
             'id' => $m['id'],
             'status' => $m['status'],
             'round' => (int) $m['round'],
@@ -1396,6 +1435,7 @@ final class Clash
                 ? ClashRematch::publicView(ClashRematch::tick($m['id']), $p['id'])
                 : ClashRematch::idle(),
         ];
+        return ClashModes::decorate($m, $p, $view);
     }
 
     private static function depthFromRarity(string $r): int
@@ -1807,4 +1847,97 @@ final class Clash
     {
         return $p . bin2hex(random_bytes(8));
     }
+
+
+    /** @internal ClashModes helpers */
+    public static function modeGet(string $id): array { return self::getMatch($id); }
+    /** @param array<string,mixed> $p */
+    public static function modeMine(array $p, string $id): array { return self::mine($p, $id); }
+    /** @param array<string,mixed> $m */
+    public static function modeTick(array $m): array { return self::tick($m); }
+    /** @param array<string,mixed> $m @return array<string,mixed>|null */
+    public static function modeRound(array $m): ?array { return self::currentRound($m); }
+    /** @param array<string,mixed> $p @param array<string,mixed> $m @param array<string,mixed> $round */
+    public static function modeHand(array $p, array $m, array $round): array { return self::hand($p, $m, $round); }
+    /** @param array<string,mixed> $ea @param array<string,mixed> $eb */
+    public static function modeCraft(array $ea, array $eb): array { return self::craft($ea, $eb); }
+    /** @param array<string,mixed> $made @param array<string,mixed> $ea @param array<string,mixed> $eb */
+    public static function modeScore(string $theme, array $made, array $ea, array $eb, ?string $roundId = null, ?string $playerId = null): array
+    {
+        return self::judge($theme, $made, $ea, $eb, !empty($ea['temp']) || !empty($eb['temp']), !empty($ea['temp']) && !empty($eb['temp']), false, null, false, $roundId, $playerId);
+    }
+    /** @param array<string,mixed> $m @param array<string,mixed> $p */
+    public static function modeView(array $m, array $p): array { return self::matchView($m, $p); }
+    public static function modeOpp(array $m, string $pid): string { return self::oppId($m, $pid); }
+    public static function modeTouchPlay(string $matchId, string $playerId): void
+    {
+        Db::run('UPDATE cc_clash_loadouts SET last_play_ms = ? WHERE match_id = ? AND player_id = ?', [Db::nowMs(), $matchId, $playerId]);
+        Db::run('UPDATE cc_clash_matches SET updated_at = ? WHERE id = ?', [Db::now(), $matchId]);
+    }
+    /** @param array<string,mixed> $m @param array<string,mixed> $round */
+    public static function modeSettle(array $m, array $round): void { self::settleRound($m, $round); }
+
+    /**
+     * @param array<string,mixed> $p
+     * @param array<string,mixed> $m
+     * @param array<string,mixed> $round
+     * @param array<string,mixed> $ea
+     * @param array<string,mixed> $eb
+     * @param array<string,mixed> $made
+     * @param array<string,mixed> $judge
+     * @return array<string,mixed>
+     */
+    public static function modeCommit(array $p, array $m, array $round, array $ea, array $eb, array $made, array $judge, bool $attack = false): array
+    {
+        $side = $m['a_id'] === $p['id'] ? 'a' : 'b';
+        $newScore = (int) $round[$side . '_score'] + (int) ($judge['score'] ?? 0);
+        $newScore = max(0, $newScore);
+        $oppSide = $side === 'a' ? 'b' : 'a';
+        $oppScore = (int) $round[$oppSide . '_score'];
+        $playId = 0;
+        $nowMs = Db::nowMs();
+        $madeName = (string) ($made['name'] ?? '');
+        $madeEmoji = Text::safeEmoji((string) ($made['emoji'] ?? '✨'));
+        $madeTag = (string) ($made['tagline'] ?? '');
+        $rarity = (string) ($made['rarity'] ?? 'Common');
+        $score = (int) ($judge['score'] ?? 0);
+        Db::transaction(function () use ($p, $m, $round, $side, $oppSide, $newScore, $oppScore, $madeName, $madeEmoji, $madeTag, $rarity, $score, $ea, $eb, $judge, $attack, $nowMs, &$playId): void {
+            Db::run(
+                'INSERT INTO cc_clash_plays (round_id, player_id, a_name, b_name, a_emoji, b_emoji, result_name, result_emoji, result_tagline, rarity, score, breakdown, is_attack, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                [
+                    $round['id'], $p['id'], $ea['name'] ?? '', $eb['name'] ?? '', $ea['emoji'] ?? '', $eb['emoji'] ?? '',
+                    $madeName, $madeEmoji, $madeTag, $rarity, $score,
+                    json_encode($judge, JSON_UNESCAPED_UNICODE), $attack ? 1 : 0, Db::now(),
+                ]
+            );
+            $playId = (int) Db::value('SELECT MAX(id) FROM cc_clash_plays WHERE round_id = ? AND player_id = ?', [$round['id'], $p['id']]);
+            $latest = json_encode([
+                'playId' => $playId, 'name' => $madeName, 'emoji' => $madeEmoji, 'tagline' => $madeTag,
+                'rarity' => $rarity, 'score' => $score, 'a' => $ea['name'] ?? '', 'b' => $eb['name'] ?? '',
+                'attack' => $attack,
+            ], JSON_UNESCAPED_UNICODE);
+            Db::run(
+                "UPDATE cc_clash_rounds SET {$side}_score = ?, {$oppSide}_score = ?, {$side}_latest = ? WHERE id = ?",
+                [$newScore, $oppScore, $latest, $round['id']]
+            );
+            Db::run('UPDATE cc_clash_loadouts SET last_play_ms = ? WHERE match_id = ? AND player_id = ?', [$nowMs, $m['id'], $p['id']]);
+            Db::run('UPDATE cc_clash_matches SET updated_at = ? WHERE id = ?', [Db::now(), $m['id']]);
+        });
+        return [
+            'play' => [
+                'id' => $playId,
+                'token' => 't:' . $playId,
+                'name' => $madeName,
+                'emoji' => $madeEmoji,
+                'tagline' => $madeTag,
+                'rarity' => $rarity,
+                'score' => $score,
+                'breakdown' => $judge,
+                'inputs' => [$ea['name'] ?? '', $eb['name'] ?? ''],
+                'a' => $ea['name'] ?? '',
+                'b' => $eb['name'] ?? '',
+            ],
+        ];
+    }
+
 }
