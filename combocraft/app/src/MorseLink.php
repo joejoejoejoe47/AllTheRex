@@ -57,7 +57,7 @@ final class MorseLink
 
     /**
      * Quietly link this ComboCraft player to the Morse session cookie, if any.
-     * Never links MasterGus. Does not merge other players' progress.
+     * Does not merge other players' progress.
      * @param array<string,mixed> $player
      * @return array<string,mixed>
      */
@@ -69,9 +69,6 @@ final class MorseLink
         }
         $uid = (string) $session['userId'];
         $name = (string) ($session['name'] ?? 'Morse player');
-        if (strtolower($name) === 'mastergus') {
-            return $player;
-        }
         $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$uid]);
         if ($existing && $existing['player_id'] !== $player['id']) {
             return $player;
@@ -96,10 +93,47 @@ final class MorseLink
     }
 
     /**
+     * ComboCraft player already tied to this Morse account, or an unlinked
+     * player whose nickname matches the Morse username (so a long-time
+     * crafter like MasterGus is restored instead of getting a new guest).
+     */
+    public static function playerIdForMorse(string $morseUserId, string $name = ''): ?string
+    {
+        if ($morseUserId !== '') {
+            try {
+                $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$morseUserId]);
+                $pid = isset($existing['player_id']) ? (string) $existing['player_id'] : '';
+                if ($pid !== '') {
+                    return $pid;
+                }
+            } catch (Throwable $e) {
+            }
+        }
+        $key = mb_strtolower(trim($name));
+        if ($key === '') {
+            return null;
+        }
+        try {
+            $row = Db::one(
+                'SELECT p.id FROM cc_players p
+                 LEFT JOIN cc_morse_links l ON l.player_id = p.id
+                 WHERE p.nick_key = ? AND l.player_id IS NULL
+                 ORDER BY p.firsts DESC, p.combos DESC, p.created_at ASC
+                 LIMIT 1',
+                [$key]
+            );
+            return $row ? (string) $row['id'] : null;
+        } catch (Throwable $e) {
+            error_log('[combocraft morse find] ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Re-issue a cookie for the ComboCraft player already tied to this
      * Morse session. Used when cc_tok is missing or no longer matches.
-     * Restores MasterGus and every other linked account; it does not
-     * create a new link.
+     * Restores a linked account, or an unlinked player with the same
+     * nickname; it does not create a new link here.
      * @return array<string,mixed>|null
      */
     public static function restoreFromSession(): ?array
@@ -113,9 +147,8 @@ final class MorseLink
             if (!is_string($uid) || $uid === '') {
                 return null;
             }
-            $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$uid]);
-            $pid = isset($existing['player_id']) ? (string) $existing['player_id'] : '';
-            if ($pid === '') {
+            $pid = self::playerIdForMorse($uid, (string) ($session['name'] ?? ''));
+            if ($pid === null || $pid === '') {
                 return null;
             }
             return Player::adopt($pid);
