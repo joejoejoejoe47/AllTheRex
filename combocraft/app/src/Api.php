@@ -208,22 +208,37 @@ final class Api
     {
         self::get();
         $p = Player::require();
-        Referral::remember();
+        try {
+            Referral::remember();
+        } catch (Throwable $e) {
+            error_log('[combocraft me referral] ' . $e->getMessage());
+        }
         Http::json([
             'ok' => true,
             'me' => Player::publicView($p),
-            'elements' => Game::collection($p),
-            'recent' => self::recent($p),
-            'daily' => Daily::status($p),
-            'deepestTree' => Tree::headline(),
-            'mineTree' => Tree::mine($p),
-            'hints' => Hint::remaining($p),
-            'progress' => Goals::progress($p),
-            'badges' => Goals::all($p),
-            'referral' => Referral::for($p),
-            'morse' => MorseLink::status($p),
-            'prefs' => Prefs::get($p),
+            'elements' => self::mePart('collection', fn () => Game::collection($p), []),
+            'recent' => self::mePart('recent', fn () => self::recent($p), []),
+            'daily' => self::mePart('daily', fn () => Daily::status($p), null),
+            'deepestTree' => self::mePart('deepestTree', fn () => Tree::headline(), null),
+            'mineTree' => self::mePart('mineTree', fn () => Tree::mine($p), null),
+            'hints' => self::mePart('hints', fn () => Hint::remaining($p), ['used' => 0, 'limit' => 3, 'left' => 3]),
+            'progress' => self::mePart('progress', fn () => Goals::progress($p), null),
+            'badges' => self::mePart('badges', fn () => Goals::all($p), []),
+            'referral' => self::mePart('referral', fn () => Referral::for($p), null),
+            'morse' => self::mePart('morse', fn () => MorseLink::status($p), MorseLink::guestStatus()),
+            'prefs' => self::mePart('prefs', fn () => Prefs::get($p), ['bg' => 'stadium', 'file' => null, 'url' => null]),
         ]);
+    }
+
+    /** @param callable():mixed $fn */
+    private static function mePart(string $label, callable $fn, mixed $fallback): mixed
+    {
+        try {
+            return $fn();
+        } catch (Throwable $e) {
+            error_log('[combocraft me ' . $label . '] ' . $e::class . ': ' . $e->getMessage());
+            return $fallback;
+        }
     }
 
     private static function prefsGet(): never

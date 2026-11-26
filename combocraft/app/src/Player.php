@@ -45,6 +45,17 @@ final class Player
         if ($p !== null) {
             return $p;
         }
+        // Missing or stale cc_tok: if a Morse Chess session is already
+        // linked to a ComboCraft player, restore that player instead of
+        // minting an empty guest (which made every later action fail).
+        try {
+            $restored = MorseLink::restoreFromSession();
+            if ($restored !== null) {
+                return $restored;
+            }
+        } catch (Throwable $e) {
+            error_log('[combocraft restore] ' . $e->getMessage());
+        }
         // Limit brand-new anonymous players per IP per hour (bot spam guard).
         $ipHash = substr(hash('sha256', Http::ip() . '|cc'), 0, 16);
         $recent = (int) Db::value('SELECT COUNT(*) FROM cc_players WHERE ip_hash = ? AND created_at > ?', [$ipHash, gmdate('Y-m-d H:i:s', time() - 3600)]);
