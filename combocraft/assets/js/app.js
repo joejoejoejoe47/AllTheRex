@@ -239,9 +239,12 @@ async function pagePlay() {
         </section>
         </div>
         <div class="el-section" id="elSection">
+        <button type="button" class="el-dock-btn el-dock-l" id="dockL" aria-label="Dock elements to the left" title="Dock to the left">${svg.left}</button>
+        <button type="button" class="el-dock-btn el-dock-r" id="dockR" aria-label="Dock elements to the right" title="Dock to the right">${svg.right}</button>
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
           <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
+          <button class="mini-btn el-dock-grid" id="dockGrid" hidden title="Back to the grid">Grid</button>
           <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
         <div class="strip-wrap">
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
@@ -271,6 +274,10 @@ async function pagePlay() {
   $('#arrR').onclick = () => strip.scrollBy({ left: strip.clientWidth * 0.8 });
   $('#elSearch').oninput = (e) => { state.filter = e.target.value; renderStrip(); };
   $('#toggleAll').onclick = () => setShowAll(!state.showAll);
+  $('#dockL')?.addEventListener('click', () => setElDock('left'));
+  $('#dockR')?.addEventListener('click', () => setElDock('right'));
+  $('#dockGrid')?.addEventListener('click', () => setElDock(''));
+  applyElDock(state.showAll ? savedElDock() : '');
   const btnRecipe = $('#btnRecipe');
   if (btnRecipe) btnRecipe.onclick = () => openRecipePicker();
   $('#viewAll').onclick = (e) => { e.preventDefault(); openCollection(); };
@@ -307,6 +314,38 @@ async function pagePlay() {
   cleanup = () => { offDrag(); document.body.classList.remove('cc-el-all'); hideSideAd({ clearSchedule: false }); };
 }
 
+const EL_DOCK_KEY = 'cc_el_dock';
+function savedElDock() {
+  try {
+    const v = localStorage.getItem(EL_DOCK_KEY);
+    return v === 'left' || v === 'right' ? v : '';
+  } catch { return ''; }
+}
+function applyElDock(side) {
+  const main = $('.play-main');
+  if (!main) return;
+  main.classList.toggle('el-dock-left', side === 'left');
+  main.classList.toggle('el-dock-right', side === 'right');
+  const l = $('#dockL'), r = $('#dockR'), g = $('#dockGrid');
+  if (l) {
+    l.classList.toggle('on', side === 'left');
+    l.setAttribute('aria-pressed', side === 'left' ? 'true' : 'false');
+  }
+  if (r) {
+    r.classList.toggle('on', side === 'right');
+    r.setAttribute('aria-pressed', side === 'right' ? 'true' : 'false');
+  }
+  if (g) g.hidden = !side;
+}
+function setElDock(side) {
+  const cur = savedElDock();
+  const next = side && side === cur ? '' : (side || '');
+  try {
+    if (next) localStorage.setItem(EL_DOCK_KEY, next);
+    else localStorage.removeItem(EL_DOCK_KEY);
+  } catch {}
+  applyElDock(state.showAll ? next : '');
+}
 function setShowAll(on) {
   state.showAll = !!on;
   const strip = $('#strip');
@@ -316,6 +355,7 @@ function setShowAll(on) {
   document.body.classList.toggle('cc-el-all', state.showAll);
   const btn = $('#toggleAll');
   if (btn) btn.textContent = state.showAll ? 'Show less' : 'Show all';
+  applyElDock(state.showAll ? savedElDock() : '');
 }
 function visibleElements() {
   const f = state.filter.trim().toLowerCase();
