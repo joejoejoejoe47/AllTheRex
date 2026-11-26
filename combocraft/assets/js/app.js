@@ -1,10 +1,10 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=41';
-import { storyHtml, storyPng } from './share.js?v=41';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=41';
-import { initBg, syncPrefs } from './bg.js?v=41';
-import { initAds, renderAdRail } from './ads.js?v=41';
-import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=41';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=42';
+import { storyHtml, storyPng } from './share.js?v=42';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=42';
+import { initBg, syncPrefs } from './bg.js?v=42';
+import { initAds, renderAdRail } from './ads.js?v=42';
+import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=42';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -210,17 +210,8 @@ async function pagePlay() {
         <div class="act-live" id="actLive"></div>
         <div class="act-feed" id="actFeed"></div>
       </aside>
-      <div class="play-main">
+      <div class="play-main${state.showAll ? ' el-all' : ''}">
         ${playChrome(state)}
-        <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
-          <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
-          <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
-          <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
-        <div class="strip-wrap">
-          <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
-          <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
-          <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
-        </div>
         <section class="combine" id="combine">
           <h2>Combine</h2>
           <div class="sub">Drag elements here to discover new combinations</div>
@@ -231,6 +222,17 @@ async function pagePlay() {
           </div>
           <div class="result-zone" id="resultZone"></div>
         </section>
+        <div class="el-section" id="elSection">
+        <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
+          <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
+          <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
+          <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
+        <div class="strip-wrap">
+          <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
+          <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
+          <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
+        </div>
+        </div>
         <section class="recent">
           <div class="sec-h"><h2>Recent Discoveries</h2><span class="grow"></span><a href="#" id="viewAll">View all ›</a></div>
           <div class="recent-row" id="recentRow"></div>
@@ -252,7 +254,7 @@ async function pagePlay() {
   $('#arrL').onclick = () => strip.scrollBy({ left: -strip.clientWidth * 0.8 });
   $('#arrR').onclick = () => strip.scrollBy({ left: strip.clientWidth * 0.8 });
   $('#elSearch').oninput = (e) => { state.filter = e.target.value; renderStrip(); };
-  $('#toggleAll').onclick = () => { state.showAll = !state.showAll; strip.classList.toggle('all', state.showAll); $('#toggleAll').textContent = state.showAll ? 'Show less' : 'Show all'; };
+  $('#toggleAll').onclick = () => setShowAll(!state.showAll);
   const btnRecipe = $('#btnRecipe');
   if (btnRecipe) btnRecipe.onclick = () => openRecipePicker();
   $('#viewAll').onclick = (e) => { e.preventDefault(); openCollection(); };
@@ -286,9 +288,19 @@ async function pagePlay() {
     if (act) return resultAction(act.dataset.act);
   });
   const offDrag = setupDrag();
-  cleanup = () => { offDrag(); };
+  cleanup = () => { offDrag(); document.body.classList.remove('cc-el-all'); };
 }
 
+function setShowAll(on) {
+  state.showAll = !!on;
+  const strip = $('#strip');
+  const main = $('.play-main');
+  if (strip) strip.classList.toggle('all', state.showAll);
+  if (main) main.classList.toggle('el-all', state.showAll);
+  document.body.classList.toggle('cc-el-all', state.showAll);
+  const btn = $('#toggleAll');
+  if (btn) btn.textContent = state.showAll ? 'Show less' : 'Show all';
+}
 function visibleElements() {
   const f = state.filter.trim().toLowerCase();
   return f ? state.elements.filter((e) => e.name.toLowerCase().includes(f)) : state.elements;
@@ -1227,7 +1239,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=41').then((m) => {
+import('./clash.js?v=42').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1254,7 +1266,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=41');
+    const m = window.__ccClashMod || await import('./clash.js?v=42');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
