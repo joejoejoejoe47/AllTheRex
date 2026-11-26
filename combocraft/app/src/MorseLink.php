@@ -95,6 +95,36 @@ final class MorseLink
         return $player;
     }
 
+    /**
+     * Re-issue a cookie for the ComboCraft player already tied to this
+     * Morse session. Used when cc_tok is missing or no longer matches.
+     * Restores MasterGus and every other linked account; it does not
+     * create a new link.
+     * @return array<string,mixed>|null
+     */
+    public static function restoreFromSession(): ?array
+    {
+        if (!self::tablesExist()) {
+            return null;
+        }
+        try {
+            $session = self::peekSession();
+            $uid = $session['userId'] ?? null;
+            if (!is_string($uid) || $uid === '') {
+                return null;
+            }
+            $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$uid]);
+            $pid = isset($existing['player_id']) ? (string) $existing['player_id'] : '';
+            if ($pid === '') {
+                return null;
+            }
+            return Player::adopt($pid);
+        } catch (Throwable $e) {
+            error_log('[combocraft morse restore] ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public static function tablesExist(): bool
     {
         return self::tablesExistInner();
@@ -124,7 +154,13 @@ final class MorseLink
         }
         $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$session['userId']]);
         if ($existing && $existing['player_id'] !== $player['id']) {
-            throw new HttpError('That Morse Chess account is already linked to another ComboCraft player.', 409);
+            try {
+                $player = Player::adopt((string) $existing['player_id']);
+                return self::status($player);
+            } catch (Throwable $e) {
+                error_log('[combocraft morse link adopt] ' . $e->getMessage());
+                throw new HttpError('That Morse Chess account is already linked to another ComboCraft player.', 409);
+            }
         }
         if (Db::one('SELECT 1 FROM cc_morse_links WHERE player_id = ?', [$player['id']])) {
             return self::status($player);
