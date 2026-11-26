@@ -25,6 +25,9 @@ const STORAGE = 'cc_ads_v1';
 const INTERVAL_MS = 20 * 60 * 1000;
 const CLOSE_SEC = 10;
 const TICK = 1000;
+const SIDE_MS = 20 * 1000;
+const FIRST_DELAY_MS = 1200;
+const RAIL_MQ = '(min-width: 1200px)';
 
 let ctx = { state: null, go: null };
 let ticking = false;
@@ -32,6 +35,10 @@ let lastTick = 0;
 let timer = 0;
 let popupOpen = false;
 let pending = false;
+let sideOpen = false;
+let sideShowTimer = 0;
+let sideHideTimer = 0;
+let railMq = null;
 
 function isPremium() {
   return !!ctx.state?.me?.premium;
@@ -99,10 +106,75 @@ function cardHtml(ad, featured = false) {
   </article>`;
 }
 
+function railVisible() {
+  return typeof window !== 'undefined' && window.matchMedia(RAIL_MQ).matches;
+}
+
+function onPlayPage() {
+  return !!document.querySelector('.play-main, #combine');
+}
+
+function adsDue(s) {
+  if (!s) s = loadStore();
+  return s.lastPopupActiveMs === 0 || (s.activeMs - s.lastPopupActiveMs >= INTERVAL_MS);
+}
+
+function markAdShown() {
+  const s = loadStore();
+  s.lastPopupActiveMs = s.activeMs;
+  saveStore(s);
+}
+
+export function hideSideAd() {
+  clearTimeout(sideHideTimer);
+  sideHideTimer = 0;
+  sideOpen = false;
+  const root = document.getElementById('playAds');
+  if (root) {
+    root.classList.remove('is-on');
+    root.setAttribute('aria-hidden', 'true');
+  }
+}
+
+/** Slide/fade the Morse Chess card in at the right side, then fade it out after 20s. */
+export function showSideAd() {
+  if (isPremium() || !railVisible() || !onPlayPage()) return false;
+  const root = document.getElementById('playAds');
+  if (!root || root.hidden || !root.querySelector('.ad-card')) return false;
+  if (popupOpen) return false;
+  clearTimeout(sideHideTimer);
+  sideOpen = true;
+  root.classList.remove('is-on');
+  void root.offsetWidth;
+  root.classList.add('is-on');
+  root.setAttribute('aria-hidden', 'false');
+  sideHideTimer = setTimeout(() => hideSideAd(), SIDE_MS);
+  return true;
+}
+
+function scheduleSideAd(delay = FIRST_DELAY_MS) {
+  clearTimeout(sideShowTimer);
+  if (isPremium() || !railVisible() || !onPlayPage()) return;
+  if (!adsDue()) return;
+  sideShowTimer = setTimeout(() => {
+    sideShowTimer = 0;
+    if (showSideAd()) {
+      markAdShown();
+      pending = false;
+    } else if (isAdBusy()) {
+      pending = true;
+    }
+  }, delay);
+}
+
 export function renderAdRail(root) {
   if (!root) return;
+  hideSideAd();
+  clearTimeout(sideShowTimer);
   if (isPremium()) { root.hidden = true; root.innerHTML = ''; return; }
   root.hidden = false;
+  root.setAttribute('aria-hidden', 'true');
+  root.classList.remove('is-on');
   const first = HOUSE_ADS[0];
   root.innerHTML = `
     <div class="act-head">
@@ -126,6 +198,7 @@ export function renderAdRail(root) {
   if (feat && first?.youtube) {
     root.querySelector('.ad-card.featured .ad-media')?.addEventListener('click', () => showPopup(first, { fromRail: true }));
   }
+  scheduleSideAd(FIRST_DELAY_MS);
 }
 
 function postYt(iframe, func, args = []) {
@@ -212,13 +285,15 @@ export function showPopup(ad = HOUSE_ADS[0], { fromRail = false } = {}) {
 }
 
 function tryPopup() {
-  if (popupOpen || isPremium() || document.visibilityState !== 'visible') return;
-  const s = loadStore();
-  if (s.activeMs - s.lastPopupActiveMs < INTERVAL_MS) return;
+  if (popupOpen || sideOpen || isPremium() || document.visibilityState !== 'visible') return;
+  if (!adsDue()) return;
   if (isAdBusy()) { pending = true; return; }
+  if (railVisible() && onPlayPage() && document.getElementById('playAds')?.querySelector('.ad-card')) {
+    scheduleSideAd(0);
+    return;
+  }
   if (showPopup(HOUSE_ADS[0])) {
-    s.lastPopupActiveMs = s.activeMs;
-    saveStore(s);
+    markAdShown();
     pending = false;
   }
 }
@@ -249,13 +324,20 @@ export function initAds({ state, go } = {}) {
     lastTick = document.visibilityState === 'visible' ? Date.now() : 0;
     if (pending) tryPopup();
   });
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    railMq = window.matchMedia(RAIL_MQ);
+    const onMq = () => { if (!railMq.matches) hideSideAd(); };
+    if (railMq.addEventListener) railMq.addEventListener('change', onMq);
+    else if (railMq.addListener) railMq.addListener(onMq);
+  }
 }
 
-/** Test hook for screenshots. Does not reset the 20-minute timer unless the popup actually opens. */
+/** Test hook for screenshots. Prefers the side card on Play; does not reset the 20-minute timer unless something actually opens. */
 export function debugShowAd() {
+  if (showSideAd()) return true;
   return showPopup(HOUSE_ADS[0], { fromRail: true });
 }
 
 if (typeof window !== 'undefined') {
-  window.__ccAds = { show: debugShowAd, busy: isAdBusy, ads: HOUSE_ADS, intervalMs: INTERVAL_MS };
+  window.__ccAds = { show: debugShowAd, hide: hideSideAd, busy: isAdBusy, ads: HOUSE_ADS, intervalMs: INTERVAL_MS, sideMs: SIDE_MS };
 }
