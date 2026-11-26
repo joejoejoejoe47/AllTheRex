@@ -239,8 +239,10 @@ async function pagePlay() {
         </section>
         </div>
         <div class="el-section" id="elSection">
-        <button type="button" class="el-dock-btn el-dock-l" id="dockL" aria-label="Dock elements to the left" title="Dock to the left">${svg.left}</button>
-        <button type="button" class="el-dock-btn el-dock-r" id="dockR" aria-label="Dock elements to the right" title="Dock to the right">${svg.right}</button>
+        <div class="el-dock-rail">
+          <button type="button" class="el-dock-btn el-dock-l" id="dockL" aria-label="Dock elements to the left" title="Dock to the left">${svg.left}</button>
+          <button type="button" class="el-dock-btn el-dock-r" id="dockR" aria-label="Dock elements to the right" title="Dock to the right">${svg.right}</button>
+        </div>
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
           <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
