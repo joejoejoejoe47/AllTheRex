@@ -9,7 +9,7 @@ let attackMode = false;
 let burstMode = false;
 let pick = [null, null];
 let selectedMode = 'duel';
-const EXTRA_MODE_LIVE = ['gift', 'pile', 'telephone', 'boss'];
+const EXTRA_MODE_LIVE = ['gift', 'pile', 'telephone', 'boss', 'shelf'];
 const EXTRA_MODES = [
   { id: 'gift', tag: 'New', title: 'Poison Gift', blurb: 'Every combine makes two cards. Keep one. The other goes to your opponent, aimed at you.' },
   { id: 'pile', tag: 'New', title: 'The Pile', blurb: 'One shared card mutates by itself. Slap a card on it to steer. Theme hits score. Sludge hurts whoever touched it last.' },

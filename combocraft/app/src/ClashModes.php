@@ -24,6 +24,7 @@ final class ClashModes
         self::PILE,
         self::TELEPHONE,
         self::BOSS,
+        self::SHELF,
     ];
 
     public const INFO = [

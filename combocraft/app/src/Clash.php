@@ -680,6 +680,8 @@ final class Clash
                     ClashModes::maybeAiSlap($m);
                 } elseif ($mode === ClashModes::BOSS) {
                     ClashModes::maybeAiFeed($m);
+                } elseif ($mode === ClashModes::SHELF) {
+                    self::maybeAiPlay($m);
                 } elseif ($mode === null) {
                     self::maybeAiPlay($m);
                 }
