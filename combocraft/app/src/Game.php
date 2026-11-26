@@ -449,4 +449,60 @@ final class Game
         }
         return $out;
     }
+
+    /** Get or create a named element (used by Clash modes). No player credit. */
+    public static function ensureNamedElement(string $name, string $emoji, string $tagline, int $depth = 3): array
+    {
+        $name = Text::cleanName(mb_substr($name, 0, 48)) ?? $name;
+        $key = Text::key($name);
+        $el = Db::one('SELECT * FROM cc_elements WHERE name_key = ?', [$key]);
+        if ($el) {
+            return $el;
+        }
+        $now = Db::now();
+        self::insertIgnore('cc_elements', [
+            'name' => $name,
+            'name_key' => $key,
+            'emoji' => Text::safeEmoji($emoji),
+            'tagline' => $tagline ?: null,
+            'art' => null,
+            'label' => null,
+            'depth' => $depth,
+            'is_base' => 0,
+            'sort_order' => 0,
+            'discovered_by' => null,
+            'discovered_at' => null,
+            'first_a' => null,
+            'first_b' => null,
+            'uses' => 0,
+            'source' => 'clash-mode',
+            'created_at' => $now,
+        ]);
+        $el = Db::one('SELECT * FROM cc_elements WHERE name_key = ?', [$key]);
+        if (!$el) {
+            throw new HttpError('Could not save that card.', 500);
+        }
+        return $el;
+    }
+
+    /** Put an existing element in a player\'s book. Returns true if it was new for them. */
+    public static function grantElement(array $player, int $elementId): bool
+    {
+        $el = self::element($elementId);
+        if (!$el || (int) $el['is_base'] === 1) {
+            return false;
+        }
+        $had = Db::value('SELECT 1 FROM cc_collection WHERE player_id = ? AND element_id = ?', [$player['id'], $elementId]);
+        if ($had !== null) {
+            return false;
+        }
+        self::insertIgnore('cc_collection', [
+            'player_id' => $player['id'],
+            'element_id' => $elementId,
+            'via_a' => null,
+            'via_b' => null,
+            'created_at' => Db::now(),
+        ]);
+        return Db::value('SELECT 1 FROM cc_collection WHERE player_id = ? AND element_id = ?', [$player['id'], $elementId]) !== null;
+    }
 }

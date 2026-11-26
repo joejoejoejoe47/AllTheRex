@@ -516,3 +516,12 @@ CREATE TABLE IF NOT EXISTS cc_hint_buys (
   PRIMARY KEY (id),
   KEY cc_hint_buys_player (player_id, day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_clash_mode_state (
+  match_id VARCHAR(24) NOT NULL PRIMARY KEY,
+  mode VARCHAR(32) NOT NULL,
+  data MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  KEY cc_clash_mode_mode (mode)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
