@@ -414,24 +414,58 @@ function paintLoadout(m, soft) {
         <p>Pick 8–12 discoveries. Rarer cards hit harder in scoring.</p>
         <div class="lo-count"><b id="loN">${picked.size}</b> / 12 selected <span class="muted">(min 8)</span></div>
       </div>
+      <div class="lo-tools" id="loTools">
+        <label class="search lo-search"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><input id="loSearch" type="search" placeholder="Search" autocomplete="off" enterkeyhint="search"></label>
+        <div class="lo-rars" role="group" aria-label="Filter by rarity">
+          <button type="button" class="lo-rar" data-rar="Common">Common</button>
+          <button type="button" class="lo-rar" data-rar="Rare">Rare</button>
+          <button type="button" class="lo-rar" data-rar="Epic">Epic</button>
+          <button type="button" class="lo-rar" data-rar="Legendary">Legendary</button>
+        </div>
+      </div>
       <div class="lo-grid" id="loGrid">
         ${(m.collection || []).map((e) => {
           const on = picked.has(e.id);
-          return `<button type="button" class="el lo-el ${rarityClass(e)}${nameClass(e.name)}${on ? ' on' : ''}" data-id="${e.id}" style="${nameVars(e.name)}" title="${esc(e.name)} · ${esc(e.rarity)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span><span class="rar-pill ${rarityClass(e)}">${esc(e.rarity)}</span></button>`;
+          return `<button type="button" class="el lo-el ${rarityClass(e)}${nameClass(e.name)}${on ? ' on' : ''}" data-id="${e.id}" data-name="${esc(e.name)}" data-rar="${esc(e.rarity)}" style="${nameVars(e.name)}" title="${esc(e.name)} · ${esc(e.rarity)}"><span class="i">${ico(e.emoji)}</span><span class="n">${esc(e.name)}</span><span class="rar-pill ${rarityClass(e)}">${esc(e.rarity)}</span></button>`;
         }).join('')}
       </div>
+      <p class="lo-empty" id="loEmpty" hidden>No discoveries match.</p>
       <div class="clash-lo-act">
         <button class="btn clash-lg" id="loReady" ${picked.size < 8 || m.youReady ? 'disabled' : ''}>${m.youReady ? 'Waiting for ' + esc(m.opp.name) + '…' : 'I’m ready'}</button>
         <button class="pill-btn" id="loFF">Forfeit</button>
       </div>
     </div>`;
-  if (!soft || !document.getElementById('loGrid')) view.innerHTML = html;
+  const hadGrid = !!document.getElementById('loGrid');
+  if (!soft || !hadGrid) view.innerHTML = html;
   else {
-    // keep scroll; just refresh ready + counts
+    // keep scroll and the search box; just refresh ready + counts
     const n = document.getElementById('loN'); if (n) n.textContent = picked.size;
     const r = document.getElementById('loReady');
     if (r) { r.disabled = picked.size < 8 || m.youReady; r.textContent = m.youReady ? 'Waiting for ' + m.opp.name + '…' : 'I’m ready'; }
   }
+  const applyLoFilter = () => {
+    const q = (document.getElementById('loSearch')?.value || '').trim().toLowerCase();
+    const rar = [...document.querySelectorAll('.lo-rar.on')].map((b) => b.dataset.rar);
+    let shown = 0;
+    document.querySelectorAll('#loGrid .lo-el').forEach((b) => {
+      const name = (b.dataset.name || b.querySelector('.n')?.textContent || '').toLowerCase();
+      const r = b.dataset.rar || (b.querySelector('.rar-pill')?.textContent || '').trim();
+      const ok = (!q || name.includes(q)) && (!rar.length || rar.includes(r));
+      b.hidden = !ok;
+      if (ok) shown++;
+    });
+    const empty = document.getElementById('loEmpty');
+    if (empty) empty.hidden = shown > 0;
+  };
+  const tools = document.getElementById('loTools');
+  if (tools && !tools.dataset.bound) {
+    tools.dataset.bound = '1';
+    document.getElementById('loSearch')?.addEventListener('input', applyLoFilter);
+    tools.querySelectorAll('.lo-rar').forEach((b) => {
+      b.addEventListener('click', () => { b.classList.toggle('on'); applyLoFilter(); });
+    });
+  }
+  applyLoFilter();
   const grid = document.getElementById('loGrid');
   if (grid && !grid.dataset.bound) {
     grid.dataset.bound = '1';
