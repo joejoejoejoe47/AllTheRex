@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=40';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=41';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -104,7 +104,7 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
   if (buy) buy.onclick = async () => {
     if (!state.morse?.signedIn) {
       toast('Sign in to buy hints with Morse coins.');
-      try { (await import('./auth.js?v=40')).openAuth('enter'); } catch {}
+      try { (await import('./auth.js?v=41')).openAuth('enter'); } catch {}
       return;
     }
     buy.disabled = true;
@@ -119,7 +119,7 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
       }
       toast('+' + (d.bought || 3) + ' hints! ' + (d.cost || 25) + ' Morse coins spent.');
       try {
-        const auth = await import('./auth.js?v=40');
+        const auth = await import('./auth.js?v=41');
         auth.syncCoins(state);
         document.getElementById('ccCoins')?.classList.add('coin-pop');
         setTimeout(() => document.getElementById('ccCoins')?.classList.remove('coin-pop'), 700);
@@ -127,7 +127,7 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
     } catch (e) {
       if (e.status === 401) {
         toast('Sign in to buy hints with Morse coins.');
-        try { (await import('./auth.js?v=40')).openAuth('enter'); } catch {}
+        try { (await import('./auth.js?v=41')).openAuth('enter'); } catch {}
       } else toast(e.message);
     } finally { buy.disabled = false; }
   };

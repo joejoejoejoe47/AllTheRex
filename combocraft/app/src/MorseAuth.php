@@ -52,7 +52,7 @@ final class MorseAuth
             Db::run('UPDATE `account` SET `password` = ?, `updatedAt` = ? WHERE `userId` = ? AND `providerId` = ?', [self::hash($password), self::ts(Db::nowMs()), $row['id'], 'credential']);
         }
         self::startSession((string) $row['id']);
-        $player = MorseLink::attach($player);
+        $player = self::restorePlayer($player, (string) $row['id']);
         return ['ok' => true, 'morse' => MorseLink::status($player), 'prefs' => Prefs::get($player), 'me' => Player::publicView($player)];
     }
 
@@ -122,8 +122,26 @@ final class MorseAuth
         }
         Http::setCookie(MorseLink::COOKIE, '', time() - 3600, true, '/');
         unset($_COOKIE[MorseLink::COOKIE]);
-        $p = Player::current();
-        return ['ok' => true, 'morse' => $p ? MorseLink::status($p) : MorseLink::guestStatus()];
+        Player::endSession();
+        return ['ok' => true, 'signedOut' => true, 'morse' => MorseLink::guestStatus()];
+    }
+
+    /**
+     * If this Morse account already has a ComboCraft player, restore that session.
+     * @param array<string,mixed> $player
+     * @return array<string,mixed>
+     */
+    private static function restorePlayer(array $player, string $morseUserId): array
+    {
+        $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$morseUserId]);
+        if ($existing && (string) $existing['player_id'] !== (string) $player['id']) {
+            try {
+                $player = Player::adopt((string) $existing['player_id']);
+            } catch (Throwable $e) {
+                error_log('[combocraft adopt] ' . $e->getMessage());
+            }
+        }
+        return MorseLink::attach($player);
     }
 
     /** Lightweight probe so the UI can offer Legendary picture sign-in. */
