@@ -119,6 +119,8 @@ main { min-height: calc(100vh - 64px); }
   text-decoration: none; transition: transform .15s, box-shadow .15s;
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(26, 111, 240, .4); }
+.hero-auth { display: flex; justify-content: center; gap: 10px; margin-top: 16px; }
+.hero-auth .btn { min-width: 140px; }
 .btn-primary:active { transform: translateY(0); }
 .float { position: absolute; z-index: 1; filter: drop-shadow(0 10px 14px rgba(40, 30, 80, .16)); animation: bob 6s ease-in-out infinite; }
 .float img { width: 100%; height: auto; display: block; }

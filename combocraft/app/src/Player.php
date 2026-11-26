@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace ComboCraft;
 
+use Throwable;
+
 /** Anonymous players: a random token in an httpOnly cookie, plus a chosen nickname. */
 final class Player
 {
@@ -64,6 +66,43 @@ final class Player
             throw new HttpError('Could not create player.', 500);
         }
         return $row;
+    }
+
+    /** Invalidate the current ComboCraft cookie so it cannot be reused. */
+    public static function endSession(): void
+    {
+        $p = self::current();
+        if ($p) {
+            try {
+                Db::run('UPDATE cc_players SET token_hash = ? WHERE id = ?', [hash('sha256', bin2hex(random_bytes(24))), $p['id']]);
+            } catch (Throwable $e) {
+            }
+        }
+        Http::setCookie(self::COOKIE, '', time() - 3600);
+        unset($_COOKIE[self::COOKIE]);
+        self::$current = null;
+    }
+
+    /**
+     * Re-issue a cookie for an existing ComboCraft player after Morse sign-in.
+     * @return array<string,mixed>
+     */
+    public static function adopt(string $playerId): array
+    {
+        $row = Db::one('SELECT * FROM cc_players WHERE id = ?', [$playerId]);
+        if ($row === null) {
+            throw new HttpError('Player not found.', 404);
+        }
+        $tok = bin2hex(random_bytes(24));
+        Db::run('UPDATE cc_players SET token_hash = ?, last_seen = ? WHERE id = ?', [hash('sha256', $tok), Db::now(), $playerId]);
+        Http::setCookie(self::COOKIE, $tok, time() + 86400 * 400);
+        $_COOKIE[self::COOKIE] = $tok;
+        self::$current = null;
+        $fresh = self::current();
+        if ($fresh === null) {
+            throw new HttpError('Could not restore player.', 500);
+        }
+        return $fresh;
     }
 
     public static function today(): string

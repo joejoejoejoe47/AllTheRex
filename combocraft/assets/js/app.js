@@ -1,10 +1,10 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=40';
-import { storyHtml, storyPng } from './share.js?v=40';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=40';
-import { initBg, syncPrefs } from './bg.js?v=40';
-import { initAds, renderAdRail } from './ads.js?v=40';
-import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=40';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=41';
+import { storyHtml, storyPng } from './share.js?v=41';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=41';
+import { initBg, syncPrefs } from './bg.js?v=41';
+import { initAds, renderAdRail } from './ads.js?v=41';
+import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=41';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -165,11 +165,16 @@ async function pageHero() {
       <h1>What if you could combine anything?</h1>
       <p>Mix any two ideas and invent something new. Discover endless combinations.</p>
       <a class="btn-primary" href="play" data-link id="startBtn">Start Combining</a>
+      ${state.morse?.signedIn ? '' : `<div class="hero-auth">
+        <button type="button" class="btn" data-auth="enter">Sign in</button>
+        <button type="button" class="btn gray" data-auth="create">Create account</button>
+      </div>`}
     </div>
     <nav class="hero-links">
       <a href="discoveries" data-link>Discoveries</a><a href="leaderboard" data-link>Leaderboard</a><a href="chat" data-link>Chat</a><a href="pricing" data-link>Premium</a>
     </nav>
   </section>`;
+  view.querySelectorAll('[data-auth]').forEach((b) => { b.onclick = () => openAuth(b.dataset.auth); });
   const floats = $$('.float', view);
   const onMove = (e) => {
     const x = e.clientX / innerWidth - 0.5, y = e.clientY / innerHeight - 0.5;
@@ -886,7 +891,8 @@ $('#btnGear').onclick = async (e) => {
     <div class="row btnrow" data-go="achievements">Achievements</div>
     <div class="row btnrow" data-go="clash">Combo Clash</div>
     <div class="row btnrow" data-go="invite">Invite a friend</div>
-    ${state.morse?.available ? `<div class="row btnrow" data-go="${state.morse.signedIn ? 'signout' : 'signin'}">${state.morse.signedIn ? 'Sign out of Morse Chess' : 'Sign in with Morse Chess'} <span class="small">${state.morse.signedIn ? (state.morse.morseName || 'signed in') + ' · ' + Number(state.morse.coins || 0).toLocaleString() + ' coins' : 'username + password'}</span></div>` : ''}
+    ${state.morse?.available && !state.morse.signedIn ? `<div class="row btnrow" data-go="signin">Sign in with Morse Chess <span class="small">username + password</span></div>` : ''}
+    <div class="row btnrow" data-go="signout">Sign out <span class="small">End this session</span></div>
     ${state.morse?.available && state.morse.signedIn && !state.morse.linked ? `<div class="row btnrow" data-go="morse">Link Morse Chess <span class="small">ready to link</span></div>` : ''}
     <div class="row btnrow" data-go="pricing">Premium <span class="small" style="color:var(--blue)">Coming soon</span></div>`);
   if (!m) return;
@@ -919,7 +925,9 @@ $('#btnMe').onclick = async (e) => {
     <hr>
     <div class="row btnrow" data-go="coll">My collection <span class="small">${found} items</span></div>
     <div class="row btnrow" data-go="nick">${me.nickname ? 'Change nickname' : 'Set a nickname'}</div>
-    <div class="row btnrow" data-go="lb">Leaderboard</div>`);
+    <div class="row btnrow" data-go="lb">Leaderboard</div>
+    <hr>
+    <div class="row btnrow" data-go="signout">Sign out</div>`);
   if (!m) return;
   m.addEventListener('click', (ev) => {
     const g = ev.target.closest('[data-go]');
@@ -928,6 +936,7 @@ $('#btnMe').onclick = async (e) => {
     if (g.dataset.go === 'coll') openCollection();
     if (g.dataset.go === 'nick') askNickname();
     if (g.dataset.go === 'lb') go('leaderboard');
+    if (g.dataset.go === 'signout') signOut();
   });
 };
 async function openCollection() {
@@ -1218,7 +1227,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=40').then((m) => {
+import('./clash.js?v=41').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1245,7 +1254,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=40');
+    const m = window.__ccClashMod || await import('./clash.js?v=41');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
@@ -1257,5 +1266,5 @@ async function pageClash() {
 window.__cc = { state, go };
 
 initBg({ api, toast, state, BASE });
-initAuth({ api, toast, state, reload: () => loadMe().then(() => { try { render(); } catch {} }) });
+initAuth({ api, toast, state, reload: () => loadMe().then(() => { try { render(); } catch {} }), goHome: () => go('') });
 

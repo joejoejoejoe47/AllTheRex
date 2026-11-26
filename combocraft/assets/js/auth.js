@@ -1,5 +1,5 @@
 // Morse Chess username/password sign-in, plus Legendary picture sign-in when the account is unlocked.
-import { esc } from './fx.js?v=40';
+import { esc } from './fx.js?v=41';
 
 let ctx = { api: null, toast: null, state: null, reload: null };
 
@@ -188,12 +188,24 @@ async function probeAndMaybeFlip(username, overlay, mode, repaint) {
 
 export async function signOut() {
   try {
-    const d = await ctx.api('auth/signout', {});
-    if (ctx.state) ctx.state.morse = d.morse || { signedIn: false, coins: 0 };
-    syncCoins(ctx.state);
-    if (ctx.toast) ctx.toast('Signed out of Morse Chess.');
-    if (ctx.reload) await ctx.reload();
+    await ctx.api('auth/signout', {});
   } catch (e) {
     if (ctx.toast) ctx.toast(e.message);
   }
+  try {
+    ['cc_tok', 'cc_token', 'morse_session', 'cc_session'].forEach((k) => localStorage.removeItem(k));
+  } catch {}
+  if (ctx.state) {
+    ctx.state.me = null;
+    ctx.state.elements = [];
+    ctx.state.byId = new Map();
+    ctx.state.recent = [];
+    ctx.state.morse = { signedIn: false, linked: false, coins: 0, available: ctx.state.morse?.available };
+    ctx.state.hints = { left: 3, used: 0, limit: 3 };
+    ctx.state.lastResult = null;
+  }
+  syncCoins(ctx.state);
+  if (ctx.toast) ctx.toast('Signed out.');
+  if (ctx.goHome) ctx.goHome();
+  else if (ctx.reload) await ctx.reload();
 }
