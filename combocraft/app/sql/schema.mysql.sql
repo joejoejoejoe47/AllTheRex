@@ -504,3 +504,15 @@ CREATE TABLE IF NOT EXISTS cc_discovery_views (
   created_at DATETIME NOT NULL,
   PRIMARY KEY (element_id, player_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_hint_buys (
+  id INT NOT NULL AUTO_INCREMENT,
+  player_id VARCHAR(24) NOT NULL,
+  morse_user_id VARCHAR(64) NOT NULL DEFAULT '',
+  day CHAR(10) NOT NULL,
+  amount INT NOT NULL,
+  hints INT NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (id),
+  KEY cc_hint_buys_player (player_id, day)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

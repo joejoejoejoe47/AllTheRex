@@ -4,17 +4,33 @@ declare(strict_types=1);
 
 namespace ComboCraft;
 
-/** Reveals one new combo from the player's current elements. 3 per day free. */
+/** Reveals one new combo from the player's current elements. 3 per day free; more can be bought with Morse coins. */
 final class Hint
 {
     public const DAILY = 3;
+    public const PACK = 3;
+    public const PACK_COST = 25;
 
     /** @param array<string,mixed> $player @return array{left:int,used:int,limit:int} */
     public static function remaining(array $player): array
     {
         $day = Player::today();
         $used = (int) (Db::value('SELECT used FROM cc_hints WHERE player_id = ? AND day = ?', [$player['id'], $day]) ?? 0);
-        return ['used' => $used, 'limit' => self::DAILY, 'left' => max(0, self::DAILY - $used)];
+        $bonus = 0;
+        try {
+            $bonus = (int) (Db::value('SELECT COALESCE(SUM(hints),0) FROM cc_hint_buys WHERE player_id = ? AND day = ?', [$player['id'], $day]) ?? 0);
+        } catch (\Throwable $e) {
+        }
+        $limit = self::DAILY + $bonus;
+        return [
+            'used' => $used,
+            'limit' => $limit,
+            'left' => max(0, $limit - $used),
+            'freeLeft' => max(0, self::DAILY - $used),
+            'bonus' => $bonus,
+            'pack' => self::PACK,
+            'packCost' => self::PACK_COST,
+        ];
     }
 
     /**
@@ -25,7 +41,7 @@ final class Hint
     {
         $left = self::remaining($player);
         if ($left['left'] <= 0) {
-            throw new HttpError('You used all ' . self::DAILY . ' free hints for today. Come back tomorrow!', 429);
+            throw new HttpError('You are out of hints. Buy 3 more for ' . self::PACK_COST . ' Morse coins.', 429);
         }
         $hint = self::find($player);
         if ($hint === null) {
@@ -41,6 +57,45 @@ final class Hint
         Goals::unlock($player, 'hint_taker');
         $left = self::remaining($player);
         return $hint + ['hints' => $left];
+    }
+
+    /**
+     * Buy a pack of 3 hints for PACK_COST Morse coins. Signed-in only.
+     * @param array<string,mixed> $player
+     * @return array<string,mixed>
+     */
+    public static function buy(array $player): array
+    {
+        $morse = MorseLink::status($player);
+        if (empty($morse['signedIn']) || empty($morse['linked'])) {
+            throw new HttpError('Sign in to buy hints with Morse coins.', 401);
+        }
+        $link = Db::one('SELECT * FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
+        if (!$link) {
+            throw new HttpError('Sign in to buy hints with Morse coins.', 401);
+        }
+        $day = Player::today();
+        $uid = (string) $link['morse_user_id'];
+        $amount = self::PACK_COST;
+        Db::transaction(function () use ($player, $uid, $day, $amount): void {
+            $n = Db::run('UPDATE profiles SET coins = coins - ? WHERE user_id = ? AND coins >= ?', [$amount, $uid, $amount]);
+            if ($n < 1) {
+                $have = (int) (Db::value('SELECT coins FROM profiles WHERE user_id = ?', [$uid]) ?? 0);
+                throw new HttpError('You need ' . $amount . ' Morse coins (you have ' . $have . ').', 402);
+            }
+            Game::insertPublic('cc_hint_buys', [
+                'player_id' => $player['id'],
+                'morse_user_id' => $uid,
+                'day' => $day,
+                'amount' => $amount,
+                'hints' => self::PACK,
+                'created_at' => Db::now(),
+            ]);
+        });
+        $spent = MorseLink::status($player);
+        $spent['justSpent'] = $amount;
+        $hints = self::remaining($player);
+        return ['ok' => true, 'hints' => $hints, 'morse' => $spent, 'bought' => self::PACK, 'cost' => self::PACK_COST];
     }
 
     /** @param array<string,mixed> $player @return array<string,mixed>|null */

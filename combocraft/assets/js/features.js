@@ -1,5 +1,5 @@
 // Daily challenge, achievements, hints, recipe book, speedrun, viral shares and Morse coins.
-import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=38';
+import { sfx, ico, artHtml, esc, confetti, svg, safeEmoji } from './fx.js?v=39';
 
 /** Display-only length class so long names shrink and clamp to 2 lines. Does not change the stored name. */
 export function nameClass(name) {
@@ -75,6 +75,7 @@ export function playChrome(state) {
         <span class="db-streak" title="Daily streak">🔥 ${d?.streak || 0}</span>
         <span class="db-score" title="Daily score">★ ${d?.score || 0}</span>
         <button class="mini-btn" id="hintBtn" ${h.left <= 0 ? 'disabled' : ''}>Hint · ${h.left}</button>
+        <button class="mini-btn hint-buy" id="hintBuy">Get 3 hints · ${h.packCost || 25} coins</button>
         <button class="mini-btn" id="dailyShare" ${(d?.score || cleared) ? '' : 'hidden'}>Share</button>
       </div>
     </div>`;
@@ -91,7 +92,44 @@ export function bindPlayChrome({ api, toast, state, go, openRecipe }) {
       toast(`Try ${d.a.name} + ${d.b.name} — ${d.tease || 'it makes something new!'}`);
       flashElements([d.a.id, d.b.id]);
       if (d.badges) showBadges(d.badges, toast);
-    } catch (e) { toast(e.message); }
+    } catch (e) {
+      toast(e.message);
+      if (e.status === 429) {
+        const buy = $('#hintBuy');
+        if (buy) buy.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  };
+  const buy = $('#hintBuy');
+  if (buy) buy.onclick = async () => {
+    if (!state.morse?.signedIn) {
+      toast('Sign in to buy hints with Morse coins.');
+      try { (await import('./auth.js?v=39')).openAuth('enter'); } catch {}
+      return;
+    }
+    buy.disabled = true;
+    try {
+      const d = await api('hint/buy', {});
+      state.hints = d.hints || state.hints;
+      if (d.morse) state.morse = { ...(state.morse || {}), ...d.morse };
+      const hb = $('#hintBtn');
+      if (hb) {
+        hb.textContent = 'Hint · ' + (state.hints.left ?? 0);
+        hb.disabled = (state.hints.left ?? 0) <= 0;
+      }
+      toast('+' + (d.bought || 3) + ' hints! ' + (d.cost || 25) + ' Morse coins spent.');
+      try {
+        const auth = await import('./auth.js?v=39');
+        auth.syncCoins(state);
+        document.getElementById('ccCoins')?.classList.add('coin-pop');
+        setTimeout(() => document.getElementById('ccCoins')?.classList.remove('coin-pop'), 700);
+      } catch {}
+    } catch (e) {
+      if (e.status === 401) {
+        toast('Sign in to buy hints with Morse coins.');
+        try { (await import('./auth.js?v=39')).openAuth('enter'); } catch {}
+      } else toast(e.message);
+    } finally { buy.disabled = false; }
   };
   const share = $('#dailyShare');
   if (share) share.onclick = () => shareDaily(state, toast);
