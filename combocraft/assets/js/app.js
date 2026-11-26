@@ -3,7 +3,7 @@ import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shak
 import { storyHtml, storyPng } from './share.js?v=43';
 import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=43';
 import { initBg, syncPrefs } from './bg.js?v=43';
-import { initAds, renderAdRail } from './ads.js?v=43';
+import { initAds, renderAdRail, hideSideAd } from './ads.js?v=44';
 import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=43';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
@@ -240,8 +240,8 @@ async function pagePlay() {
         </section>
         </div>
       </div>
-      <aside class="play-ads" id="playAds" aria-label="Sponsored"></aside>
     </div>
+    <aside class="play-ads" id="playAds" aria-label="Sponsored" aria-hidden="true"></aside>
   </div>
   <div class="sheet" id="sheet"></div>`;
   renderStrip();
@@ -290,7 +290,7 @@ async function pagePlay() {
     if (act) return resultAction(act.dataset.act);
   });
   const offDrag = setupDrag();
-  cleanup = () => { offDrag(); document.body.classList.remove('cc-el-all'); };
+  cleanup = () => { offDrag(); document.body.classList.remove('cc-el-all'); hideSideAd(); };
 }
 
 function setShowAll(on) {
