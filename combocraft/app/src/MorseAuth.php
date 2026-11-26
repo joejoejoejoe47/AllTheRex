@@ -10,20 +10,17 @@ use Throwable;
  * Username + password sign-in / create-account against the existing Morse Chess
  * `user` / `account` / `session` / `profiles` tables, using the same password
  * pre-hash and morse_session cookie (path /, HttpOnly, SameSite=Lax) as /chess.
- * Never signs in or creates MasterGus.
  */
 final class MorseAuth
 {
     private const SESSION_DAYS = 30;
     private const USERNAME_RE = '/^[a-zA-Z0-9_]{8,20}$/';
     private const SYNTH_DOMAIN = '@players.moreschess.app';
-    private const MASTER = 'mastergus';
 
     /** @param array<string,mixed> $player @return array<string,mixed> */
     public static function signIn(array $player, string $username, string $password): array
     {
         $username = self::cleanUsername($username, false);
-        self::guardMaster($username);
         if (strlen($password) < 8) {
             throw new HttpError('Password must be at least 8 characters.', 400);
         }
@@ -47,7 +44,6 @@ final class MorseAuth
             self::throttle('cc-signin:' . sha1(Http::ip() . '|' . strtolower($username)), 10, 600, true);
             throw new HttpError('No Morse Chess account with that username and password.', 401);
         }
-        self::guardMasterId((string) $row['id'], $username);
         if (password_needs_rehash((string) $row['pw'], PASSWORD_DEFAULT)) {
             Db::run('UPDATE `account` SET `password` = ?, `updatedAt` = ? WHERE `userId` = ? AND `providerId` = ?', [self::hash($password), self::ts(Db::nowMs()), $row['id'], 'credential']);
         }
@@ -60,7 +56,6 @@ final class MorseAuth
     public static function signUp(array $player, string $username, string $password): array
     {
         $username = self::cleanUsername($username, true);
-        self::guardMaster($username);
         if (strlen($password) < 8) {
             throw new HttpError('Password must be at least 8 characters.', 400);
         }
@@ -133,10 +128,18 @@ final class MorseAuth
      */
     private static function restorePlayer(array $player, string $morseUserId): array
     {
-        $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$morseUserId]);
-        if ($existing && (string) $existing['player_id'] !== (string) $player['id']) {
+        $name = '';
+        try {
+            $name = (string) (Db::value('SELECT username FROM profiles WHERE user_id = ?', [$morseUserId]) ?: '');
+            if ($name === '') {
+                $name = (string) (Db::value('SELECT `name` FROM `user` WHERE `id` = ?', [$morseUserId]) ?: '');
+            }
+        } catch (Throwable $e) {
+        }
+        $pid = MorseLink::playerIdForMorse($morseUserId, $name);
+        if ($pid && $pid !== (string) $player['id']) {
             try {
-                $player = Player::adopt((string) $existing['player_id']);
+                $player = Player::adopt($pid);
             } catch (Throwable $e) {
                 error_log('[combocraft adopt] ' . $e->getMessage());
             }
@@ -150,9 +153,6 @@ final class MorseAuth
         $username = trim($username);
         $out = ['ok' => true, 'legendary' => false, 'valid' => false];
         if (!preg_match(self::USERNAME_RE, $username)) {
-            return $out;
-        }
-        if (strtolower($username) === self::MASTER) {
             return $out;
         }
         $out['valid'] = true;
@@ -246,22 +246,6 @@ final class MorseAuth
             throw new HttpError('Enter your username.', 400);
         }
         return $username;
-    }
-
-    private static function guardMaster(string $username): void
-    {
-        if (strtolower($username) === self::MASTER) {
-            throw new HttpError('That account cannot be used here.', 403);
-        }
-    }
-
-    private static function guardMasterId(string $userId, string $username): void
-    {
-        self::guardMaster($username);
-        $name = strtolower((string) (Db::value('SELECT username_lc FROM profiles WHERE user_id = ?', [$userId]) ?? ''));
-        if ($name === self::MASTER) {
-            throw new HttpError('That account cannot be used here.', 403);
-        }
     }
 
     private static function ts(int $ms): string
