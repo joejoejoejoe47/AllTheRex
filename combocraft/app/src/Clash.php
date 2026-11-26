@@ -678,6 +678,8 @@ final class Clash
                     self::maybeAiPlay($m);
                 } elseif ($mode === ClashModes::PILE) {
                     ClashModes::maybeAiSlap($m);
+                } elseif ($mode === ClashModes::BOSS) {
+                    ClashModes::maybeAiFeed($m);
                 } elseif ($mode === null) {
                     self::maybeAiPlay($m);
                 }

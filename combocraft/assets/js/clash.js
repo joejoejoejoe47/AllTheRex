@@ -9,7 +9,7 @@ let attackMode = false;
 let burstMode = false;
 let pick = [null, null];
 let selectedMode = 'duel';
-const EXTRA_MODE_LIVE = ['gift', 'pile', 'telephone'];
+const EXTRA_MODE_LIVE = ['gift', 'pile', 'telephone', 'boss'];
 const EXTRA_MODES = [
   { id: 'gift', tag: 'New', title: 'Poison Gift', blurb: 'Every combine makes two cards. Keep one. The other goes to your opponent, aimed at you.' },
   { id: 'pile', tag: 'New', title: 'The Pile', blurb: 'One shared card mutates by itself. Slap a card on it to steer. Theme hits score. Sludge hurts whoever touched it last.' },
@@ -899,7 +899,7 @@ function paintResults(m, soft = false) {
       <div class="rl-vic${vicClass}"><div class="word">${word}</div>
         <div class="rl-subh">${esc(headline)}</div>
         ${m.mode === 'telephone' && m.telephone?.chain?.length ? `<ol class="rl-tel-chain end">${m.telephone.chain.map((c) => `<li><span>${c.n}. ${esc(c.label)}</span> added <b>${c.ingredientEmoji ? ico(c.ingredientEmoji) + ' ' : ''}${esc(c.ingredient)}</b> → ${c.result?.emoji ? ico(c.result.emoji) : ''} <b>${esc(c.result?.name || '')}</b></li>`).join('')}</ol>` : ''}
-        ${m.mode === 'boss' && m.bossKilledByYou ? `<p class="rl-boss-won">${m.boss?.emoji ? ico(m.boss.emoji) : ''} You kept ${esc(m.boss?.name || 'the boss')} in your book forever.</p>` : ''}
+        ${m.mode === 'boss' && m.boss && (m.boss.hp === 0 || m.bossKilledByYou) ? `<p class="rl-boss-won">${m.boss?.emoji ? ico(m.boss.emoji) : ''} ${m.bossKilledByYou ? 'You kept ' + esc(m.boss?.name || 'the boss') + ' in your book forever.' : esc(m.opp?.name || 'Your rival') + ' kept ' + esc(m.boss?.name || 'the boss') + ' in their book.'}</p>` : ''}
         ${m.modeTitle ? `<div class="rl-mode-tag">${esc(m.modeTitle)}</div>` : ''}
       </div>
       <div class="rl-res-grid">

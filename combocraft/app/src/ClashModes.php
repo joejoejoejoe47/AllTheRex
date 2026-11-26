@@ -23,6 +23,7 @@ final class ClashModes
         self::GIFT,
         self::PILE,
         self::TELEPHONE,
+        self::BOSS,
     ];
 
     public const INFO = [
@@ -389,10 +390,13 @@ final class ClashModes
         }
         if ($mode === self::BOSS) {
             $boss = $st['boss'] ?? self::weekBoss();
+            $true = (string) ($boss['trueName'] ?? $boss['name'] ?? 'World Boss');
+            $form = is_array($boss['form'] ?? null) ? $boss['form'] : null;
+            $formName = (string) ($form['name'] ?? '');
             $view['boss'] = [
-                'name' => $boss['name'],
-                'emoji' => $boss['emoji'],
-                'tagline' => $boss['tagline'] ?? '',
+                'name' => $true,
+                'emoji' => $form['emoji'] ?? $boss['emoji'],
+                'tagline' => ($formName !== '' && $formName !== $true) ? ('Now: ' . $formName) : ($boss['tagline'] ?? ''),
                 'hp' => (int) ($boss['hp'] ?? 0),
                 'maxHp' => (int) ($boss['maxHp'] ?? self::BOSS_HP),
                 'week' => $boss['week'] ?? '',
@@ -958,6 +962,58 @@ final class ClashModes
                     error_log('[combocraft tel] ' . $e->getMessage());
                 }
             }
+        }
+    }
+
+
+    public static function maybeAiFeed(array $m): void
+    {
+        $st = self::state($m);
+        if (!$st || ($st['mode'] ?? '') !== self::BOSS) {
+            return;
+        }
+        $boss = $st['boss'] ?? null;
+        if (!$boss || (int) ($boss['hp'] ?? 0) <= 0) {
+            return;
+        }
+        $level = Clash::aiLevelOf($m);
+        if (!$level || ($m['status'] ?? '') !== 'playing') {
+            return;
+        }
+        $round = Clash::modeRound($m);
+        if (!$round || (int) $round['settled'] || strtotime((string) $round['ends_at'] . ' UTC') <= time()) {
+            return;
+        }
+        if (time() < strtotime((string) $round['started_at'] . ' UTC') + Clash::KICKOFF_SECS) {
+            return;
+        }
+        $aiId = Clash::isAiId((string) ($m['a_id'] ?? '')) ? (string) $m['a_id'] : (Clash::isAiId((string) ($m['b_id'] ?? '')) ? (string) $m['b_id'] : '');
+        if ($aiId === '') {
+            return;
+        }
+        $wait = ['easy' => [4, 6], 'medium' => [2, 4], 'hard' => [1, 2]][$level] ?? [4, 6];
+        $last = (int) ($st['lastAiFeed'] ?? 0);
+        $from = $last > 0 ? $last : (strtotime((string) $round['started_at'] . ' UTC') ?: time());
+        $need = $last > 0 ? $wait[1] : $wait[0];
+        if (time() - $from < $need) {
+            return;
+        }
+        $bot = Db::one('SELECT * FROM cc_players WHERE id = ?', [$aiId]);
+        if (!$bot) {
+            return;
+        }
+        $hand = Clash::modeHand($bot, $m, $round);
+        $toks = array_keys($hand);
+        if (!$toks) {
+            return;
+        }
+        $pick = $toks[abs(crc32($m['id'] . '|boss|' . (string) time())) % count($toks)];
+        try {
+            $st['lastAiFeed'] = time();
+            self::save((string) $m['id'], self::BOSS, $st);
+            self::feedBoss($bot, $m, $round, $st, (string) $pick);
+        } catch (Throwable $e) {
+            error_log('[combocraft boss ai] ' . $e->getMessage());
         }
     }
 
