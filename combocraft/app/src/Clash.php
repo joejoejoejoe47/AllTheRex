@@ -673,6 +673,8 @@ final class Clash
                 if ($mode === ClashModes::GIFT) {
                     ClashModes::maybeAiGift($m);
                     self::maybeAiPlay($m);
+                } elseif ($mode === ClashModes::PILE) {
+                    ClashModes::maybeAiSlap($m);
                 } elseif ($mode === null) {
                     self::maybeAiPlay($m);
                 }
@@ -1891,7 +1893,6 @@ final class Clash
     {
         $side = $m['a_id'] === $p['id'] ? 'a' : 'b';
         $newScore = (int) $round[$side . '_score'] + (int) ($judge['score'] ?? 0);
-        $newScore = max(0, $newScore);
         $oppSide = $side === 'a' ? 'b' : 'a';
         $oppScore = (int) $round[$oppSide . '_score'];
         $playId = 0;

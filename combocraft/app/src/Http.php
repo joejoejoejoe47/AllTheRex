@@ -49,23 +49,25 @@ final class Http
     }
 
     /** @return array<string,mixed> */
+    /** @var array<string,mixed>|null */
+    private static ?array $jsonBody = null;
+
     public static function jsonBody(): array
     {
-        static $cache = null;
-        if ($cache !== null) {
-            return $cache;
+        if (self::$jsonBody !== null) {
+            return self::$jsonBody;
         }
         $raw = file_get_contents('php://input');
         if ($raw === false || trim($raw) === '') {
-            return $cache = [];
+            return self::$jsonBody = [];
         }
         $data = json_decode($raw, true);
-        return $cache = (is_array($data) ? $data : []);
+        return self::$jsonBody = (is_array($data) ? $data : []);
     }
 
     public static function resetJsonBodyCache(): void
     {
-        // test helper via reflection-less approach: not needed; tests call methods directly
+        self::$jsonBody = null;
     }
 
     public static function assertSameSite(): void

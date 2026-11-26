@@ -11,6 +11,7 @@ final class Api
 {
     public static function handle(string $path): never
     {
+        Http::resetJsonBodyCache();
         try {
             $ready = Config::dbConfigured();
             $reason = $ready ? null : 'no_config';
