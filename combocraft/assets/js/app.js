@@ -152,6 +152,18 @@ document.addEventListener('click', (e) => {
 });
 addEventListener('popstate', render);
 
+// Don't leave a dashed browser focus ring on layout chrome
+// (header, nav, main, wrappers). Real buttons and inputs still get
+// a :focus-visible ring via CSS.
+document.addEventListener('focusin', (e) => {
+  const t = e.target;
+  if (!(t instanceof Element)) return;
+  if (t.matches('header, .topbar, nav.nav, nav.tabs, main, #view, .wrap, .play-grid, .play-main, .play-stick, .el-section, body, html')) {
+    t.blur();
+  }
+});
+
+
 // ---------------- Hero (01) ----------------
 async function pageHero() {
   document.title = 'ComboCraft — What if you could combine anything?';
