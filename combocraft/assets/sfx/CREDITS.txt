@@ -1,0 +1,8 @@
+ComboCraft sound pack (CC0 1.0, public domain).
+Attribution is not required; we credit the authors here:
+
+- Kenney.nl — Interface Sounds, Music Jingles, Casino Audio, UI Audio, RPG Audio
+- wubitog — 3 Pop Sounds (OpenGameArt)
+- farfadet46 — Bubbles Pop (OpenGameArt)
+
+See /workspace/combocraft-sfx/README.md for the original option mapping.

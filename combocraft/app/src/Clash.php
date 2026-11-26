@@ -12,7 +12,7 @@ use Throwable;
  */
 final class Clash
 {
-    public const ROUND_SECS = 75;
+    public const ROUND_SECS = 70;
     public const KICKOFF_SECS = 3;
     public const OT_SECS = 45;
     public const BOOST_MAX = 100;

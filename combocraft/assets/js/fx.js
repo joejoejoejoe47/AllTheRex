@@ -1,4 +1,5 @@
-// Sounds (Web Audio, no files), confetti, emoji artwork and small SVG pieces.
+// Sounds (file pack with Web Audio oscillator fallback), confetti, emoji artwork and small SVG pieces.
+// Sound files: Kenney.nl, wubitog and farfadet46 (CC0 1.0).
 
 let ctx = null;
 let soundOn = (() => { try { return localStorage.getItem('cc_sound') !== 'off'; } catch { return true; } })();
@@ -6,6 +7,88 @@ export const sound = {
   get on() { return soundOn; },
   set on(v) { soundOn = v; try { localStorage.setItem('cc_sound', v ? 'on' : 'off'); } catch {} },
 };
+
+const SFX_FILES = {
+  pick: 'select-tap',
+  whoosh: 'combine-whoosh',
+  pop: 'result-pop',
+  success: 'discovery-chime',
+  fanfare: 'first-fanfare',
+  known: 'result-pop',
+  error: 'error',
+  rare: 'rarity-rare',
+  epic: 'rarity-epic',
+  legendary: 'rarity-legendary',
+  'heat-warm': 'heat-warm',
+  'heat-hot': 'heat-hot',
+  'heat-fire': 'heat-on-fire',
+  points: 'clash-points',
+  exact: 'exact-hit',
+  tick: 'countdown-tick',
+  victory: 'victory',
+  defeat: 'defeat',
+  click: 'button-click',
+  ad: 'ad-slide',
+};
+let sfxDir = '';
+const bank = {};
+let lastSfxAt = 0;
+
+function sfxDirFromBase(base) {
+  try {
+    return new URL('assets/sfx/', new URL(base || document.querySelector('base')?.href || '.', location.href)).href;
+  } catch {
+    return 'assets/sfx/';
+  }
+}
+
+export function preloadSfx(base) {
+  sfxDir = sfxDirFromBase(base);
+  const unique = [...new Set(Object.values(SFX_FILES))];
+  unique.forEach(loadStem);
+}
+
+function loadStem(stem) {
+  if (bank[stem]) return bank[stem];
+  const a = document.createElement('audio');
+  a.preload = 'auto';
+  const ogg = document.createElement('source');
+  ogg.src = sfxDir + stem + '.ogg';
+  ogg.type = 'audio/ogg';
+  const mp3 = document.createElement('source');
+  mp3.src = sfxDir + stem + '.mp3';
+  mp3.type = 'audio/mpeg';
+  a.appendChild(ogg);
+  a.appendChild(mp3);
+  a.load();
+  bank[stem] = a;
+  return a;
+}
+
+function playFile(stem, volume = 0.85) {
+  if (!sfxDir) sfxDir = sfxDirFromBase();
+  const proto = loadStem(stem);
+  const n = proto.cloneNode(true);
+  n.volume = volume;
+  const p = n.play();
+  if (p && p.catch) {
+    return p.catch(() => false).then((r) => r !== false);
+  }
+  return Promise.resolve(true);
+}
+
+export function bindClickSfx() {
+  if (window.__ccClickSfx) return;
+  window.__ccClickSfx = true;
+  document.addEventListener('click', (e) => {
+    if (!soundOn) return;
+    if (Date.now() - lastSfxAt < 80) return;
+    const b = e.target.closest('button, .nav a, .tabs a, .mini-btn, .rl-go, .rl-atk');
+    if (!b) return;
+    if (b.closest('.rl-hand, .strip, #loGrid, .lo-el, .el, .rl-slot, .ad-card')) return;
+    sfx('click');
+  }, true);
+}
 function ac() {
   if (!soundOn) return null;
   try {
@@ -27,7 +110,7 @@ function tone(c, freq, t0, dur, { type = 'sine', vol = 0.18, glide = 0 } = {}) {
   o.start(t0);
   o.stop(t0 + dur + 0.05);
 }
-export function sfx(name) {
+function playOsc(name) {
   const c = ac();
   if (!c) return;
   const t = c.currentTime + 0.01;
@@ -65,6 +148,17 @@ export function sfx(name) {
   } else if (name === 'error') {
     tone(c, 220, t, 0.18, { type: 'square', vol: 0.05, glide: 0.7 });
   }
+}
+
+export function sfx(name) {
+  if (!soundOn) return;
+  lastSfxAt = Date.now();
+  const stem = SFX_FILES[name];
+  if (stem) {
+    playFile(stem).then((ok) => { if (!ok) playOsc(name); });
+    return;
+  }
+  playOsc(name);
 }
 
 /** Light screen shake. Strength 0–1. */
