@@ -2,7 +2,7 @@
 // Add more entries to HOUSE_ADS. A real network tag can be dropped into
 // the [data-ad-slot] placeholder in the right-hand panel.
 
-import { esc } from './fx.js?v=39';
+import { esc } from './fx.js?v=40';
 
 /** @typedef {{ id:string, title:string, kicker?:string, blurb:string, cta:string, href:string, external?:boolean, youtube?:string, start?:number, image?:string }} Ad */
 
@@ -18,31 +18,6 @@ export const HOUSE_ADS = [
     external: true,
     youtube: 'O7SAFS7Ef1U',
     start: 2,
-  },
-  {
-    id: 'morse-legendary',
-    title: 'Morse Chess Legendary',
-    kicker: 'Sponsored',
-    blurb: 'The deluxe board, portraits and Legendary seats.',
-    cta: 'Play Legendary',
-    href: 'https://alltherex.com/chessLegendary/',
-    external: true,
-  },
-  {
-    id: 'combo-clash',
-    title: 'Combo Clash',
-    kicker: 'Sponsored',
-    blurb: 'Best-of-3 arenas, parties and rematches — inside ComboCraft.',
-    cta: 'Enter Clash',
-    href: 'clash',
-  },
-  {
-    id: 'premium',
-    title: 'ComboCraft Premium',
-    kicker: 'Sponsored',
-    blurb: 'Unlimited combinations, no ads, exclusive themes. Coming soon.',
-    cta: 'See Premium',
-    href: 'pricing',
   },
 ];
 
@@ -128,7 +103,7 @@ export function renderAdRail(root) {
   if (!root) return;
   if (isPremium()) { root.hidden = true; root.innerHTML = ''; return; }
   root.hidden = false;
-  const [first, ...rest] = HOUSE_ADS;
+  const first = HOUSE_ADS[0];
   root.innerHTML = `
     <div class="act-head">
       <h2>Sponsored</h2>
@@ -136,11 +111,6 @@ export function renderAdRail(root) {
     </div>
     <div class="ad-rail-list">
       ${first ? cardHtml(first, true) : ''}
-      ${rest.map((a) => cardHtml(a)).join('')}
-      <div class="ad-network-slot" data-ad-slot="cc-play-right" aria-label="Advertisement">
-        <div class="ad-kicker">Ad slot</div>
-        <p>Reserved for a real ad network tag.</p>
-      </div>
     </div>`;
   root.querySelectorAll('a[data-link]').forEach((a) => {
     a.addEventListener('click', (e) => {

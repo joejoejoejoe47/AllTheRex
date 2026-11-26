@@ -1,5 +1,5 @@
 // Instagram-story style share card (mockup 04): DOM preview + 1080x1920 PNG.
-import { esc, iconUrl, artHtml, svg } from './fx.js?v=39';
+import { esc, iconUrl, artHtml, svg } from './fx.js?v=40';
 
 export function storyHtml(el, { base, first, small = false } = {}) {
   const [a, b] = el.recipe || [null, null];
