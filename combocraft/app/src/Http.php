@@ -121,12 +121,12 @@ final class Http
         exit;
     }
 
-    public static function setCookie(string $name, string $value, int $expires, bool $httpOnly = true): void
+    public static function setCookie(string $name, string $value, int $expires, bool $httpOnly = true, ?string $path = null): void
     {
         if (!headers_sent()) {
             setcookie($name, $value, [
             'expires' => $expires,
-            'path' => self::cookiePath(),
+            'path' => $path ?? self::cookiePath(),
             'secure' => self::isHttps(),
             'httponly' => $httpOnly,
             'samesite' => 'Lax',

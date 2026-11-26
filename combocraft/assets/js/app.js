@@ -1,9 +1,10 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=38';
-import { storyHtml, storyPng } from './share.js?v=38';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=38';
-import { initBg, syncPrefs } from './bg.js?v=38';
-import { initAds, renderAdRail } from './ads.js?v=38';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=39';
+import { storyHtml, storyPng } from './share.js?v=39';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=39';
+import { initBg, syncPrefs } from './bg.js?v=39';
+import { initAds, renderAdRail } from './ads.js?v=39';
+import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=39';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -93,6 +94,7 @@ async function loadMeNow() {
   state.recent = d.recent;
   applyMe(state, d);
   if (d.prefs) syncPrefs(d.prefs);
+  syncCoins(state);
 }
 
 // ---------------- Router ----------------
@@ -884,7 +886,8 @@ $('#btnGear').onclick = async (e) => {
     <div class="row btnrow" data-go="achievements">Achievements</div>
     <div class="row btnrow" data-go="clash">Combo Clash</div>
     <div class="row btnrow" data-go="invite">Invite a friend</div>
-    ${state.morse?.available ? `<div class="row btnrow" data-go="morse">${state.morse.linked ? 'Morse Chess · linked' : 'Link Morse Chess'} <span class="small">${state.morse.linked ? '+' + (state.morse.earned || 0) + ' coins' : (state.morse.signedIn ? 'ready to link' : 'sign in on Morse first')}</span></div>` : ''}
+    ${state.morse?.available ? `<div class="row btnrow" data-go="${state.morse.signedIn ? 'signout' : 'signin'}">${state.morse.signedIn ? 'Sign out of Morse Chess' : 'Sign in with Morse Chess'} <span class="small">${state.morse.signedIn ? (state.morse.morseName || 'signed in') + ' · ' + Number(state.morse.coins || 0).toLocaleString() + ' coins' : 'username + password'}</span></div>` : ''}
+    ${state.morse?.available && state.morse.signedIn && !state.morse.linked ? `<div class="row btnrow" data-go="morse">Link Morse Chess <span class="small">ready to link</span></div>` : ''}
     <div class="row btnrow" data-go="pricing">Premium <span class="small" style="color:var(--blue)">Coming soon</span></div>`);
   if (!m) return;
   m.addEventListener('click', (ev) => {
@@ -899,6 +902,8 @@ $('#btnGear').onclick = async (e) => {
     closeMenus();
     if (g.dataset.go === 'nick') askNickname();
     else if (g.dataset.go === 'invite') copyInvite(state, toast, false);
+    else if (g.dataset.go === 'signin') openAuth('enter');
+    else if (g.dataset.go === 'signout') signOut();
     else if (g.dataset.go === 'morse') linkMorse();
     else go(g.dataset.go);
   });
@@ -1213,7 +1218,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=38').then((m) => {
+import('./clash.js?v=39').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1240,7 +1245,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=38');
+    const m = window.__ccClashMod || await import('./clash.js?v=39');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
@@ -1252,3 +1257,5 @@ async function pageClash() {
 window.__cc = { state, go };
 
 initBg({ api, toast, state, BASE });
+initAuth({ api, toast, state, reload: () => loadMe().then(() => { try { render(); } catch {} }) });
+

@@ -21,8 +21,26 @@ final class MorseLink
     /** @param array<string,mixed> $player @return array<string,mixed> */
     public static function status(array $player): array
     {
-        $link = Db::one('SELECT morse_user_id, morse_name, linked_at FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
         $session = self::peekSession();
+        $name = (string) ($session['name'] ?? '');
+        if ($session['userId'] && strtolower($name) !== 'mastergus') {
+            try {
+                $player = self::attach($player);
+            } catch (Throwable $e) {
+                error_log('[combocraft morse attach] ' . $e->getMessage());
+            }
+        }
+        $link = Db::one('SELECT morse_user_id, morse_name, linked_at FROM cc_morse_links WHERE player_id = ?', [$player['id']]);
+        $uid = $link['morse_user_id'] ?? $session['userId'];
+        $coins = 0;
+        $legendary = false;
+        if ($uid) {
+            try {
+                $coins = (int) (Db::value('SELECT coins FROM profiles WHERE user_id = ?', [$uid]) ?? 0);
+            } catch (Throwable $e) {
+            }
+            $legendary = MorseAuth::isLegendary((string) $uid);
+        }
         $earned = (int) (Db::value('SELECT COALESCE(SUM(amount),0) FROM cc_coin_grants WHERE player_id = ?', [$player['id']]) ?? 0);
         return [
             'available' => $session['available'],
@@ -32,6 +50,68 @@ final class MorseLink
             'canLink' => $link === null && $session['userId'] !== null,
             'earned' => $earned,
             'perFirst' => self::COINS_FIRST,
+            'coins' => $coins,
+            'legendary' => $legendary,
+        ];
+    }
+
+    /**
+     * Quietly link this ComboCraft player to the Morse session cookie, if any.
+     * Never links MasterGus. Does not merge other players' progress.
+     * @param array<string,mixed> $player
+     * @return array<string,mixed>
+     */
+    public static function attach(array $player): array
+    {
+        $session = self::peekSession();
+        if ($session['userId'] === null) {
+            return $player;
+        }
+        $uid = (string) $session['userId'];
+        $name = (string) ($session['name'] ?? 'Morse player');
+        if (strtolower($name) === 'mastergus') {
+            return $player;
+        }
+        $existing = Db::one('SELECT player_id FROM cc_morse_links WHERE morse_user_id = ?', [$uid]);
+        if ($existing && $existing['player_id'] !== $player['id']) {
+            return $player;
+        }
+        if (!Db::one('SELECT 1 FROM cc_morse_links WHERE player_id = ?', [$player['id']])) {
+            try {
+                Game::insertPublic('cc_morse_links', [
+                    'player_id' => $player['id'],
+                    'morse_user_id' => $uid,
+                    'morse_name' => $name,
+                    'linked_at' => Db::now(),
+                ]);
+                try {
+                    self::payPending($player);
+                } catch (Throwable $e) {
+                }
+            } catch (Throwable $e) {
+                error_log('[combocraft morse attach] ' . $e->getMessage());
+            }
+        }
+        return $player;
+    }
+
+    public static function tablesExist(): bool
+    {
+        return self::tablesExistInner();
+    }
+
+    public static function guestStatus(): array
+    {
+        return [
+            'available' => self::tablesExist(),
+            'linked' => false,
+            'morseName' => null,
+            'signedIn' => false,
+            'canLink' => false,
+            'earned' => 0,
+            'perFirst' => self::COINS_FIRST,
+            'coins' => 0,
+            'legendary' => false,
         ];
     }
 
@@ -304,7 +384,7 @@ final class MorseLink
         return ['available' => true, 'userId' => (string) $row['uid'], 'name' => $name];
     }
 
-    private static function tablesExist(): bool
+    private static function tablesExistInner(): bool
     {
         static $ok = null;
         if ($ok !== null) {

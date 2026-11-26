@@ -506,3 +506,107 @@ tr.side-b { background: linear-gradient(90deg, rgba(230,120,40,.10), transparent
 .rl-heat.on-fire .rl-heat-track i { background: linear-gradient(90deg, #ffb347, #ff4d00 55%, #ff1e5a); }
 .rl-boom.heat-warm .word { color: #e8942a; }
 .rl-boom.heat-hot .word, .rl-boom.heat-on-fire .word { color: #ff4d1a; }
+
+/* Morse coins + Sign in in the top bar */
+.cc-coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px 0 8px;
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(255,245,200,.75));
+  color: #102038;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(20,40,80,.16);
+}
+.cc-coins[hidden] { display: none !important; }
+.cc-coins img { width: 22px; height: 22px; }
+.cc-coins.coin-pop { animation: ccCoinPop .7s ease; }
+@keyframes ccCoinPop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.18); }
+  55% { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
+.cc-signin {
+  height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2a6dff, #154ad0);
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: .03em;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #0c2a86;
+}
+.cc-signin[hidden] { display: none !important; }
+.cc-signin:hover { filter: brightness(1.08); }
+
+.cc-auth { width: min(420px, 94vw); }
+.cc-auth-tabs { display: flex; gap: 8px; margin: 0 0 10px; }
+.cc-auth-tabs button {
+  flex: 1; height: 42px; border-radius: 10px; border: 1px solid var(--line, #dbe3ef);
+  background: transparent; font-weight: 800; cursor: pointer; color: inherit;
+}
+.cc-auth-tabs button.on, .mcl-auth-tabs button.is-on { background: #102038; color: #fff; border-color: #102038; }
+.cc-auth-lead { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+.cc-auth-form { display: grid; gap: 6px; }
+.cc-auth-form input {
+  height: 46px; border-radius: 10px; border: 1px solid var(--line, #dbe3ef);
+  padding: 0 12px; font-size: 16px;
+}
+.cc-auth-go, .mcl-auth-go {
+  height: 50px; margin-top: 8px; border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #2a6dff, #154ad0); color: #fff;
+  font-weight: 800; font-size: 16px; cursor: pointer; box-shadow: 0 3px 0 #0c2a86;
+}
+.cc-auth-err { min-height: 1.2em; color: #c0392b; font-size: 13px; font-weight: 700; margin: 0; }
+
+/* Legendary picture / card-flip sign-in */
+.cc-auth.lg { width: min(380px, 94vw); background: transparent; box-shadow: none; padding: 0; }
+.mcl-auth-mini { text-align: center; color: #f6e7b0; }
+.mcl-auth-medal { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 8px 18px rgba(0,0,0,.45)); }
+.mcl-auth-kicker { font-family: Cinzel, "Russo One", serif; letter-spacing: .18em; text-transform: uppercase; font-size: 12px; margin: 6px 0 12px; }
+.mcl-auth-stage { perspective: 900px; }
+.mcl-auth-card {
+  position: relative; width: min(340px, 90vw); margin: 0 auto; min-height: 360px;
+  transform-style: preserve-3d;
+}
+.mcl-auth-face, .mcl-auth-back {
+  border-radius: 18px; padding: 22px 20px 24px; background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255,220,120,.2), transparent 50%),
+    linear-gradient(180deg, #3b1268, #1a0738);
+  border: 2px solid #e0b44a;
+  box-shadow: 0 16px 40px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,220,140,.25);
+  color: #f6e7b0; text-align: left;
+}
+.mcl-auth-back {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  backface-visibility: hidden; transform: rotateY(180deg);
+}
+.mcl-auth-back img { width: 120px; }
+.mcl-auth-back span { font-family: Cinzel, "Russo One", serif; letter-spacing: .12em; }
+.mcl-flop-in { animation: mclFlopIn .7s ease both; }
+@keyframes mclFlopIn {
+  from { transform: rotateY(-180deg); }
+  to { transform: rotateY(0); }
+}
+.mcl-auth-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.mcl-auth-tabs button {
+  flex: 1; height: 38px; border-radius: 8px; border: 1px solid rgba(224,180,74,.4);
+  background: transparent; color: #f6e7b0; font-weight: 700; cursor: pointer;
+}
+.mcl-auth-form label { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; }
+.mcl-auth-form input { background: rgba(0,0,0,.25); border-color: rgba(224,180,74,.45); color: #fff; }
+.mcl-auth-go { background: linear-gradient(180deg, #f4c542, #c98a10); color: #1a1200; box-shadow: 0 3px 0 #8a6200; }
+.hint-buy { white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .cc-signin, .cc-coins { height: 40px; font-size: 13px; }
+}

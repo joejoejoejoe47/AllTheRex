@@ -99,6 +99,11 @@ final class Api
                 '/api/prefs' => Http::method() === 'POST' ? self::mutating(fn () => Http::json(['ok' => true] + Prefs::set(Player::require(), (string) (Http::jsonBody()['bg'] ?? ''), !empty(Http::jsonBody()['reset'])))) : self::prefsGet(),
                 '/api/prefs/bg' => self::mutating(fn () => Http::json(['ok' => true] + Prefs::upload(Player::require()))),
                 '/api/hint' => self::mutating(fn () => Http::json(['ok' => true] + Hint::give(Player::require()))),
+                '/api/hint/buy' => self::mutating(fn () => Http::json(Hint::buy(Player::require()))),
+                '/api/auth/signin' => self::mutating(fn () => Http::json(MorseAuth::signIn(Player::require(), (string) (Http::jsonBody()['username'] ?? ''), (string) (Http::jsonBody()['password'] ?? '')))),
+                '/api/auth/signup' => self::mutating(fn () => Http::json(MorseAuth::signUp(Player::require(), (string) (Http::jsonBody()['username'] ?? ''), (string) (Http::jsonBody()['password'] ?? '')))),
+                '/api/auth/signout' => self::mutating(fn () => Http::json(MorseAuth::signOut())),
+                '/api/auth/probe' => self::authProbe(),
                 '/api/achievements' => self::goalsRoute(),
                 '/api/speedrun' => self::speedrunDisabled(),
                 '/api/speedrun/start' => self::speedrunDisabled(),
@@ -367,6 +372,12 @@ final class Api
         self::get();
         $tid = isset($_GET['target']) ? (int) $_GET['target'] : null;
         Http::json(['ok' => true] + Speedrun::board($tid ?: null));
+    }
+
+    private static function authProbe(): never
+    {
+        self::get();
+        Http::json(MorseAuth::probe((string) ($_GET['username'] ?? '')));
     }
 
     private static function morseGet(): never
