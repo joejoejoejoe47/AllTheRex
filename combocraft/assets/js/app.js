@@ -223,22 +223,22 @@ async function pagePlay() {
           </div>
           <div class="result-zone" id="resultZone"></div>
         </section>
+        </div>
+        <div class="el-section" id="elSection">
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
           <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
           <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
-        </div>
-        <div class="el-section" id="elSection">
         <div class="strip-wrap">
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
           <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
           <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
         </div>
-        </div>
         <section class="recent">
           <div class="sec-h"><h2>Recent Discoveries</h2><span class="grow"></span><a href="#" id="viewAll">View all ›</a></div>
           <div class="recent-row" id="recentRow"></div>
         </section>
+        </div>
       </div>
       <aside class="play-ads" id="playAds" aria-label="Sponsored"></aside>
     </div>
