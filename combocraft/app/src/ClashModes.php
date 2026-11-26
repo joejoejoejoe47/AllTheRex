@@ -21,6 +21,7 @@ final class ClashModes
     /** Modes that may be started from the lobby. Flip these on as each one ships. */
     public const LIVE = [
         self::GIFT,
+        self::PILE,
     ];
 
     public const INFO = [
@@ -494,6 +495,53 @@ final class ClashModes
             } catch (Throwable $e) {
                 error_log('[combocraft gift ai] ' . $e->getMessage());
             }
+        }
+    }
+
+    public static function maybeAiSlap(array $m): void
+    {
+        $st = self::state($m);
+        if (!$st || ($st['mode'] ?? '') !== self::PILE) {
+            return;
+        }
+        $level = Clash::aiLevelOf($m);
+        if (!$level || ($m['status'] ?? '') !== 'playing') {
+            return;
+        }
+        $round = Clash::modeRound($m);
+        if (!$round || (int) $round['settled'] || strtotime((string) $round['ends_at'] . ' UTC') <= time()) {
+            return;
+        }
+        if (time() < strtotime((string) $round['started_at'] . ' UTC') + Clash::KICKOFF_SECS) {
+            return;
+        }
+        $aiId = Clash::isAiId((string) ($m['a_id'] ?? '')) ? (string) $m['a_id'] : (Clash::isAiId((string) ($m['b_id'] ?? '')) ? (string) $m['b_id'] : '');
+        if ($aiId === '') {
+            return;
+        }
+        $wait = ['easy' => [7, 11], 'medium' => [3, 6], 'hard' => [2, 3]][$level] ?? [7, 11];
+        $last = (int) ($st['lastAiSlap'] ?? 0);
+        $from = $last > 0 ? $last : (strtotime((string) $round['started_at'] . ' UTC') ?: time());
+        $need = $last > 0 ? $wait[1] : $wait[0];
+        if (time() - $from < $need) {
+            return;
+        }
+        $bot = Db::one('SELECT * FROM cc_players WHERE id = ?', [$aiId]);
+        if (!$bot) {
+            return;
+        }
+        $hand = Clash::modeHand($bot, $m, $round);
+        $toks = array_keys($hand);
+        if (!$toks) {
+            return;
+        }
+        $pick = $toks[abs(crc32($m['id'] . '|' . ($round['id'] ?? '') . '|' . (string) time())) % count($toks)];
+        try {
+            $st['lastAiSlap'] = time();
+            self::save((string) $m['id'], self::PILE, $st);
+            self::slapPile($bot, $m, $round, $st, (string) $pick);
+        } catch (Throwable $e) {
+            error_log('[combocraft pile ai] ' . $e->getMessage());
         }
     }
 
