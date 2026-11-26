@@ -1569,8 +1569,12 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-[tabindex]:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+[role="button"]:focus-visible,
+.el:focus-visible,
+.gcard:focus-visible,
+.bg-card:focus-visible,
+.lo-el:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
