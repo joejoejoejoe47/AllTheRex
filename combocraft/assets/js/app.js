@@ -1,10 +1,10 @@
 // ComboCraft front end: routing, state, pages.
-import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=42';
-import { storyHtml, storyPng } from './share.js?v=42';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=42';
-import { initBg, syncPrefs } from './bg.js?v=42';
-import { initAds, renderAdRail } from './ads.js?v=42';
-import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=42';
+import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst } from './fx.js?v=43';
+import { storyHtml, storyPng } from './share.js?v=43';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=43';
+import { initBg, syncPrefs } from './bg.js?v=43';
+import { initAds, renderAdRail } from './ads.js?v=43';
+import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=43';
 
 const BASE = (document.querySelector('base')?.getAttribute('href')) || '/';
 const ROOT = new URL(BASE, location.href).pathname; // "/combocraft/" or "/"
@@ -212,6 +212,7 @@ async function pagePlay() {
       </aside>
       <div class="play-main${state.showAll ? ' el-all' : ''}">
         ${playChrome(state)}
+        <div class="play-stick">
         <section class="combine" id="combine">
           <h2>Combine</h2>
           <div class="sub">Drag elements here to discover new combinations</div>
@@ -222,11 +223,12 @@ async function pagePlay() {
           </div>
           <div class="result-zone" id="resultZone"></div>
         </section>
-        <div class="el-section" id="elSection">
         <div class="sec-h el-h"><h2>Elements</h2><span class="count-chip" id="elCount"></span><span class="grow"></span>
           <label class="search">${svg.search}<input id="elSearch" placeholder="Search" autocomplete="off" value="${esc(state.filter)}"></label>
           <button class="mini-btn" id="btnRecipe" title="Double-click, long-press, or right-click a card">Recipe Book</button>
           <button class="mini-btn" id="toggleAll">${state.showAll ? 'Show less' : 'Show all'}</button></div>
+        </div>
+        <div class="el-section" id="elSection">
         <div class="strip-wrap">
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
           <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
@@ -1239,7 +1241,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=42').then((m) => {
+import('./clash.js?v=43').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1266,7 +1268,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=42');
+    const m = window.__ccClashMod || await import('./clash.js?v=43');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
