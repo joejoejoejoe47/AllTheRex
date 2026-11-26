@@ -866,6 +866,19 @@ html.shaking { animation: shake .45s ease-in-out; }
 .lo-grid, .cl-hand { display: flex; flex-wrap: wrap; gap: 10px; }
 .lo-el { position: relative; min-width: 88px; }
 .lo-el.on { outline: 3px solid var(--purple); outline-offset: 1px; }
+.lo-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 0 0 14px; }
+.lo-search { flex: 1 1 180px; min-width: 0; max-width: 420px; height: 40px; }
+.lo-search input { width: 100%; min-width: 0; flex: 1; }
+.lo-rars { display: flex; flex-wrap: wrap; gap: 6px; }
+.lo-rar {
+  height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel); font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer;
+}
+.lo-rar.on { color: var(--ink); border-color: var(--purple); background: color-mix(in srgb, var(--purple) 16%, var(--panel)); }
+.lo-empty { color: var(--muted); font-size: 14px; padding: 8px 4px 14px; }
+@media (max-width: 720px) {
+  .lo-search { flex: 1 1 100%; max-width: none; }
+}
 .clash-lo-act, .cl-acts { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0; align-items: center; }
 .pill-btn.on { background: var(--purple); color: #fff; border-color: transparent; }
 
