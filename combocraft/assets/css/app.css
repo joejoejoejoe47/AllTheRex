@@ -1548,3 +1548,85 @@ button.eq-make:hover .eq-card { filter: brightness(1.06); }
 .tree-row .glow-trophy{font-size:22px;filter:drop-shadow(0 0 8px rgba(255,196,0,.95)) drop-shadow(0 0 16px rgba(255,160,0,.6));text-align:center}
 @keyframes ftGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,196,0,.4),0 0 18px rgba(255,196,0,.35)}50%{box-shadow:0 0 0 1px rgba(255,210,40,.7),0 0 28px rgba(255,180,0,.6)}}
 @media (max-width:640px){.ft-stage{max-height:42vh}.ft-pair{gap:8px}}
+
+/* Focus rings: only on real controls. The default dashed browser
+   outline was snapping around the sticky top bar / other wrappers
+   when those accidentally received focus. */
+header, .topbar, .nav, .tb-right, .page-title, .tabs,
+main, #view, .wrap, .play, .play-grid, .play-main, .play-stick,
+.play-activity, .play-ads, .el-section, .el-h, .daily-bar, .world-bar,
+body, html {
+  outline: none;
+}
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible),
+summary:focus:not(:focus-visible) {
+  outline: none;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ComboCraft scrollbars: slim rounded thumb, pink → purple → blue.
+   Applies to the page and inner panes (elements grid, chat, modals,
+   activity column). Horizontal recents/strips stay hidden. */
+:root {
+  --scroll-thumb: #a77bf5;
+  --scroll-track: rgba(123, 63, 228, .08);
+}
+[data-theme="dark"] {
+  --scroll-thumb: #c4a0ff;
+  --scroll-track: rgba(167, 123, 245, .16);
+}
+html { overflow-y: scroll; }
+html, body, * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: linear-gradient(180deg, #f4a4d4 0%, #a77bf5 48%, #1a6ff0 100%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .35);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ffc2e6 0%, #c4a0ff 48%, #4d8fff 100%);
+  background-clip: padding-box;
+  box-shadow: 0 0 10px rgba(167, 123, 245, .7), inset 0 0 0 1px rgba(255, 255, 255, .5);
+}
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #e889c4 0%, #8b5cf6 48%, #1158d6 100%);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+[data-theme="dark"]::-webkit-scrollbar-thumb,
+[data-theme="dark"] *::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #f0b3e0 0%, #c4a0ff 48%, #5b9cff 100%);
+  background-clip: padding-box;
+}
+.strip, .recent-row {
+  scrollbar-width: none;
+}
+.strip::-webkit-scrollbar,
+.recent-row::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
