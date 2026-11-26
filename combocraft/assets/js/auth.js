@@ -1,5 +1,5 @@
 // Morse Chess username/password sign-in, plus Legendary picture sign-in when the account is unlocked.
-import { esc } from './fx.js?v=42';
+import { esc } from './fx.js?v=43';
 
 let ctx = { api: null, toast: null, state: null, reload: null };
 
