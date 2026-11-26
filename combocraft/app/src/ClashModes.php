@@ -22,6 +22,7 @@ final class ClashModes
     public const LIVE = [
         self::GIFT,
         self::PILE,
+        self::TELEPHONE,
     ];
 
     public const INFO = [
@@ -932,6 +933,13 @@ final class ClashModes
         }
         $pid = (string) $seat['playerId'];
         $expired = time() >= (int) ($st['turnUntil'] ?? 0);
+        if (Clash::isAiId($pid) && !$expired) {
+            $started = (int) ($st['turnUntil'] ?? 0) - self::TEL_TURN_SECS;
+            $think = ['easy' => 3, 'medium' => 2, 'hard' => 1][Clash::aiLevelOf($m) ?? 'easy'] ?? 3;
+            if ($started > 0 && time() < $started + $think) {
+                return;
+            }
+        }
         if (Clash::isAiId($pid) || $expired) {
             $player = Db::one('SELECT * FROM cc_players WHERE id = ?', [$pid]);
             if (!$player) {

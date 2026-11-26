@@ -140,6 +140,9 @@ final class Clash
             return ['match' => self::matchView($live, $p), 'ai' => self::aiLevelOf($live), 'mode' => ClashModes::of($live)];
         }
         self::ensureAiPlayer($level);
+        if ($mode !== '') {
+            $mode = ClashModes::requireLive($mode);
+        }
         $m = self::createMatch($p['id'], self::AI[$level]['id']);
         if ($mode !== '') {
             ClashModes::attach($m, $mode);
