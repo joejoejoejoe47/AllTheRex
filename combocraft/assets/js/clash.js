@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=44';
+import { rarityClass, nameClass, nameVars } from './features.js?v=45';
 
 let inboxTimer = 0;
 let matchTimer = 0;

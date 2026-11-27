@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
 import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst, preloadSfx, bindClickSfx } from './fx.js?v=48';
 import { storyHtml, storyPng } from './share.js?v=43';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=44';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=45';
 import { initBg, syncPrefs } from './bg.js?v=43';
 import { initAds, renderAdRail, hideSideAd } from './ads.js?v=46';
 import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=43';
@@ -406,10 +406,10 @@ function renderRecent() {
     return;
   }
   row.innerHTML = state.recent.map((r, i) => `
-    <div class="rc" data-i="${i}" title="${esc(r.inputs[0].name)} + ${esc(r.inputs[1].name)} = ${esc(r.result.name)}">
-      <div class="eq">${ico(r.inputs[0].emoji)}<span class="op">+</span>${ico(r.inputs[1].emoji)}<span class="op">=</span>${ico(r.result.emoji)}</div>
+    <div class="rc" data-i="${i}" title="${esc(r.result.name)}">
+      <div class="eq">${ico(r.result.emoji)}</div>
       <div class="rname lt">${esc(r.result.name)}</div>
-      <div class="dk"><div style="min-width:0"><div class="t1">${esc(r.result.name)}</div><div class="t2">${esc(r.inputs[0].name)} + ${esc(r.inputs[1].name)}</div></div><div class="ic">${ico(r.result.emoji)}</div></div>
+      <div class="dk"><div style="min-width:0"><div class="t1">${esc(r.result.name)}</div></div><div class="ic">${ico(r.result.emoji)}</div></div>
     </div>`).join('');
   row.onclick = (e) => {
     const c = e.target.closest('.rc');
@@ -754,7 +754,7 @@ function celebrate(el, inputs) {
         <div class="ne">NEW ELEMENT</div>
         <div class="nm">${esc(el.name)}</div>
         <div class="ln"></div>
-        <div class="ds">${esc(inputs[0].name)} + ${esc(inputs[1].name)}.<br>${esc(desc)}</div>
+        <div class="ds">${esc(desc)}</div>
         <div class="rar">✦ ${rarity}</div>
       </div>
       <div class="pic">${artHtml(el, BASE)}</div>
@@ -1122,7 +1122,7 @@ async function pageGallery() {
   async function load(s) {
     try { items = (await api('gallery?sort=' + s)).items; } catch (e) { $('#galGrid').innerHTML = `<div class="gal-more">${esc(e.message)}</div>`; return; }
     $('#galGrid').innerHTML = items.map((it, i) => {
-      const t = it.recipe ? `${esc(it.recipe[0].name)} + ${esc(it.recipe[1].name)} =<br>${esc(it.name)}` : esc(it.name);
+      const t = esc(it.name);
       const g = it.label === 'FEATURED' ? (i % 3) : it.label === 'STAFF PICK' ? 3 : it.label === 'POPULAR' ? 4 : it.label === 'COMMUNITY' && it.art ? 5 : (i % 6);
       const shareIcon = g === 1 ? svg.share : svg.upload;
       return `<div class="gcard g${g}" data-i="${i}" role="button" tabindex="0">
@@ -1177,7 +1177,7 @@ async function pageChat() {
   function msgHtml(m) {
     const rx = (reactions[m.id] || []).map((r) => `<button class="rx${r.mine ? ' mine' : ''}" data-rx="${m.id}" data-e="${esc(r.emoji)}">${ico(r.emoji)}${r.n > 1 ? `<small>${r.n}</small>` : ''}</button>`).join('');
     const el = m.element;
-    const disc = el ? `<div class="dcard" data-el="${m.id}"><span class="ic">${ico(el.emoji)}</span><div><div class="eqt">${el.recipe ? `${esc(el.recipe[0].name)} + ${esc(el.recipe[1].name)} = ` : ''}${esc(el.name)}</div>${el.tagline ? `<div class="ts">${esc(el.tagline)}</div>` : ''}</div></div>` : '';
+    const disc = el ? `<div class="dcard" data-el="${m.id}"><span class="ic">${ico(el.emoji)}</span><div><div class="eqt">${esc(el.name)}</div>${el.tagline ? `<div class="ts">${esc(el.tagline)}</div>` : ''}</div></div>` : '';
     const t = new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     return `<div class="msg" data-id="${m.id}"><div class="avatar" style="background:${avatarBg(m.avatar)}">${ico(m.avatar)}</div><div style="min-width:0">
       <div class="nm">${esc(m.nickname)}<time>${t}</time></div>
@@ -1321,7 +1321,7 @@ loadFluent(BASE).then(() => render());
 initAds({ state, go });
 // Warm up the player record in the background so Play opens instantly.
 if (currentRoute() !== 'play') loadMe().catch(() => {});
-import('./clash.js?v=51').then((m) => {
+import('./clash.js?v=52').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
@@ -1375,7 +1375,7 @@ async function linkMorse() {
 async function pageClash() {
   const ctx = { api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe };
   try {
-    const m = window.__ccClashMod || await import('./clash.js?v=51');
+    const m = window.__ccClashMod || await import('./clash.js?v=52');
     window.__ccClashMod = m;
     cleanup = () => { try { m.stopMatch(); } catch {} };
     return m.pageClash(ctx);
