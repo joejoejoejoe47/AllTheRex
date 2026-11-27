@@ -739,6 +739,17 @@ html.shaking { animation: shake .45s ease-in-out; }
 .db-done { margin-left: 8px; font-size: 11px; font-weight: 700; background: #2f9d4a; color: #fff; border-radius: 999px; padding: 2px 8px; }
 .db-meta { display: flex; align-items: center; gap: 8px; }
 .db-streak { font-weight: 700; }
+.db-level { font-size: 13px; font-weight: 800; color: var(--ink); margin: 2px 0 6px; }
+.db-blurb { font-size: 12px; color: var(--muted, #667); margin: 4px 0 0; }
+.db-ramp { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0 0 8px; padding: 0; }
+.db-ramp li { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 3px 9px; background: #ece6f8; color: #5a4a7a; }
+.db-ramp li .n { margin-right: 3px; opacity: .75; }
+.db-ramp li.on { background: #7b3fe4; color: #fff; }
+.db-ramp li.done { background: #d8f3d4; color: #1f7a32; }
+[data-theme="dark"] .db-ramp li { background: #3a2a58; color: #d8c8ff; }
+[data-theme="dark"] .db-ramp li.on { background: #9b6bff; color: #fff; }
+[data-theme="dark"] .db-ramp li.done { background: #1e4a2a; color: #b7e3b0; }
+
 
 .world-bar { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin: 0 0 16px; flex-wrap: wrap; }
 .world-bar.lg { margin: 8px 0 22px; font-size: 15px; }

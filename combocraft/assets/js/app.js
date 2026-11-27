@@ -1,7 +1,7 @@
 // ComboCraft front end: routing, state, pages.
 import { sfx, sound, loadFluent, ico, iconUrl, artHtml, esc, confetti, svg, shake, burst, preloadSfx, bindClickSfx } from './fx.js?v=48';
 import { storyHtml, storyPng } from './share.js?v=43';
-import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=43';
+import { applyMe, playChrome, bindPlayChrome, onCombineExtras, openRecipe, pageAchievements, rarityClass, shareDaily, copyInvite, dailyWin, showBadges, nameClass, nameVars } from './features.js?v=44';
 import { initBg, syncPrefs } from './bg.js?v=43';
 import { initAds, renderAdRail, hideSideAd } from './ads.js?v=46';
 import { initAuth, syncCoins, openAuth, signOut } from './auth.js?v=43';
