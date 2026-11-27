@@ -524,3 +524,12 @@ CREATE TABLE IF NOT EXISTS cc_daily_chain (
   updated_at DATETIME NOT NULL,
   PRIMARY KEY (player_id, day)
 );
+
+CREATE TABLE IF NOT EXISTS cc_checkins (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  element_id INT NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day)
+);
+CREATE INDEX IF NOT EXISTS cc_checkins_player ON cc_checkins (player_id, element_id);

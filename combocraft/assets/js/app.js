@@ -95,6 +95,9 @@ async function loadMeNow() {
   applyMe(state, d);
   if (d.prefs) syncPrefs(d.prefs);
   syncCoins(state);
+  if (d.checkin?.new && d.checkin.element) {
+    state.checkinUnlock = d.checkin.element;
+  }
 }
 
 // ---------------- Router ----------------
@@ -316,6 +319,11 @@ async function pagePlay() {
   });
   const offDrag = setupDrag();
   cleanup = () => { offDrag(); document.body.classList.remove('cc-el-all'); hideSideAd({ clearSchedule: false }); };
+  if (state.checkinUnlock) {
+    const el = state.checkinUnlock;
+    state.checkinUnlock = null;
+    requestAnimationFrame(() => showCheckin(el));
+  }
 }
 
 const EL_DOCK_KEY = 'cc_el_dock';
@@ -1317,6 +1325,33 @@ import('./clash.js?v=51').then((m) => {
   window.__ccClashMod = m;
   m.startInbox({ api, state, view, toast, go, ico, artHtml, BASE, esc, sfx, askNickname, ensureMe });
 }).catch(() => {});
+
+function showCheckin(el) {
+  if (!el) return;
+  document.getElementById('ckPop')?.remove();
+  const pop = document.createElement('div');
+  pop.id = 'ckPop';
+  pop.className = 'overlay ck-pop-overlay';
+  pop.innerHTML = `<div class="ck-pop" role="dialog" aria-label="Daily basic unlock">
+    <div class="ck-kicker">Free daily basic</div>
+    <div class="result ${rarityClass(el)}" data-id="${el.id}">
+      <div class="sparkles">${['10%;top:8%', '88%;top:14%', '-2%;top:60%', '96%;top:68%', '50%;top:-4%'].map((p, i) => `<i style="left:${p};animation-delay:${i * 0.2}s">✦</i>`).join('')}</div>
+      <div class="art">${artHtml(el, BASE)}</div>
+      <div class="rn">${esc(el.name)}</div>
+      ${el.tagline ? `<div class="tg">${esc(el.tagline)}</div>` : ''}
+      <div class="rar-pill r-common">Basic</div>
+    </div>
+    <p class="ck-note">A new basic for checking in today. Come back tomorrow for another!</p>
+    <button type="button" class="btn-primary" data-act="ok">Nice!</button>
+  </div>`;
+  document.body.appendChild(pop);
+  const close = () => pop.remove();
+  pop.addEventListener('click', (e) => {
+    if (e.target === pop || e.target.closest('[data-act="ok"]')) close();
+  });
+  sfx('pop');
+  sfx('success');
+}
 
 function legendaryPop(el, inputs) {
   celebrate(el, inputs);

@@ -13,8 +13,8 @@ final class Game
     public static function ensureBase(): void
     {
         self::scrubCrowns();
-        $flag = Config::storagePath('base-' . substr(sha1(json_encode([Seeds::BASE, Seeds::FEATURED]) . Db::driver()), 0, 12) . '.ok');
-        if (is_file($flag) && Db::value('SELECT COUNT(*) FROM cc_elements WHERE is_base = 1') >= count(Seeds::BASE)) {
+        $flag = Config::storagePath('base-' . substr(sha1(json_encode([Seeds::BASE, Seeds::CHECKIN, Seeds::FEATURED]) . Db::driver()), 0, 12) . '.ok');
+        if (is_file($flag) && Db::value('SELECT COUNT(*) FROM cc_elements WHERE is_base = 1') >= count(Seeds::BASE) && Db::value("SELECT COUNT(*) FROM cc_elements WHERE source = 'checkin'") >= count(Seeds::CHECKIN)) {
             return;
         }
         $now = Db::now();
@@ -26,6 +26,17 @@ final class Game
                     'name' => $name, 'name_key' => Text::key($name), 'emoji' => $emoji, 'tagline' => $tag, 'art' => null,
                     'label' => null, 'depth' => 0, 'is_base' => 1, 'sort_order' => $i, 'discovered_by' => null,
                     'discovered_at' => null, 'first_a' => null, 'first_b' => null, 'uses' => 0, 'source' => 'base', 'created_at' => $now,
+                ]);
+            }
+        }
+        $k = 0;
+        foreach (Seeds::CHECKIN as $name => [$emoji, $tag]) {
+            $k++;
+            if (Db::value('SELECT id FROM cc_elements WHERE name_key = ?', [Text::key($name)]) === null) {
+                self::insertIgnore('cc_elements', [
+                    'name' => $name, 'name_key' => Text::key($name), 'emoji' => $emoji, 'tagline' => $tag, 'art' => null,
+                    'label' => null, 'depth' => 0, 'is_base' => 0, 'sort_order' => 100 + $k, 'discovered_by' => null,
+                    'discovered_at' => null, 'first_a' => null, 'first_b' => null, 'uses' => 0, 'source' => 'checkin', 'created_at' => $now,
                 ]);
             }
         }
@@ -110,7 +121,7 @@ final class Game
             'art' => $e['art'] ?: null,
             'label' => $e['label'] ?: null,
             'depth' => (int) $e['depth'],
-            'base' => (int) $e['is_base'] === 1,
+            'base' => (int) $e['is_base'] === 1 || (($e['source'] ?? '') === 'checkin'),
             'uses' => (int) $e['uses'],
             'rarity' => self::rarity((int) $e['depth'], (int) $e['uses']),
         ];

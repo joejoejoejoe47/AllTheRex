@@ -218,6 +218,7 @@ final class Api
         Http::json([
             'ok' => true,
             'me' => Player::publicView($p),
+            'checkin' => self::mePart('checkin', fn () => Checkin::claim($p), null),
             'elements' => self::mePart('collection', fn () => Game::collection($p), []),
             'recent' => self::mePart('recent', fn () => self::recent($p), []),
             'daily' => self::mePart('daily', fn () => Daily::status($p), null),
