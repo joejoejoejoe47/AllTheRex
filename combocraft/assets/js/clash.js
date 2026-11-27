@@ -1,5 +1,5 @@
 // Combo Clash — real-time PvP. Polled against a server-authoritative PHP match.
-import { rarityClass, nameClass, nameVars } from './features.js?v=43';
+import { rarityClass, nameClass, nameVars } from './features.js?v=44';
 
 let inboxTimer = 0;
 let matchTimer = 0;
@@ -8,6 +8,8 @@ let ctx = null;
 let attackMode = false;
 let burstMode = false;
 let pick = [null, null];
+let playBusy = false;
+let partyBusy = false;
 let selectedMode = 'duel';
 const EXTRA_MODE_LIVE = ['gift', 'pile', 'telephone', 'boss', 'shelf'];
 const EXTRA_MODES = [
@@ -529,12 +531,62 @@ function heatMeterExact(src) {
 function oneSlotMode(m) {
   return m && (m.mode === 'pile' || m.mode === 'telephone' || m.mode === 'boss');
 }
+
+function canAutoTwo(m) {
+  if (playBusy || !m || oneSlotMode(m) || m.pendingGift) return false;
+  if (m.status !== 'playing') return false;
+  const kickLeft = m.kickoffUntil ? Math.max(0, m.kickoffUntil - Date.now()) : 0;
+  if (kickLeft > 0) return false;
+  return !!(pick[0] && pick[1]);
+}
+function maybeAutoCombine(m) {
+  if (!canAutoTwo(m)) return;
+  doPlay(m, !!attackMode);
+}
+function playCreateSfx(pl, alreadyHad) {
+  try {
+    if (!ctx.sfx || !pl) return;
+    ctx.sfx('pop');
+    if (alreadyHad) ctx.sfx('known');
+    else ctx.sfx('success');
+    const rar = pl.rarity;
+    if (rar === 'Legendary') ctx.sfx('legendary');
+    else if (rar === 'Epic') ctx.sfx('epic');
+    else if (rar === 'Rare') ctx.sfx('rare');
+  } catch {}
+}
+function hadNameAlready(m, name, token) {
+  const n = String(name || '').toLowerCase();
+  if (!n) return false;
+  const lists = [m?.loadout || [], m?.youPlays || [], m?.hand || []];
+  for (const list of lists) {
+    for (const e of list) {
+      if (!e) continue;
+      if (token && e.token && e.token === token) continue;
+      if (String(e.name || '').toLowerCase() === n) return true;
+    }
+  }
+  return false;
+}
+function madeCardHtml(pl) {
+  const { esc, ico, artHtml, BASE } = ctx;
+  const el = { name: pl.name, emoji: pl.emoji, tagline: pl.tagline, rarity: pl.rarity, art: pl.art };
+  const art = artHtml ? artHtml(el, BASE) : (pl.emoji ? ico(pl.emoji) : '');
+  return `<div class="result ${rarityClass(pl)}" data-made="1">
+      <div class="sparkles">${['10%;top:8%', '88%;top:14%', '-2%;top:60%', '96%;top:68%', '50%;top:-4%'].map((p, i) => `<i style="left:${p};animation-delay:${i * 0.2}s">✦</i>`).join('')}</div>
+      <div class="art">${art}</div>
+      <div class="rn">${esc(pl.name)}</div>
+      ${pl.tagline ? `<div class="tg">${esc(pl.tagline)}</div>` : ''}
+      ${pl.rarity ? `<div class="rar-pill ${rarityClass(pl)}">${esc(pl.rarity)}</div>` : ''}
+    </div>`;
+}
+
 function modeSteps(m) {
   if (m.mode === 'gift') return `<span class="rl-ex-chip"><i>1</i> Combine two cards</span><span class="rl-ex-chip"><i>2</i> Keep one</span><span class="rl-ex-chip"><i>3</i> The other goes to them</span>`;
   if (m.mode === 'pile') return `<span class="rl-ex-chip"><i>1</i> Watch the pile</span><span class="rl-ex-chip"><i>2</i> Slap a card on it</span><span class="rl-ex-chip"><i>3</i> Theme scores. Sludge hurts.</span>`;
   if (m.mode === 'telephone') return `<span class="rl-ex-chip"><i>1</i> See the last card</span><span class="rl-ex-chip"><i>2</i> Add one ingredient</span><span class="rl-ex-chip"><i>3</i> Pass it on</span>`;
   if (m.mode === 'boss') return `<span class="rl-ex-chip"><i>1</i> Feed the boss</span><span class="rl-ex-chip"><i>2</i> It mutates</span><span class="rl-ex-chip"><i>3</i> Land the killing hit, keep it forever</span>`;
-  return `<span class="rl-ex-chip"><i>1</i> Pick 2 cards</span><span class="rl-ex-chip"><i>2</i> Combine</span><span class="rl-ex-chip"><i>3</i> Closer to the theme = more points</span>`;
+  return `<span class="rl-ex-chip"><i>1</i> Pick 2 cards</span><span class="rl-ex-chip"><i>2</i> They combine</span><span class="rl-ex-chip"><i>3</i> Closer to the theme = more points</span>`;
 }
 function modeBoard(m, slot, inKick) {
   const canTwo = !!pick[0] && !!pick[1] && m.status === 'playing' && !inKick && !m.pendingGift;
@@ -575,9 +627,8 @@ function modeBoard(m, slot, inKick) {
       <button class="rl-go" id="clGo" ${!canOne?'disabled':''}><span>Feed</span></button>
     </div>`;
   }
-  return `<div class="rl-ex-board">
+  return `<div class="rl-ex-board rl-ex-auto">
     <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
-    <button class="rl-go" id="clGo" ${!canTwo?'disabled':''}><span>Combine</span></button>
   </div>`;
 }
 function modeExtras(m, ico, esc) {
@@ -659,15 +710,12 @@ function paintArena(m, now, soft) {
   const kickWord = kickN >= 3 ? '3' : kickN === 2 ? '2' : kickN === 1 ? '1' : 'GO';
   const latest = (m.youPlays || []).length ? (m.youPlays || [])[(m.youPlays || []).length - 1] : null;
   const playCard = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}">
-    <div class="eq">${esc(p.a)} + ${esc(p.b)}</div>
     <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}</div>
     <div class="pts">+${p.score}${p.breakdown?.heat ? ' · ' + p.breakdown.heat : ''}${p.attack ? (p.breakdown?.attackWorks ? ' · counter' : ' · missed') : ''}</div>
   </div>`;
   const result = latest ? `<div class="rl-ex-result">
+      ${madeCardHtml(latest)}
       <div class="rl-ex-result-top">
-        <span class="rl-ex-ico">${latest.emoji ? ico(latest.emoji) : ''}</span>
-        <b class="rl-ex-name">${esc(latest.name)}</b>
-        ${latest.rarity ? `<span class="rl-ex-rar ${rarityClass(latest)}">${esc(String(latest.rarity).toUpperCase())}</span>` : ''}
         <span class="rl-ex-pts">+${latest.score ?? 0}</span>
       </div>
       ${heatMeterExact(latest)}
@@ -715,7 +763,7 @@ function paintArena(m, now, soft) {
           </div>
         </div>
       </details>
-      ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
+      ${boom ? `<div class="rl-boom${boom.kind==='DEMOLISHED!'?' demolished':''}${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div></div>` : ''}
       ${inKick ? `<div class="rl-kick"><b>${kickWord}</b></div>` : ''}
     </div>`;
   view.innerHTML = arena;
@@ -743,9 +791,11 @@ function bindArena(m, hand) {
     else if (!pick[1]) pick[1] = card;
     else { pick = [card, null]; }
     paintArena(m, m.now, false);
+    maybeAutoCombine(m);
   };
   const go = document.getElementById('clGo');
   if (go) go.onclick = () => doPlay(m, false);
+  maybeAutoCombine(m);
   document.querySelectorAll('[data-gift]').forEach((b) => {
     b.onclick = () => chooseGift(m, b.dataset.gift);
   });
@@ -768,7 +818,9 @@ function bindArena(m, hand) {
 async function doPlay(m, attack) {
   const one = oneSlotMode(m);
   if (!pick[0] || (!one && !pick[1])) return;
-  const { api, toast, sfx } = ctx;
+  if (playBusy) return;
+  const { api, toast } = ctx;
+  playBusy = true;
   try {
     const d = await api('clash/play', { matchId: m.id, a: pick[0].token, b: one ? (pick[0].token) : pick[1].token, attack, burst: burstMode });
     if (d.pendingGift) {
@@ -777,29 +829,21 @@ async function doPlay(m, attack) {
       paintMatch(d.match, d.now);
       return;
     }
-    if (ctx.sfx) {
-      const pl = d.play || {};
-      const heat = pl.breakdown?.heat || pl.heat;
-      const exact = pl.breakdown?.exact || pl.exact;
-      if (exact) ctx.sfx('exact');
-      else if (heat === 'On Fire') ctx.sfx('heat-fire');
-      else if (heat === 'Hot') ctx.sfx('heat-hot');
-      else if (heat === 'Warm') ctx.sfx('heat-warm');
-      else ctx.sfx('pop');
-      if (pl.score) ctx.sfx('points');
-    }
     const pl = d.play;
-    if (pl) {
-      const heat = pl.breakdown?.heat || pl.heat;
-      const kind = pl.breakdown?.attackWorks ? 'DEMOLISHED!' : (pl.breakdown?.exact ? 'ON TARGET!' : (heat === 'On Fire' ? 'ON FIRE!' : (heat === 'Hot' ? 'HOT!' : (heat === 'Warm' ? 'WARM!' : 'COMBO!'))));
-      boom = { kind, heat, sub: `${pl.a || pl.inputs?.[0] || ''} + ${pl.b || pl.inputs?.[1] || ''} = ${pl.name} · +${pl.score}` };
-      setTimeout(() => { if (boom && boom.sub.endsWith('+' + pl.score)) { boom = null; } }, 1800);
+    const already = pl ? hadNameAlready(m, pl.name, pl.token) : false;
+    playCreateSfx(pl, already);
+    if (pl && pl.breakdown?.attackWorks) {
+      boom = { kind: 'DEMOLISHED!', heat: pl.breakdown?.heat || pl.heat, sub: '' };
+      setTimeout(() => { boom = null; }, 1800);
+    } else {
+      boom = null;
     }
-    pick = [pl ? { token: pl.token, name: pl.name, emoji: pl.emoji, rarity: pl.rarity } : null, null];
+    pick = [pl ? { token: pl.token, name: pl.name, emoji: pl.emoji, rarity: pl.rarity, tagline: pl.tagline, art: pl.art } : null, null];
     burstMode = false;
     attackMode = false;
     paintMatch(d.match, d.now);
   } catch (e) { toast(e.message); }
+  finally { playBusy = false; }
 }
 
 function rematchBox(rm) {
@@ -1637,7 +1681,7 @@ function paintPartyMatch(m) {
     return `<div class="rl-slot filled ${rarityClass(c)}"><div class="i">${ico(c.emoji)}</div><div>${esc(c.name)}</div></div>`;
   };
   const card = (p, opp) => `<div class="rl-playc${opp ? ' opp' : ''}${p.hit ? ' hit' : ''}">
-    <div class="eq">${esc(p.player?.name || '')} · ${esc(p.a)} + ${esc(p.b)}</div>
+    ${p.player?.name ? `<div class="eq">${esc(p.player.name)}</div>` : ''}
     <div class="nm">${p.emoji ? ico(p.emoji) + ' ' : ''}${esc(p.name)}${p.hit ? ' · MATCH!' : ''}</div>
     <div class="pts">${p.score ? '+' + p.score : ''}${p.heat ? ' · ' + p.heat : ''}</div>
   </div>`;
@@ -1651,7 +1695,8 @@ function paintPartyMatch(m) {
       </div>
       <div class="rl-theme">the thing · Session ${sess} / 3<br><span class="tgt">${target.emoji ? ico(target.emoji) + ' ' : ''}${esc(target.name || '???')}</span></div>
       ${heatMeter(lastHeat(m.youPlays))}
-      ${boom ? `<div class="rl-boom${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div><div class="sub">${esc(boom.sub)}</div></div>` : ''}
+      ${(!spectate && (m.youPlays || []).length) ? `<div class="rl-ex-result">${madeCardHtml((m.youPlays || [])[(m.youPlays || []).length - 1])}</div>` : ''}
+      ${boom ? `<div class="rl-boom${boom.heat ? ' heat-' + String(boom.heat).toLowerCase().replace(/\s+/g,'-') : ''}"><div class="word">${boom.kind}</div></div>` : ''}
       ${spectate ? `<div class="rl-theme" style="margin-top:8px;background:#5a1a1a">Your team is out — spectating. You can leave the party or exit to the menu.</div>` : ''}
       <div class="rl-grid">
         <div class="rl-panel rl-col blue"><h3>You</h3>${(m.youPlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Combine toward the thing.</div>'}</div>
@@ -1660,9 +1705,6 @@ function paintPartyMatch(m) {
         <div class="rl-panel rl-col orange"><h3>@${esc(m.oppName)} · Live</h3>${(m.oppPlays || []).slice().reverse().map((p) => card(p, true)).join('') || '<div class="muted">Waiting…</div>'}</div>` : `
         <div class="rl-panel rl-mid">
           <div class="rl-slots">${slot(0)}<div class="rl-plus">+</div>${slot(1)}</div>
-          <div class="rl-acts">
-            <button class="rl-go" id="pmGo" ${!partyPick[0]||!partyPick[1]||m.status!=='playing'?'disabled':''}><span>Combine</span></button>
-          </div>
         </div>
         <div class="rl-panel rl-col"><h3>Teammates</h3>${(m.matePlays || []).slice().reverse().map((p) => card(p, false)).join('') || '<div class="muted">Waiting on your party…</div>'}</div>`}
       </div>
@@ -1684,9 +1726,11 @@ function paintPartyMatch(m) {
       else if (!partyPick[1]) partyPick[1] = card;
       else partyPick = [card, null];
       paintPartyMatch(m);
+      if (!partyBusy && partyPick[0] && partyPick[1] && m.status === 'playing') doPartyPlay(m);
     };
     const goBtn = document.getElementById('pmGo');
     if (goBtn) goBtn.onclick = () => doPartyPlay(m);
+    if (!partyBusy && partyPick[0] && partyPick[1] && m.status === 'playing') doPartyPlay(m);
   } else {
     const lv = document.getElementById('pmLeave');
     if (lv) lv.onclick = async () => { try { await api('clash/party/leave', {}); } catch {} ensurePartyBar(null); go('clash'); };
@@ -1698,29 +1742,19 @@ function paintPartyMatch(m) {
 
 async function doPartyPlay(m) {
   if (!partyPick[0] || !partyPick[1]) return;
+  if (partyBusy) return;
+  partyBusy = true;
   try {
     const d = await ctx.api('clash/party/play', { matchId: m.id, a: partyPick[0].token, b: partyPick[1].token });
-    if (ctx.sfx) {
-      const pl = d.play || {};
-      const heat = pl.heat || pl.breakdown?.heat;
-      if (pl.hit || pl.exact) ctx.sfx('exact');
-      else if (heat === 'On Fire') ctx.sfx('heat-fire');
-      else if (heat === 'Hot') ctx.sfx('heat-hot');
-      else if (heat === 'Warm') ctx.sfx('heat-warm');
-      else ctx.sfx('pop');
-      if (pl.score) ctx.sfx('points');
-    }
     const pl = d.play;
-    if (pl) {
-      const heat = pl.heat;
-      const kind = pl.hit || pl.exact ? 'ON TARGET!' : (heat === 'On Fire' ? 'ON FIRE!' : (heat === 'Hot' ? 'HOT!' : (heat === 'Warm' ? 'WARM!' : 'COMBO!')));
-      boom = { kind, heat, sub: `${pl.a || ''} + ${pl.b || ''} = ${pl.name} · +${pl.score || 0}` };
-      setTimeout(() => { boom = null; }, 1800);
-      if (pl.hit) ctx.toast('Your team matched the thing! Next session…');
-    }
-    partyPick = [d.play ? { token: d.play.token, name: d.play.name, emoji: d.play.emoji, rarity: d.play.rarity } : null, null];
+    const already = pl ? hadNameAlready(m, pl.name, pl.token) : false;
+    playCreateSfx(pl, already);
+    boom = null;
+    if (pl && pl.hit) ctx.toast('Your team matched the thing! Next session…');
+    partyPick = [d.play ? { token: d.play.token, name: d.play.name, emoji: d.play.emoji, rarity: d.play.rarity, tagline: d.play.tagline, art: d.play.art } : null, null];
     paintPartyMatch(d.match);
   } catch (e) { ctx.toast(e.message); }
+  finally { partyBusy = false; }
 }
 
 function ensureChatButton(m) {
