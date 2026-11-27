@@ -238,6 +238,7 @@ async function pagePlay() {
           <div class="result-zone" id="resultZone"></div>
         </section>
         </div>
+        <div class="el-stack" id="elStack">
         <div class="el-section" id="elSection">
         <div class="el-dock-rail">
           <button type="button" class="el-dock-btn el-dock-l" id="dockL" aria-label="Dock elements to the left" title="Dock to the left">${svg.left}</button>
@@ -252,6 +253,7 @@ async function pagePlay() {
           <button class="arrow" id="arrL" aria-label="Scroll left">${svg.left}</button>
           <div class="strip${state.showAll ? ' all' : ''}" id="strip"></div>
           <button class="arrow" id="arrR" aria-label="Scroll right">${svg.right}</button>
+        </div>
         </div>
         <section class="recent">
           <div class="sec-h"><h2>Recent Discoveries</h2><span class="grow"></span><a href="#" id="viewAll">View all ›</a></div>
