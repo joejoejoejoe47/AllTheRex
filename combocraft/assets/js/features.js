@@ -37,6 +37,8 @@ function cacheDaily(d) {
   try {
     localStorage.setItem(dailyCacheKey(d.day), JSON.stringify({
       day: d.day, level: d.level, steps: d.steps, stepsLabel: d.stepsLabel,
+      difficulty: d.difficulty, difficultyLabel: d.difficultyLabel, difficultyBlurb: d.difficultyBlurb,
+      totalLevels: d.totalLevels, tiers: d.tiers,
       target: d.target, solved: d.solved, cleared: d.cleared, score: d.score,
       streak: d.streak, share: d.share, solvedKeys: d.solvedKeys, history: d.history,
     }));
@@ -56,20 +58,43 @@ export function rarityClass(el) {
   return r === 'legendary' ? 'r-leg' : r === 'epic' ? 'r-epic' : r === 'rare' ? 'r-rare' : 'r-common';
 }
 
+
+function dailyLevelLine(d) {
+  const cleared = !!(d?.cleared || (d?.solved && !d?.level));
+  const level = d?.level || 1;
+  const total = d?.totalLevels || 5;
+  const diff = d?.difficultyLabel || '';
+  const blurb = d?.difficultyBlurb || d?.stepsLabel || '';
+  let line = 'Level ' + level + ' of ' + total;
+  if (diff) line += ' · ' + diff;
+  else if (blurb) line += ' · ' + blurb;
+  if (cleared) line += ' · Chain complete';
+  return line;
+}
+
+function dailyRampHtml(d) {
+  const tiers = d?.tiers || [];
+  if (!tiers.length) return '';
+  const items = tiers.map((t) => `<li class="${t.state || ''}" title="${esc(t.blurb || t.label)}"><span class="n">${t.level}</span> ${esc(t.label)}</li>`).join('');
+  return `<ol class="db-ramp" id="dailyRamp">${items}</ol>`;
+}
+
 export function playChrome(state) {
   const d = state.daily;
   const h = state.hints || { left: 3 };
   const target = d?.target;
   const cleared = !!(d?.cleared || (d?.solved && !d?.level));
   const level = d?.level || 1;
-  const stepsLab = d?.stepsLabel || (d?.steps ? ('about ' + d.steps + ' combo' + (d.steps === 1 ? '' : 's')) : '');
+  const stepsLab = d?.difficultyBlurb || d?.stepsLabel || '';
   return `
     <div class="daily-bar rl-daily${cleared ? ' solved' : ''}" id="dailyBar">
       <div class="db-main">
         <div class="db-kicker">Daily Challenge${d?.day ? ' · ' + d.day : ''}</div>
-        <div class="db-level">Level ${level}${stepsLab ? ' · ' + esc(stepsLab) : ''}${cleared ? ' · Chain complete' : ''}</div>
+        <div class="db-level">${esc(dailyLevelLine(d))}</div>
+        ${dailyRampHtml(d)}
         <div class="db-target">${target ? `${ico(target.emoji)} <b>Make ${esc(target.name)}</b>` : 'Loading today’s target…'}
           ${cleared ? '<span class="db-done">Solved</span>' : ''}</div>
+        ${stepsLab && !cleared ? `<div class="db-blurb">${esc(stepsLab)}</div>` : ''}
       </div>
       <div class="db-meta">
         <span class="db-streak" title="Daily streak">🔥 ${d?.streak || 0}</span>
@@ -226,7 +251,7 @@ function paintDailyBar(state) {
   if (!d) return;
   const cleared = !!d.cleared;
   const level = d.level || 1;
-  const stepsLab = d.stepsLabel || '';
+  const stepsLab = d.difficultyBlurb || d.stepsLabel || '';
   const target = d.target;
   db.classList.toggle('solved', cleared);
   db.classList.add('rl-daily');
@@ -238,7 +263,23 @@ function paintDailyBar(state) {
     lvl.className = 'db-level';
     db.querySelector('.db-main')?.insertBefore(lvl, db.querySelector('.db-target'));
   }
-  lvl.textContent = 'Level ' + level + (stepsLab ? ' · ' + stepsLab : '') + (cleared ? ' · Chain complete' : '');
+  lvl.textContent = dailyLevelLine(d);
+  let ramp = db.querySelector('#dailyRamp');
+  const rampHtml = dailyRampHtml(d);
+  if (ramp && rampHtml) ramp.outerHTML = rampHtml;
+  else if (!ramp && rampHtml) lvl.insertAdjacentHTML('afterend', rampHtml);
+  let blurb = db.querySelector('.db-blurb');
+  if (stepsLab && !cleared) {
+    if (!blurb) {
+      blurb = document.createElement('div');
+      blurb.className = 'db-blurb';
+      db.querySelector('.db-target')?.insertAdjacentElement('afterend', blurb);
+    }
+    blurb.textContent = stepsLab;
+    blurb.hidden = false;
+  } else if (blurb) {
+    blurb.hidden = true;
+  }
   const tgt = db.querySelector('.db-target');
   if (tgt && target) {
     tgt.innerHTML = `${ico(target.emoji)} <b>Make ${esc(target.name)}</b>${cleared ? '<span class="db-done">Solved</span>' : ''}`;
@@ -267,10 +308,10 @@ function popDailyLevel(d, toast) {
   }
   try { confetti(); } catch {}
   const name = d.target?.name || 'the next target';
-  const lab = d.stepsLabel || '';
+  const lab = d.difficultyLabel ? (d.difficultyLabel + (d.difficultyBlurb || d.stepsLabel ? ' · ' + (d.difficultyBlurb || d.stepsLabel) : '')) : (d.stepsLabel || '');
   const gain = d.scoreGain ? ' +' + d.scoreGain + ' pts.' : '';
   const just = d.justName ? 'Solved ' + d.justName + '!' : 'Solved!';
-  toast(`${just} Level ${d.level} — Make ${name}${lab ? ' · ' + lab : ''}.${gain}`, 3600);
+  toast(`${just} Level ${d.level} of ${d.totalLevels || 5}${lab ? ' · ' + lab : ''} — Make ${name}.${gain}`, 3600);
 }
 
 function mergeBadges(all, added) {

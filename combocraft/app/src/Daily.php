@@ -5,13 +5,25 @@ declare(strict_types=1);
 namespace ComboCraft;
 
 /**
- * Daily Challenge chain: a date-seeded first target for everyone, then
- * harder follow-ups (more recipe-tree steps) that are also date-seeded
- * so friends can compare. Progress is stored per anonymous player id.
+ * Daily Challenge chain: a date-seeded ramp from Very Easy (two basic
+ * elements) up to Hard (two rare elements). Same day, same targets for
+ * everyone. Progress is stored per player in cc_daily_chain; existing
+ * rows are never rewritten, so mid-day progress and rewards stay put.
  */
 final class Daily
 {
-    /** Fun mid-tier seed results that almost always have a recipe. Used for Level 1. */
+    public const TOTAL_LEVELS = 5;
+
+    /** Visible Easy → Hard ramp. Each level prefers the listed ingredient pairs, then the next-closest band. */
+    public const TIERS = [
+        1 => ['id' => 'very-easy', 'label' => 'Very Easy', 'blurb' => 'Two basic elements', 'want' => [['basic', 'basic']]],
+        2 => ['id' => 'easy', 'label' => 'Easy', 'blurb' => 'A basic and a common', 'want' => [['basic', 'common']]],
+        3 => ['id' => 'medium', 'label' => 'Medium', 'blurb' => 'Two common elements', 'want' => [['common', 'common'], ['basic', 'rare']]],
+        4 => ['id' => 'medium-hard', 'label' => 'Medium-Hard', 'blurb' => 'A common and a rare', 'want' => [['common', 'rare'], ['basic', 'epic'], ['common', 'epic']]],
+        5 => ['id' => 'hard', 'label' => 'Hard', 'blurb' => 'Two rare elements', 'want' => [['rare', 'rare'], ['rare', 'epic'], ['epic', 'epic'], ['rare', 'legendary'], ['epic', 'legendary']]],
+    ];
+
+    /** Fun mid-tier seed results used by the legacy Level 1 picker. Kept so already-started days stay stable. */
     private const POOL = [
         'Steam', 'Ocean', 'Storm', 'Tsunami', 'Lava', 'Dragon', 'Inferno Feline',
         'Zoomies Apocalypse', 'Singularity', 'Cat Overlords', 'Wood-Fired Pizza',
@@ -68,7 +80,6 @@ final class Daily
             'day' => $day,
             'level' => (int) $chain['level'],
             'steps' => $steps,
-            'stepsLabel' => self::stepsLabel($steps),
             'target' => $target,
             'solved' => $cleared,
             'cleared' => $cleared,
@@ -84,7 +95,7 @@ final class Daily
             'autoSolved' => $auto,
             'justCoins' => (int) ($coins['justCoins'] ?? 0),
             'coinGrants' => $coins['byLevel'] ?? [],
-        ];
+        ] + self::difficultyView((int) $chain['level'], $cleared, $chain['solved_list'] ?? [], (string) ($chain['target_key'] ?? ''));
     }
 
     /** Level 1 target: same date seed as before, so today's first challenge stays unchanged. */
@@ -357,9 +368,9 @@ final class Daily
     /** @param list<string> $solved @return array<string,mixed> */
     private static function freshChain(string $day, array $solved): array
     {
-        $t = self::target($day);
-        $key = $t ? Text::key((string) $t['name']) : '';
-        $steps = $key !== '' ? (self::stepsForKey($key) ?: 1) : 1;
+        $t = self::pickForLevel($day, 1, $solved);
+        $key = $t['key'] ?? '';
+        $steps = (int) ($t['steps'] ?? ($key !== '' ? (self::stepsForKey($key) ?: 1) : 1));
         return [
             'level' => 1,
             'score' => 0,
@@ -428,64 +439,238 @@ final class Daily
 
     /**
      * Date-seeded pick for a level, skipping already solved keys.
-     * Level L aims for 2L-1 .. 2L combination steps (L1=1–2, L2=3–4, L3=5–6…).
+     * Levels follow the Easy → Hard ingredient ramp (basic+basic up to rare+rare).
      * @param list<string> $exclude
-     * @return array{key:string,name:string,steps:int,emoji:string}|null
+     * @return array{key:string,name:string,steps:int,emoji:string,pair:?array}|null
      */
     public static function pickForLevel(string $day, int $level, array $exclude): ?array
     {
-        if ($level <= 1) {
-            $t = self::target($day);
-            if (!$t) {
-                return null;
-            }
-            $key = Text::key((string) $t['name']);
-            return ['key' => $key, 'name' => (string) $t['name'], 'steps' => self::stepsForKey($key) ?: 1, 'emoji' => (string) ($t['emoji'] ?? '✨')];
+        if ($level < 1) {
+            return null;
+        }
+        if ($level > self::TOTAL_LEVELS) {
+            return null;
         }
         $g = self::graph();
-        $wantMin = 2 * $level - 1;
-        $wantMax = 2 * $level;
-        $buckets = [];
+        $candidates = self::candidatesForLevel($g, $level, $exclude);
+        if ($candidates === []) {
+            return null;
+        }
+        $idx = hexdec(substr(hash('sha256', 'cc-daily-v3|' . $day . '|' . $level), 0, 8)) % count($candidates);
+        $n = $candidates[$idx];
+        self::ensureNamed($n['name']);
+        return [
+            'key' => $n['key'],
+            'name' => $n['name'],
+            'steps' => (int) $n['steps'],
+            'emoji' => $n['emoji'] ?? '✨',
+            'pair' => $n['pair'] ?? null,
+        ];
+    }
+
+    /** @return array{id:string,label:string,blurb:string,want:list<array{0:string,1:string}>} */
+    public static function tierInfo(int $level): array
+    {
+        $level = max(1, min(self::TOTAL_LEVELS, $level));
+        return self::TIERS[$level];
+    }
+
+    /**
+     * Fields the client uses to draw the Easy → Hard ramp.
+     * @param list<string> $solved
+     * @return array<string,mixed>
+     */
+    public static function difficultyView(int $level, bool $cleared, array $solved, string $targetKey = ''): array
+    {
+        $info = self::tierInfo($level);
+        $blurb = $info['blurb'];
+        if ($targetKey !== '') {
+            $pair = self::bestPair($targetKey, self::graph()['nodes']);
+            if (!empty($pair['blurb'])) {
+                $blurb = (string) $pair['blurb'];
+            }
+        }
+        $tiers = [];
+        $solvedN = count($solved);
+        for ($i = 1; $i <= self::TOTAL_LEVELS; $i++) {
+            $t = self::TIERS[$i];
+            $state = 'todo';
+            if ($cleared || $i < $level || ($i === $level && $cleared)) {
+                $state = 'done';
+            } elseif ($i === $level) {
+                $state = 'current';
+            }
+            // Already-solved keys at this index count as done even if the player is still on that level mid-claim.
+            if ($i <= $solvedN && $i < $level) {
+                $state = 'done';
+            }
+            $tiers[] = [
+                'level' => $i,
+                'id' => $t['id'],
+                'label' => $t['label'],
+                'blurb' => $t['blurb'],
+                'state' => $state,
+            ];
+        }
+        return [
+            'difficulty' => $info['id'],
+            'difficultyLabel' => $info['label'],
+            'difficultyBlurb' => $blurb,
+            'stepsLabel' => $blurb,
+            'totalLevels' => self::TOTAL_LEVELS,
+            'tiers' => $tiers,
+        ];
+    }
+
+    /**
+     * @param array{nodes:array<string,array<string,mixed>>,recipes:list<array{a:string,b:string,r:string}>,maxSteps:int} $g
+     * @param list<string> $exclude
+     * @return list<array<string,mixed>>
+     */
+    private static function candidatesForLevel(array $g, int $level, array $exclude): array
+    {
+        $info = self::tierInfo($level);
+        $ranked = [];
         foreach ($g['nodes'] as $key => $n) {
-            if (($n['steps'] ?? 0) <= 0) {
+            if (($n['steps'] ?? 0) <= 0 || ($n['steps'] ?? 0) >= 99) {
                 continue;
             }
             if (in_array($key, $exclude, true)) {
                 continue;
             }
-            $buckets[(int) $n['steps']][] = $n + ['key' => $key];
+            $pair = self::bestPair($key, $g['nodes']);
+            if ($pair === null) {
+                continue;
+            }
+            $band = $pair['a'] . '+' . $pair['b'];
+            $ranked[$band][] = $n + ['key' => $key, 'pair' => $pair];
         }
         $pool = [];
-        for ($s = $wantMin; $s <= $wantMax; $s++) {
-            if (!empty($buckets[$s])) {
-                $pool = array_merge($pool, $buckets[$s]);
+        foreach ($info['want'] as $want) {
+            $band = $want[0] . '+' . $want[1];
+            if (!empty($ranked[$band])) {
+                $pool = $ranked[$band];
+                break;
             }
         }
         if ($pool === []) {
-            // Next deeper band, then any unused at least as long as the previous band's min.
-            $maxS = $g['maxSteps'] ?? 0;
-            for ($s = $wantMax + 1; $s <= $maxS; $s++) {
-                if (!empty($buckets[$s])) {
-                    $pool = array_merge($pool, $buckets[$s]);
-                    break;
+            $wantScore = self::bandScore($info['want'][0][0], $info['want'][0][1]);
+            $best = null;
+            $bestKey = null;
+            foreach ($ranked as $band => $rows) {
+                [$ta, $tb] = explode('+', $band, 2);
+                $score = self::bandScore($ta, $tb);
+                $delta = abs($score - $wantScore);
+                $harder = $score >= $wantScore ? 0 : 1;
+                $sort = sprintf('%d-%d-%02d', $delta, $harder, 9 - $score);
+                if ($bestKey === null || $sort < $bestKey) {
+                    $bestKey = $sort;
+                    $best = $rows;
                 }
             }
-        }
-        if ($pool === []) {
-            for ($s = $wantMin - 1; $s >= 1; $s--) {
-                if (!empty($buckets[$s])) {
-                    $pool = array_merge($pool, $buckets[$s]);
-                    break;
+            $pool = $best ?? [];
+            // Within a fallback band, earlier levels take shallower recipes and later ones take deeper ones.
+            if ($pool) {
+                $steps = [];
+                foreach ($pool as $row) {
+                    $steps[(int) ($row['steps'] ?? 0)] = true;
                 }
+                $steps = array_keys($steps);
+                sort($steps);
+                if ($level <= 3) {
+                    $pickSteps = [$steps[0]];
+                } elseif ($level >= self::TOTAL_LEVELS) {
+                    $pickSteps = [end($steps)];
+                } else {
+                    $pickSteps = [$steps[(int) floor((count($steps) - 1) / 2)]];
+                }
+                $pool = array_values(array_filter($pool, static fn ($row) => in_array((int) ($row['steps'] ?? 0), $pickSteps, true)));
             }
         }
-        if ($pool === []) {
+        return array_values($pool);
+    }
+
+    /** @param array<string,array<string,mixed>> $nodes @return array{a:string,b:string,aName:string,bName:string,blurb:string}|null */
+    private static function bestPair(string $key, array $nodes): ?array
+    {
+        $n = $nodes[$key] ?? null;
+        if (!$n) {
             return null;
         }
-        $idx = hexdec(substr(hash('sha256', 'cc-daily-v2|' . $day . '|' . $level), 0, 8)) % count($pool);
-        $n = $pool[$idx];
-        self::ensureNamed($n['name']);
-        return ['key' => $n['key'], 'name' => $n['name'], 'steps' => (int) $n['steps'], 'emoji' => $n['emoji'] ?? '✨'];
+        $best = null;
+        $bestScore = 99;
+        foreach ($n['parents'] ?? [] as $pair) {
+            $a = (string) $pair[0];
+            $b = (string) $pair[1];
+            $ta = self::ingredientTier($a, $nodes);
+            $tb = self::ingredientTier($b, $nodes);
+            if ($ta === 'unknown' || $tb === 'unknown') {
+                continue;
+            }
+            if (self::tierRank($ta) > self::tierRank($tb)) {
+                [$ta, $tb] = [$tb, $ta];
+                [$a, $b] = [$b, $a];
+            }
+            $score = self::bandScore($ta, $tb);
+            if ($score < $bestScore) {
+                $bestScore = $score;
+                $best = [
+                    'a' => $ta,
+                    'b' => $tb,
+                    'aName' => $nodes[$a]['name'] ?? $a,
+                    'bName' => $nodes[$b]['name'] ?? $b,
+                    'blurb' => self::pairBlurb($ta, $tb),
+                ];
+            }
+        }
+        return $best;
+    }
+
+    /** @param array<string,array<string,mixed>> $nodes */
+    public static function ingredientTier(string $key, ?array $nodes = null): string
+    {
+        $nodes = $nodes ?? self::graph()['nodes'];
+        $n = $nodes[$key] ?? null;
+        if (!$n) {
+            return 'unknown';
+        }
+        $steps = (int) ($n['steps'] ?? 99);
+        if ($steps === 0) {
+            return 'basic';
+        }
+        if ($steps === 1) {
+            return 'common';
+        }
+        if ($steps === 2) {
+            return 'rare';
+        }
+        if ($steps === 3) {
+            return 'epic';
+        }
+        if ($steps < 99) {
+            return 'legendary';
+        }
+        return 'unknown';
+    }
+
+    private static function tierRank(string $tier): int
+    {
+        return ['basic' => 0, 'common' => 1, 'rare' => 2, 'epic' => 3, 'legendary' => 4][$tier] ?? 9;
+    }
+
+    private static function bandScore(string $a, string $b): int
+    {
+        return self::tierRank($a) + self::tierRank($b);
+    }
+
+    public static function pairBlurb(string $a, string $b): string
+    {
+        if ($a === $b) {
+            return 'Two ' . $a . ' elements';
+        }
+        $an = $a === 'basic' ? 'a basic' : ('a ' . $a);
+        $bn = $b === 'basic' ? 'a basic' : ('a ' . $b);
+        return ucfirst($an) . ' and ' . $bn;
     }
 
     public static function stepsForKey(string $key): int
@@ -948,7 +1133,8 @@ final class Daily
         $score = (int) ($chain['score'] ?? 0);
         $cleared = !empty($chain['cleared']);
         $solvedN = count($chain['solved_list'] ?? []);
-        $lines = ['ComboCraft Daily ' . $day, 'Level ' . $level . ' · ' . $emoji . ' ' . $name];
+        $diff = self::tierInfo($level)['label'];
+        $lines = ['ComboCraft Daily ' . $day, 'Level ' . $level . ' of ' . self::TOTAL_LEVELS . ' · ' . $diff . ' · ' . $emoji . ' ' . $name];
         if ($score || $solvedN) {
             $lines[] = 'Score ' . $score . ' · ' . $solvedN . ' level' . ($solvedN === 1 ? '' : 's') . ' cleared';
         }
