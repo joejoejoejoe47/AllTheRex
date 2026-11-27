@@ -345,7 +345,6 @@ function ftNode(n, icoFn, level) {
   const src = n.source === 'yours' ? 'Your recipe' : n.source === 'first' ? 'First ever' : (n.source === 'known' ? 'Known recipe' : '');
   return `<div class="ft-unit${n.base ? ' is-base' : ''}${n.cycle ? ' is-cycle' : ''}${hasKids ? ' has-kids' : ''}">
     <div class="ft-card-wrap">
-      ${hasKids ? `<button type="button" class="ft-tog" aria-expanded="${open ? 'true' : 'false'}" title="${open ? 'Collapse' : 'Expand branch'}">${open ? '▾' : '▸'}</button>` : ''}
       <button type="button" class="ft-card eq-card ${rarityClass(n)}${n.base ? ' is-base' : ''}" data-open="${n.id || ''}" title="${esc(n.name)}${src ? ' · ' + src : ''}">
         <span class="i">${icoFn(n.emoji)}</span>
         <span class="n">${esc(n.name)}</span>
@@ -353,10 +352,9 @@ function ftNode(n, icoFn, level) {
         ${n.cycle ? '<span class="ft-tag">Loop</span>' : ''}
         ${src && !n.base ? `<span class="ft-src">${src}</span>` : ''}
       </button>
+      ${hasKids ? `<button type="button" class="ft-tog" aria-expanded="${open ? 'true' : 'false'}" title="${open ? 'Collapse' : 'Expand branch'}"><span class="ft-chev" aria-hidden="true"></span></button>` : ''}
     </div>
     ${hasKids ? `<div class="ft-kids"${open ? '' : ' hidden'}>
-      <div class="ft-stem" aria-hidden="true"></div>
-      <div class="ft-bar" aria-hidden="true"></div>
       <div class="ft-pair">
         <div class="ft-col">${ftNode(n.a, icoFn, level + 1)}</div>
         <div class="ft-col">${ftNode(n.b, icoFn, level + 1)}</div>
@@ -386,7 +384,77 @@ function bindFtPan(stage) {
   stage.addEventListener('pointercancel', up);
 }
 
+function setFtOpen(tog, kids, open) {
+  if (!kids || !tog) return;
+  if (open) kids.removeAttribute('hidden');
+  else kids.setAttribute('hidden', '');
+  tog.setAttribute('aria-expanded', String(open));
+  tog.title = open ? 'Collapse' : 'Expand branch';
+}
+
+function layoutFtConnectors(root) {
+  const stage = root.querySelector ? (root.querySelector('#ftStage') || root) : root;
+  if (!stage || !stage.querySelectorAll) return;
+  stage.querySelectorAll('.ft-kids').forEach((kids) => {
+    let svg = kids.querySelector(':scope > svg.ft-lines');
+    if (kids.hasAttribute('hidden')) {
+      if (svg) svg.replaceChildren();
+      return;
+    }
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'ft-lines');
+      svg.setAttribute('aria-hidden', 'true');
+      kids.prepend(svg);
+    }
+    const unit = kids.parentElement;
+    const parentCard = unit?.querySelector(':scope > .ft-card-wrap .ft-card');
+    const childCards = [...kids.querySelectorAll(':scope > .ft-pair > .ft-col > .ft-unit > .ft-card-wrap > .ft-card')];
+    if (!parentCard || !childCards.length) { svg.replaceChildren(); return; }
+    const kr = kids.getBoundingClientRect();
+    const w = Math.max(1, kids.scrollWidth);
+    const h = Math.max(1, kids.scrollHeight);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svg.setAttribute('width', String(w));
+    svg.setAttribute('height', String(h));
+    const pr = parentCard.getBoundingClientRect();
+    const x0 = pr.left + pr.width / 2 - kr.left;
+    const y0 = 0;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const ns = 'http://www.w3.org/2000/svg';
+    childCards.forEach((card) => {
+      const cr = card.getBoundingClientRect();
+      const x1 = cr.left + cr.width / 2 - kr.left;
+      const y1 = Math.max(8, cr.top - kr.top);
+      const mid = Math.max(14, y1 * 0.48);
+      const d = `M ${x0.toFixed(1)} ${y0} C ${x0.toFixed(1)} ${mid.toFixed(1)}, ${x1.toFixed(1)} ${mid.toFixed(1)}, ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+      for (const cls of ['ft-glow', 'ft-core']) {
+        const path = document.createElementNS(ns, 'path');
+        path.setAttribute('class', cls);
+        path.setAttribute('d', d);
+        svg.appendChild(path);
+      }
+    });
+  });
+}
+
+function bindFtConnectors(root) {
+  const stage = root.querySelector('#ftStage');
+  if (!stage) return () => {};
+  const paint = () => layoutFtConnectors(root);
+  const ro = new ResizeObserver(() => paint());
+  ro.observe(stage);
+  const inner = stage.querySelector('.ft-inner');
+  if (inner) ro.observe(inner);
+  stage.querySelectorAll('img').forEach((img) => {
+    if (!img.complete) img.addEventListener('load', paint, { once: true });
+  });
+  requestAnimationFrame(() => requestAnimationFrame(paint));
+  return () => ro.disconnect();
+}
+
 function bindFtToggles(root) {
+  const paint = () => requestAnimationFrame(() => requestAnimationFrame(() => layoutFtConnectors(root)));
   root.querySelectorAll('.ft-tog').forEach((b) => {
     b.onclick = (ev) => {
       ev.preventDefault();
@@ -394,18 +462,16 @@ function bindFtToggles(root) {
       const unit = b.closest('.ft-unit');
       const kids = unit?.querySelector(':scope > .ft-kids');
       if (!kids) return;
-      const open = kids.hasAttribute('hidden');
-      if (open) kids.removeAttribute('hidden');
-      else kids.setAttribute('hidden', '');
-      b.setAttribute('aria-expanded', String(open));
-      b.textContent = open ? '▾' : '▸';
+      setFtOpen(b, kids, kids.hasAttribute('hidden'));
+      paint();
     };
   });
   const exp = root.querySelector('#ftExpand');
   const col = root.querySelector('#ftCollapse');
   if (exp) exp.onclick = () => {
     root.querySelectorAll('.ft-unit.has-kids > .ft-kids').forEach((k) => k.removeAttribute('hidden'));
-    root.querySelectorAll('.ft-tog').forEach((b) => { b.setAttribute('aria-expanded', 'true'); b.textContent = '▾'; });
+    root.querySelectorAll('.ft-tog').forEach((b) => { b.setAttribute('aria-expanded', 'true'); b.title = 'Collapse'; });
+    paint();
   };
   if (col) col.onclick = () => {
     root.querySelectorAll('.ft-unit.has-kids').forEach((unit) => {
@@ -416,13 +482,9 @@ function bindFtToggles(root) {
       })();
       const kids = unit.querySelector(':scope > .ft-kids');
       const tog = unit.querySelector(':scope > .ft-card-wrap .ft-tog');
-      if (!kids || !tog) return;
-      const open = depth < 1;
-      if (open) kids.removeAttribute('hidden');
-      else kids.setAttribute('hidden', '');
-      tog.setAttribute('aria-expanded', String(open));
-      tog.textContent = open ? '▾' : '▸';
+      setFtOpen(tog, kids, depth < 1);
     });
+    paint();
   };
 }
 
@@ -470,7 +532,8 @@ export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
     <div class="rb-makes eq-makes">${makes}</div>
   </div>`;
   document.body.appendChild(wrap);
-  const close = () => wrap.remove();
+  let stopFt = () => {};
+  const close = () => { stopFt(); wrap.remove(); };
   wrap.querySelector('.x').onclick = close;
   wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
   wrap.querySelectorAll('.eq-make[data-id], .rb-make[data-id], .ft-card[data-open]').forEach((b) => {
@@ -482,6 +545,7 @@ export async function openRecipe(id, { api, toast, ico, artHtml, BASE }) {
   if (hasTree) {
     bindFtToggles(wrap);
     bindFtPan(wrap.querySelector('#ftStage'));
+    stopFt = bindFtConnectors(wrap);
   }
 }
 
