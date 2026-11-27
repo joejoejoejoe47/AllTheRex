@@ -1796,3 +1796,30 @@ html, body, * {
     transform: scale(1.06);
   }
 }
+
+
+/* Daily check-in unlock popup */
+.ck-pop-overlay { z-index: 90; }
+.ck-pop {
+  width: min(380px, 94vw);
+  text-align: center;
+  padding: 8px 8px 22px;
+}
+.ck-pop .ck-kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0,0,0,.35);
+  margin-bottom: 12px;
+}
+.ck-pop .result { margin: 0 auto; cursor: default; }
+.ck-note {
+  margin: 14px 16px 16px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  text-shadow: 0 1px 8px rgba(0,0,0,.4);
+}
+.ck-pop .btn-primary { min-width: 140px; }

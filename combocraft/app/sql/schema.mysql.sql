@@ -525,3 +525,12 @@ CREATE TABLE IF NOT EXISTS cc_clash_mode_state (
   updated_at DATETIME NOT NULL,
   KEY cc_clash_mode_mode (mode)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS cc_checkins (
+  player_id VARCHAR(24) NOT NULL,
+  day CHAR(10) NOT NULL,
+  element_id INT NOT NULL,
+  created_at DATETIME NOT NULL,
+  PRIMARY KEY (player_id, day),
+  KEY cc_checkins_player (player_id, element_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
