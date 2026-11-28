@@ -1,2 +1,4 @@
-.env
+config.php
 node_modules/
+*.sqlite
+*.sqlite-*
